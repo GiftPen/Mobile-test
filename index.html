@@ -314,6 +314,7 @@
   }
 
   function draw() {
+    if (!grid || !glow) { requestAnimationFrame(draw); return; } // not started yet
     ctx.clearRect(0, 0, boardPx, boardPx);
     // board bg
     ctx.fillStyle = "#171a26";
@@ -324,7 +325,7 @@
         const x = pad + c * cell, y = pad + r * cell;
         const g = boardPx * 0.006;
         // empty cell
-        ctx.fillStyle = "#1e2130";
+        ctx.fillStyle = "#262a3d";
         roundRect(x + g, y + g, cell - g*2, cell - g*2, cell*0.22); ctx.fill();
 
         // glow (wave passing)
@@ -380,6 +381,7 @@
   });
 
   layout();
+  emptyGrid();      // init grid/glow so the render loop is safe before "시작하기"
   updateHUD();
   requestAnimationFrame(draw);
 })();
