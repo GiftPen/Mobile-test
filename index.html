@@ -85,9 +85,9 @@
 
   <div id="overlay">
     <h1>Bloom</h1>
-    <p>다음 색을 <b>빈 칸</b>에 탭하면 물결처럼 번집니다.<br/>
-       같은 색 봉오리에 닿으면 <b>터지며 연쇄</b>, 다른 색은 물결을 막습니다.<br/>
-       한 번의 탭으로 최대한 긴 연쇄를 노리세요!</p>
+    <p><b>빈 칸</b>에 다음 색을 놓으면 <b>주변 3×3</b>이 터집니다.<br/>
+       같은 색이 맞붙어 있으면 <b>연쇄</b>로 우르르! 다른 색은 벽이에요.<br/>
+       연속으로 성공할수록 점수 <b>배수</b>가 올라갑니다. 헛방이면 리셋!</p>
     <div class="big" id="ov-msg"></div>
     <button id="start-btn">시작하기</button>
   </div>
@@ -99,15 +99,17 @@
   // ---- config ----
   const N = 8;                 // grid size
   const COLORS = ["#ff5a7a", "#4d8bff", "#43d17a", "#ffc93c"]; // red/blue/green/yellow
-  const START_BUDS = 7;
+  const START_BUDS = 10;
   const SPAWN_PER_MOVE = 2;    // new buds added after each move
-  const FILL_LIMIT = 0.72;     // game over when this fraction of cells filled
-  const WAVE_STEP_MS = 55;     // time between wave rings
+  const FILL_LIMIT = 0.80;     // game over when this fraction of cells filled
+  const WAVE_STEP_MS = 70;     // time between chain steps
+  const BURST_RADIUS = 1;      // 1 = 3x3 burst (Chebyshev). items can raise this later
+  const MAX_MULT = 5;          // streak multiplier cap
 
   // ---- state ----
   let grid;                    // grid[r][c] = colorIndex | -1 (empty)
   let nextColor;
-  let score, best;
+  let score, best, streak;     // streak = consecutive successful taps
   let running = false;
   let busy = false;            // wave animating -> block input
   let particles = [];
@@ -174,13 +176,13 @@
   // ---- game start ----
   function start() {
     emptyGrid();
-    score = 0; particles = [];
+    score = 0; streak = 0; particles = [];
     spawnBuds(START_BUDS);
     pickNext();
     updateHUD();
     running = true; busy = false;
     document.getElementById("overlay").classList.add("hidden");
-    document.getElementById("hint").textContent = "빈 칸을 탭해 색을 퍼뜨리세요";
+    document.getElementById("hint").textContent = "같은 색 봉오리 옆(3×3)에 놓아 터뜨리세요";
   }
 
   function updateHUD() {
@@ -208,39 +210,38 @@
     plant(r, c, nextColor);
   });
 
-  // ---- the bloom wave ----
+  // ---- the bloom burst ----
+  // Rule 1: placing on empty bursts a (2R+1)x(2R+1) box around itself; same-color
+  //         buds inside pop, and each popped bud re-bursts the same box (chain).
+  // Rule 2: different colors are walls — the burst never pops or passes them.
   function plant(r0, c0, color) {
     busy = true;
-    grid[r0][c0] = color;            // seed becomes a bud (the cost)
-    let popped = 0;
-
-    // frontier = cells currently carrying the wave (empty cells + newly popped emitters)
+    grid[r0][c0] = color;            // the placed ball (removed later if it clears)
+    const R = BURST_RADIUS;
     const visited = Array.from({length: N}, () => Array(N).fill(false));
     visited[r0][c0] = true;
-    let frontier = [[r0, c0]];
-    const DIRS = [[1,0],[-1,0],[0,1],[0,-1]];
 
+    // collect same-color buds within R of the placement = first chain layer
+    let frontier = seedsAround(r0, c0, R, color, visited);
+    // flash the whole burst box for feedback (even on a miss)
+    for (let dr = -R; dr <= R; dr++)
+      for (let dc = -R; dc <= R; dc++) {
+        const rr = r0 + dr, cc = c0 + dc;
+        if (rr >= 0 && rr < N && cc >= 0 && cc < N && grid[rr][cc] === -1)
+          glow[rr][cc] = { c: color, t: 0.7 };
+      }
+
+    let popped = 0;
     function step() {
-      if (!frontier.length) { finishWave(popped); return; }
+      if (!frontier.length) { finishBurst(r0, c0, color, popped); return; }
       const next = [];
       for (const [r, c] of frontier) {
+        grid[r][c] = -1;
+        popped++;
+        burst(r, c, color);
         glow[r][c] = { c: color, t: 1 };
-        for (const [dr, dc] of DIRS) {
-          const nr = r + dr, nc = c + dc;
-          if (nr < 0 || nr >= N || nc < 0 || nc >= N || visited[nr][nc]) continue;
-          const v = grid[nr][nc];
-          if (v === -1) {                 // empty: wave flows through
-            visited[nr][nc] = true;
-            next.push([nr, nc]);
-          } else if (v === color) {       // same color: POP + chain
-            visited[nr][nc] = true;
-            grid[nr][nc] = -1;
-            popped++;
-            burst(nr, nc, color);
-            next.push([nr, nc]);          // re-emit wave from here
-          }
-          // different color: wall, blocked
-        }
+        // each popped bud re-bursts its own box (chain)
+        for (const s of seedsAround(r, c, R, color, visited)) next.push(s);
       }
       frontier = next;
       setTimeout(step, WAVE_STEP_MS);
@@ -248,12 +249,34 @@
     step();
   }
 
-  function finishWave(popped) {
-    if (popped > 0) {
-      const gained = popped * 10 + (popped - 1) * (popped - 1) * 5; // combo bonus
-      score += gained;
-      showCombo(popped, gained);
+  // same-color buds within Chebyshev radius R of (r,c), marking them visited
+  function seedsAround(r, c, R, color, visited) {
+    const out = [];
+    for (let dr = -R; dr <= R; dr++) {
+      for (let dc = -R; dc <= R; dc++) {
+        if (dr === 0 && dc === 0) continue;
+        const nr = r + dr, nc = c + dc;
+        if (nr < 0 || nr >= N || nc < 0 || nc >= N || visited[nr][nc]) continue;
+        if (grid[nr][nc] === color) { visited[nr][nc] = true; out.push([nr, nc]); }
+      }
     }
+    return out;
+  }
+
+  function finishBurst(r0, c0, color, popped) {
+    if (popped > 0) {
+      grid[r0][c0] = -1;                 // success -> placed ball is consumed cleanly
+      burst(r0, c0, color);
+      streak++;
+      const mult = Math.min(1 + (streak - 1) * 0.5, MAX_MULT);
+      const base = popped * 10 + (popped - 1) * (popped - 1) * 5;
+      const gained = Math.round(base * mult);
+      score += gained;
+      showCombo(popped, gained, mult);
+    } else {
+      streak = 0;                        // miss -> placed ball stays as junk, streak resets
+    }
+
     spawnBuds(SPAWN_PER_MOVE);
     pickNext();
     if (score > best) { best = score; localStorage.setItem("bloom_best", best); }
@@ -289,11 +312,11 @@
     }
   }
 
-  function showCombo(popped, gained) {
-    if (popped < 2) return;
+  function showCombo(popped, gained, mult) {
+    if (popped < 2 && mult <= 1) return;
     const el = document.getElementById("combo");
-    el.textContent = `${popped} 연쇄! +${gained}`;
-    el.style.color = COLORS[nextColor === undefined ? 0 : (popped % COLORS.length)];
+    const multTxt = mult > 1 ? ` x${mult}` : "";
+    el.textContent = `${popped} 연쇄${multTxt}  +${gained}`;
     el.style.color = "#fff";
     el.animate(
       [ {opacity:0, transform:"translate(-50%,-50%) scale(.6)"},
@@ -376,7 +399,7 @@
   document.getElementById("start-btn").addEventListener("click", () => {
     document.querySelector("#overlay h1").textContent = "Bloom";
     document.querySelector("#overlay p").innerHTML =
-      "다음 색을 <b>빈 칸</b>에 탭하면 물결처럼 번집니다.<br/>같은 색 봉오리에 닿으면 <b>터지며 연쇄</b>, 다른 색은 물결을 막습니다.";
+      "<b>빈 칸</b>에 다음 색을 놓으면 <b>주변 3×3</b>이 터집니다.<br/>같은 색이 맞붙어 있으면 <b>연쇄</b>! 연속 성공하면 점수 <b>배수</b>가 올라가요.";
     start();
   });
 
