@@ -1,0 +1,388 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+<title>Bloom — 번짐</title>
+<style>
+  :root {
+    --bg: #0f1018;
+    --panel: #171a26;
+    --cell: #1e2130;
+    --text: #e8eaf2;
+    --muted: #8b90a6;
+  }
+  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  html, body {
+    margin: 0; height: 100%;
+    background: radial-gradient(120% 100% at 50% 0%, #1a1d2e 0%, var(--bg) 60%);
+    color: var(--text);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
+    overflow: hidden; user-select: none;
+    display: flex; flex-direction: column; align-items: center;
+  }
+  #top {
+    width: 100%; max-width: 520px; padding: 14px 18px 6px;
+    display: flex; align-items: center; justify-content: space-between; gap: 12px;
+  }
+  .score-box { display: flex; flex-direction: column; }
+  .score-label { font-size: 11px; color: var(--muted); letter-spacing: 1px; text-transform: uppercase; }
+  .score-val { font-size: 26px; font-weight: 800; line-height: 1; margin-top: 2px; }
+  #next-wrap { display: flex; flex-direction: column; align-items: center; }
+  #next-dot {
+    width: 34px; height: 34px; border-radius: 50%; margin-top: 4px;
+    box-shadow: 0 0 16px currentColor; transition: color .2s, background .2s;
+  }
+  #stage-wrap { position: relative; }
+  canvas { display: block; border-radius: 18px; touch-action: none; }
+  #combo {
+    position: absolute; left: 50%; top: 42%; transform: translate(-50%,-50%);
+    font-size: 40px; font-weight: 900; pointer-events: none; opacity: 0;
+    text-shadow: 0 2px 20px rgba(0,0,0,.6);
+  }
+  #hint { color: var(--muted); font-size: 13px; margin-top: 10px; height: 16px; }
+  #overlay {
+    position: fixed; inset: 0; background: rgba(10,11,18,.82); backdrop-filter: blur(6px);
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    gap: 14px; text-align: center; padding: 24px; z-index: 10;
+  }
+  #overlay.hidden { display: none; }
+  #overlay h1 { font-size: 44px; margin: 0; font-weight: 900; letter-spacing: -1px;
+    background: linear-gradient(90deg,#ff5a7a,#ffc93c,#43d17a,#4d8bff);
+    -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent; }
+  #overlay p { margin: 0; color: var(--muted); max-width: 300px; line-height: 1.5; font-size: 14px; }
+  #overlay .big { font-size: 20px; color: var(--text); font-weight: 700; }
+  button {
+    margin-top: 8px; padding: 14px 34px; font-size: 17px; font-weight: 800;
+    border: none; border-radius: 999px; color: #12131a; cursor: pointer;
+    background: linear-gradient(90deg,#ffc93c,#43d17a);
+    box-shadow: 0 8px 24px rgba(67,209,122,.35);
+  }
+  button:active { transform: scale(.97); }
+</style>
+</head>
+<body>
+  <div id="top">
+    <div class="score-box">
+      <span class="score-label">점수</span>
+      <span class="score-val" id="score">0</span>
+    </div>
+    <div class="score-box" style="text-align:right">
+      <span class="score-label">최고</span>
+      <span class="score-val" id="best" style="font-size:20px;color:var(--muted)">0</span>
+    </div>
+    <div id="next-wrap">
+      <span class="score-label">다음 색</span>
+      <div id="next-dot"></div>
+    </div>
+  </div>
+
+  <div id="stage-wrap">
+    <canvas id="game"></canvas>
+    <div id="combo"></div>
+  </div>
+  <div id="hint">빈 칸을 탭해 색을 퍼뜨리세요</div>
+
+  <div id="overlay">
+    <h1>Bloom</h1>
+    <p>다음 색을 <b>빈 칸</b>에 탭하면 물결처럼 번집니다.<br/>
+       같은 색 봉오리에 닿으면 <b>터지며 연쇄</b>, 다른 색은 물결을 막습니다.<br/>
+       한 번의 탭으로 최대한 긴 연쇄를 노리세요!</p>
+    <div class="big" id="ov-msg"></div>
+    <button id="start-btn">시작하기</button>
+  </div>
+
+<script>
+(() => {
+  "use strict";
+
+  // ---- config ----
+  const N = 8;                 // grid size
+  const COLORS = ["#ff5a7a", "#4d8bff", "#43d17a", "#ffc93c"]; // red/blue/green/yellow
+  const START_BUDS = 7;
+  const SPAWN_PER_MOVE = 2;    // new buds added after each move
+  const FILL_LIMIT = 0.72;     // game over when this fraction of cells filled
+  const WAVE_STEP_MS = 55;     // time between wave rings
+
+  // ---- state ----
+  let grid;                    // grid[r][c] = colorIndex | -1 (empty)
+  let nextColor;
+  let score, best;
+  let running = false;
+  let busy = false;            // wave animating -> block input
+  let particles = [];
+  let glow;                    // glow[r][c] = {c: colorIdx, t: 0..1}
+
+  // ---- canvas / layout ----
+  const canvas = document.getElementById("game");
+  const ctx = canvas.getContext("2d");
+  let cell, pad, dpr, boardPx;
+
+  function layout() {
+    const maxW = Math.min(window.innerWidth - 24, 520, window.innerHeight - 220);
+    boardPx = Math.max(260, maxW);
+    dpr = window.devicePixelRatio || 1;
+    canvas.style.width = boardPx + "px";
+    canvas.style.height = boardPx + "px";
+    canvas.width = boardPx * dpr;
+    canvas.height = boardPx * dpr;
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    pad = boardPx * 0.02;
+    cell = (boardPx - pad * 2) / N;
+  }
+  window.addEventListener("resize", layout);
+
+  // ---- helpers ----
+  const best0 = () => { best = +(localStorage.getItem("bloom_best") || 0); };
+  best0();
+  best = +(localStorage.getItem("bloom_best") || 0);
+
+  function emptyGrid() {
+    grid = Array.from({length: N}, () => Array(N).fill(-1));
+    glow = Array.from({length: N}, () => Array(N).fill(null));
+  }
+  function randInt(n) { return Math.floor(Math.random() * n); }
+
+  function emptyCells() {
+    const out = [];
+    for (let r = 0; r < N; r++) for (let c = 0; c < N; c++)
+      if (grid[r][c] === -1) out.push([r, c]);
+    return out;
+  }
+  function filledCount() {
+    let n = 0;
+    for (let r = 0; r < N; r++) for (let c = 0; c < N; c++) if (grid[r][c] !== -1) n++;
+    return n;
+  }
+
+  function spawnBuds(k) {
+    for (let i = 0; i < k; i++) {
+      const e = emptyCells();
+      if (!e.length) return;
+      const [r, c] = e[randInt(e.length)];
+      grid[r][c] = randInt(COLORS.length);
+    }
+  }
+
+  function pickNext() {
+    nextColor = randInt(COLORS.length);
+    const dot = document.getElementById("next-dot");
+    dot.style.background = COLORS[nextColor];
+    dot.style.color = COLORS[nextColor];
+  }
+
+  // ---- game start ----
+  function start() {
+    emptyGrid();
+    score = 0; particles = [];
+    spawnBuds(START_BUDS);
+    pickNext();
+    updateHUD();
+    running = true; busy = false;
+    document.getElementById("overlay").classList.add("hidden");
+    document.getElementById("hint").textContent = "빈 칸을 탭해 색을 퍼뜨리세요";
+  }
+
+  function updateHUD() {
+    document.getElementById("score").textContent = score;
+    document.getElementById("best").textContent = best;
+  }
+
+  // ---- input ----
+  function cellFromEvent(ev) {
+    const rect = canvas.getBoundingClientRect();
+    const x = (ev.clientX - rect.left - pad) / cell;
+    const y = (ev.clientY - rect.top - pad) / cell;
+    const c = Math.floor(x), r = Math.floor(y);
+    if (r < 0 || r >= N || c < 0 || c >= N) return null;
+    return [r, c];
+  }
+
+  canvas.addEventListener("pointerdown", (ev) => {
+    ev.preventDefault();
+    if (!running || busy) return;
+    const rc = cellFromEvent(ev);
+    if (!rc) return;
+    const [r, c] = rc;
+    if (grid[r][c] !== -1) return; // must plant on empty
+    plant(r, c, nextColor);
+  });
+
+  // ---- the bloom wave ----
+  function plant(r0, c0, color) {
+    busy = true;
+    grid[r0][c0] = color;            // seed becomes a bud (the cost)
+    let popped = 0;
+
+    // frontier = cells currently carrying the wave (empty cells + newly popped emitters)
+    const visited = Array.from({length: N}, () => Array(N).fill(false));
+    visited[r0][c0] = true;
+    let frontier = [[r0, c0]];
+    const DIRS = [[1,0],[-1,0],[0,1],[0,-1]];
+
+    function step() {
+      if (!frontier.length) { finishWave(popped); return; }
+      const next = [];
+      for (const [r, c] of frontier) {
+        glow[r][c] = { c: color, t: 1 };
+        for (const [dr, dc] of DIRS) {
+          const nr = r + dr, nc = c + dc;
+          if (nr < 0 || nr >= N || nc < 0 || nc >= N || visited[nr][nc]) continue;
+          const v = grid[nr][nc];
+          if (v === -1) {                 // empty: wave flows through
+            visited[nr][nc] = true;
+            next.push([nr, nc]);
+          } else if (v === color) {       // same color: POP + chain
+            visited[nr][nc] = true;
+            grid[nr][nc] = -1;
+            popped++;
+            burst(nr, nc, color);
+            next.push([nr, nc]);          // re-emit wave from here
+          }
+          // different color: wall, blocked
+        }
+      }
+      frontier = next;
+      setTimeout(step, WAVE_STEP_MS);
+    }
+    step();
+  }
+
+  function finishWave(popped) {
+    if (popped > 0) {
+      const gained = popped * 10 + (popped - 1) * (popped - 1) * 5; // combo bonus
+      score += gained;
+      showCombo(popped, gained);
+    }
+    spawnBuds(SPAWN_PER_MOVE);
+    pickNext();
+    if (score > best) { best = score; localStorage.setItem("bloom_best", best); }
+    updateHUD();
+
+    if (filledCount() >= N * N * FILL_LIMIT || emptyCells().length === 0) {
+      gameOver();
+    } else {
+      busy = false;
+    }
+  }
+
+  function gameOver() {
+    running = false; busy = false;
+    const ov = document.getElementById("overlay");
+    document.getElementById("ov-msg").innerHTML =
+      `점수 <b>${score}</b> · 최고 <b>${best}</b>`;
+    document.querySelector("#overlay h1").textContent = "게임 오버";
+    document.querySelector("#overlay p").innerHTML =
+      "판이 가득 찼어요! 색을 잘 배치해 봉오리를 더 많이 터뜨려 보세요.";
+    document.getElementById("start-btn").textContent = "다시 하기";
+    ov.classList.remove("hidden");
+  }
+
+  // ---- juice: particles + combo popup ----
+  function burst(r, c, color) {
+    const cx = pad + c * cell + cell / 2;
+    const cy = pad + r * cell + cell / 2;
+    for (let i = 0; i < 10; i++) {
+      const a = Math.random() * Math.PI * 2, sp = 1 + Math.random() * 2.4;
+      particles.push({ x: cx, y: cy, vx: Math.cos(a)*sp, vy: Math.sin(a)*sp,
+        life: 1, color });
+    }
+  }
+
+  function showCombo(popped, gained) {
+    if (popped < 2) return;
+    const el = document.getElementById("combo");
+    el.textContent = `${popped} 연쇄! +${gained}`;
+    el.style.color = COLORS[nextColor === undefined ? 0 : (popped % COLORS.length)];
+    el.style.color = "#fff";
+    el.animate(
+      [ {opacity:0, transform:"translate(-50%,-50%) scale(.6)"},
+        {opacity:1, transform:"translate(-50%,-60%) scale(1.15)", offset:.3},
+        {opacity:0, transform:"translate(-50%,-80%) scale(1)"} ],
+      { duration: 900, easing: "ease-out" });
+  }
+
+  // ---- render loop ----
+  function roundRect(x, y, w, h, r) {
+    ctx.beginPath();
+    ctx.moveTo(x+r, y);
+    ctx.arcTo(x+w, y, x+w, y+h, r);
+    ctx.arcTo(x+w, y+h, x, y+h, r);
+    ctx.arcTo(x, y+h, x, y, r);
+    ctx.arcTo(x, y, x+w, y, r);
+    ctx.closePath();
+  }
+
+  function draw() {
+    ctx.clearRect(0, 0, boardPx, boardPx);
+    // board bg
+    ctx.fillStyle = "#171a26";
+    roundRect(0, 0, boardPx, boardPx, 18); ctx.fill();
+
+    for (let r = 0; r < N; r++) {
+      for (let c = 0; c < N; c++) {
+        const x = pad + c * cell, y = pad + r * cell;
+        const g = boardPx * 0.006;
+        // empty cell
+        ctx.fillStyle = "#1e2130";
+        roundRect(x + g, y + g, cell - g*2, cell - g*2, cell*0.22); ctx.fill();
+
+        // glow (wave passing)
+        const gl = glow[r][c];
+        if (gl) {
+          ctx.save();
+          ctx.globalAlpha = gl.t * 0.5;
+          ctx.fillStyle = COLORS[gl.c];
+          roundRect(x + g, y + g, cell - g*2, cell - g*2, cell*0.22); ctx.fill();
+          ctx.restore();
+          gl.t -= 0.06;
+          if (gl.t <= 0) glow[r][c] = null;
+        }
+
+        // bud
+        const v = grid[r][c];
+        if (v !== -1) {
+          const cx = x + cell/2, cy = y + cell/2, rad = cell*0.32;
+          ctx.save();
+          ctx.shadowColor = COLORS[v]; ctx.shadowBlur = cell*0.28;
+          ctx.fillStyle = COLORS[v];
+          ctx.beginPath(); ctx.arc(cx, cy, rad, 0, Math.PI*2); ctx.fill();
+          // inner highlight
+          ctx.shadowBlur = 0;
+          ctx.globalAlpha = 0.35; ctx.fillStyle = "#fff";
+          ctx.beginPath(); ctx.arc(cx - rad*0.3, cy - rad*0.3, rad*0.4, 0, Math.PI*2); ctx.fill();
+          ctx.restore();
+        }
+      }
+    }
+
+    // particles
+    for (let i = particles.length - 1; i >= 0; i--) {
+      const p = particles[i];
+      p.x += p.vx; p.y += p.vy; p.vy += 0.08; p.life -= 0.03;
+      if (p.life <= 0) { particles.splice(i,1); continue; }
+      ctx.save();
+      ctx.globalAlpha = Math.max(0, p.life);
+      ctx.fillStyle = p.color;
+      ctx.beginPath(); ctx.arc(p.x, p.y, cell*0.08, 0, Math.PI*2); ctx.fill();
+      ctx.restore();
+    }
+
+    requestAnimationFrame(draw);
+  }
+
+  // ---- boot ----
+  document.getElementById("start-btn").addEventListener("click", () => {
+    document.querySelector("#overlay h1").textContent = "Bloom";
+    document.querySelector("#overlay p").innerHTML =
+      "다음 색을 <b>빈 칸</b>에 탭하면 물결처럼 번집니다.<br/>같은 색 봉오리에 닿으면 <b>터지며 연쇄</b>, 다른 색은 물결을 막습니다.";
+    start();
+  });
+
+  layout();
+  updateHUD();
+  requestAnimationFrame(draw);
+})();
+</script>
+</body>
+</html>
