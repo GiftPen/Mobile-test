@@ -87,7 +87,8 @@
     <h1>Bloom</h1>
     <p><b>빈 칸</b>에 다음 색을 놓으면 <b>주변 3×3</b>이 터집니다.<br/>
        같은 색이 맞붙어 있으면 <b>연쇄</b>로 우르르! 다른 색은 벽이에요.<br/>
-       연속으로 성공할수록 점수 <b>배수</b>가 올라갑니다. 헛방이면 리셋!</p>
+       연속으로 성공할수록 점수 <b>배수</b>가 올라갑니다. 헛방이면 리셋!<br/>
+       한 번에 <b>5개 이상</b> 터뜨리면 💣 <b>폭탄 봉오리</b>가 생겨요.</p>
     <div class="big" id="ov-msg"></div>
     <button id="start-btn">시작하기</button>
   </div>
@@ -105,6 +106,7 @@
   const WAVE_STEP_MS = 70;     // time between chain steps
   const BURST_RADIUS = 1;      // 1 = 3x3 burst (Chebyshev). items can raise this later
   const MAX_MULT = 5;          // streak multiplier cap
+  const BOMB_THRESHOLD = 5;    // pop this many in one tap -> a bomb bud is created
 
   // ---- state ----
   let grid;                    // grid[r][c] = colorIndex | -1 (empty)
@@ -114,6 +116,7 @@
   let busy = false;            // wave animating -> block input
   let particles = [];
   let glow;                    // glow[r][c] = {c: colorIdx, t: 0..1}
+  let bombGrid;                // bombGrid[r][c] = true if a bomb bud sits here
 
   // ---- canvas / layout ----
   const canvas = document.getElementById("game");
@@ -142,6 +145,7 @@
   function emptyGrid() {
     grid = Array.from({length: N}, () => Array(N).fill(-1));
     glow = Array.from({length: N}, () => Array(N).fill(null));
+    bombGrid = Array.from({length: N}, () => Array(N).fill(false)); // true = bomb bud
   }
   function randInt(n) { return Math.floor(Math.random() * n); }
 
@@ -221,27 +225,31 @@
     const visited = Array.from({length: N}, () => Array(N).fill(false));
     visited[r0][c0] = true;
 
-    // collect same-color buds within R of the placement = first chain layer
-    let frontier = seedsAround(r0, c0, R, color, visited);
-    // flash the whole burst box for feedback (even on a miss)
-    for (let dr = -R; dr <= R; dr++)
-      for (let dc = -R; dc <= R; dc++) {
-        const rr = r0 + dr, cc = c0 + dc;
-        if (rr >= 0 && rr < N && cc >= 0 && cc < N && grid[rr][cc] === -1)
-          glow[rr][cc] = { c: color, t: 0.7 };
-      }
+    // frontier items: [r, c, mode]  mode = "color" (same-color flood) | "blast" (bomb)
+    let frontier = seedsAround(r0, c0, R, color, visited).map(([r, c]) => [r, c, "color"]);
+    flashBox(r0, c0, R, color);   // flash the whole burst box (feedback even on a miss)
 
     let popped = 0;
     function step() {
       if (!frontier.length) { finishBurst(r0, c0, color, popped); return; }
       const next = [];
-      for (const [r, c] of frontier) {
-        grid[r][c] = -1;
+      for (const [r, c, mode] of frontier) {
+        const cellColor = grid[r][c];
+        const wasBomb = bombGrid[r][c];
+        grid[r][c] = -1; bombGrid[r][c] = false;
         popped++;
-        burst(r, c, color);
-        glow[r][c] = { c: color, t: 1 };
-        // each popped bud re-bursts its own box (chain)
-        for (const s of seedsAround(r, c, R, color, visited)) next.push(s);
+        burst(r, c, cellColor < 0 ? color : cellColor);
+        glow[r][c] = { c: cellColor < 0 ? color : cellColor, t: 1 };
+
+        // same-color flood continues only through color-mode pops
+        if (mode === "color")
+          for (const [nr, nc] of seedsAround(r, c, R, color, visited)) next.push([nr, nc, "color"]);
+
+        // a bomb detonates: clears its box (any color, ignoring walls); bombs chain
+        if (wasBomb) {
+          flashBox(r, c, R, cellColor);
+          for (const [nr, nc] of budsAround(r, c, R, visited)) next.push([nr, nc, "blast"]);
+        }
       }
       frontier = next;
       setTimeout(step, WAVE_STEP_MS);
@@ -263,6 +271,29 @@
     return out;
   }
 
+  // ANY bud within R (used by bomb blast — ignores color walls)
+  function budsAround(r, c, R, visited) {
+    const out = [];
+    for (let dr = -R; dr <= R; dr++) {
+      for (let dc = -R; dc <= R; dc++) {
+        if (dr === 0 && dc === 0) continue;
+        const nr = r + dr, nc = c + dc;
+        if (nr < 0 || nr >= N || nc < 0 || nc >= N || visited[nr][nc]) continue;
+        if (grid[nr][nc] !== -1) { visited[nr][nc] = true; out.push([nr, nc]); }
+      }
+    }
+    return out;
+  }
+
+  function flashBox(r0, c0, R, colorIdx) {
+    for (let dr = -R; dr <= R; dr++)
+      for (let dc = -R; dc <= R; dc++) {
+        const rr = r0 + dr, cc = c0 + dc;
+        if (rr >= 0 && rr < N && cc >= 0 && cc < N && grid[rr][cc] === -1)
+          glow[rr][cc] = { c: colorIdx < 0 ? 0 : colorIdx, t: 0.7 };
+      }
+  }
+
   function finishBurst(r0, c0, color, popped) {
     if (popped > 0) {
       grid[r0][c0] = -1;                 // success -> placed ball is consumed cleanly
@@ -273,6 +304,14 @@
       const gained = Math.round(base * mult);
       score += gained;
       showCombo(popped, gained, mult);
+
+      // reward: a big burst leaves a bomb bud where you tapped
+      if (popped >= BOMB_THRESHOLD) {
+        grid[r0][c0] = color;
+        bombGrid[r0][c0] = true;
+        burst(r0, c0, color);
+        document.getElementById("hint").textContent = "💣 폭탄 봉오리 생성! 터뜨리면 주변 3×3 폭발";
+      }
     } else {
       streak = 0;                        // miss -> placed ball stays as junk, streak resets
     }
@@ -371,10 +410,19 @@
           ctx.shadowColor = COLORS[v]; ctx.shadowBlur = cell*0.28;
           ctx.fillStyle = COLORS[v];
           ctx.beginPath(); ctx.arc(cx, cy, rad, 0, Math.PI*2); ctx.fill();
-          // inner highlight
-          ctx.shadowBlur = 0;
-          ctx.globalAlpha = 0.35; ctx.fillStyle = "#fff";
-          ctx.beginPath(); ctx.arc(cx - rad*0.3, cy - rad*0.3, rad*0.4, 0, Math.PI*2); ctx.fill();
+          if (bombGrid[r][c]) {
+            // bomb bud: bold white ring + dark core so it reads as "charged"
+            ctx.shadowBlur = 0;
+            ctx.lineWidth = cell*0.09; ctx.strokeStyle = "#fff";
+            ctx.beginPath(); ctx.arc(cx, cy, rad*0.72, 0, Math.PI*2); ctx.stroke();
+            ctx.fillStyle = "#12131a";
+            ctx.beginPath(); ctx.arc(cx, cy, rad*0.34, 0, Math.PI*2); ctx.fill();
+          } else {
+            // inner highlight
+            ctx.shadowBlur = 0;
+            ctx.globalAlpha = 0.35; ctx.fillStyle = "#fff";
+            ctx.beginPath(); ctx.arc(cx - rad*0.3, cy - rad*0.3, rad*0.4, 0, Math.PI*2); ctx.fill();
+          }
           ctx.restore();
         }
       }
@@ -399,7 +447,7 @@
   document.getElementById("start-btn").addEventListener("click", () => {
     document.querySelector("#overlay h1").textContent = "Bloom";
     document.querySelector("#overlay p").innerHTML =
-      "<b>빈 칸</b>에 다음 색을 놓으면 <b>주변 3×3</b>이 터집니다.<br/>같은 색이 맞붙어 있으면 <b>연쇄</b>! 연속 성공하면 점수 <b>배수</b>가 올라가요.";
+      "<b>빈 칸</b>에 다음 색을 놓으면 <b>주변 3×3</b>이 터집니다.<br/>같은 색 <b>연쇄</b> + 연속 성공 <b>배수</b>! 5개 이상 터뜨리면 💣 <b>폭탄</b> 생성.";
     start();
   });
 
