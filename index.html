@@ -151,6 +151,7 @@
   let glow;                    // glow[r][c] = {c: colorIdx, t: 0..1}
   let special;                 // special[r][c] = null | "bomb" | "lineH" | "lineV" | "rainbow"
   let hp;                      // hp[r][c] = brick health (only when grid === BRICK)
+  let appear;                  // appear[r][c] = 1..0 pop-in animation for newly spawned cells
 
   // ---- canvas / layout ----
   const canvas = document.getElementById("game");
@@ -181,6 +182,7 @@
     glow = Array.from({length: N}, () => Array(N).fill(null));
     special = Array.from({length: N}, () => Array(N).fill(null)); // item type per cell
     hp = Array.from({length: N}, () => Array(N).fill(0));         // brick health
+    appear = Array.from({length: N}, () => Array(N).fill(0));     // spawn pop-in
   }
   function randInt(n) { return Math.floor(Math.random() * n); }
 
@@ -201,7 +203,7 @@
       const e = emptyCells();
       if (!e.length) return;
       const [r, c] = e[randInt(e.length)];
-      grid[r][c] = randInt(COLORS.length);
+      grid[r][c] = randInt(COLORS.length); appear[r][c] = 1;
     }
   }
 
@@ -209,7 +211,7 @@
     const e = emptyCells();
     if (!e.length) return;
     const [r, c] = e[randInt(e.length)];
-    grid[r][c] = BRICK; special[r][c] = null; hp[r][c] = BRICK_HP;
+    grid[r][c] = BRICK; special[r][c] = null; hp[r][c] = BRICK_HP; appear[r][c] = 1;
   }
 
   function pickNext() {
@@ -498,9 +500,9 @@
     updateHUD();
 
     if (emptyCells().length === 0) {
-      // board is completely full -> let the player see the packed board, then over
+      // board is completely full -> let the spawned pieces pop in & be seen, then over
       busy = true;
-      setTimeout(gameOver, 400);
+      setTimeout(gameOver, 750);
     } else {
       busy = false;
     }
@@ -581,9 +583,19 @@
           if (gl.t <= 0) glow[r][c] = null;
         }
 
+        // pop-in animation for newly spawned buds/bricks (scale small -> full)
+        let apScale = 1;
+        if (appear[r][c] > 0) {
+          const a = appear[r][c];
+          apScale = 1 - a * a * 0.85;                  // eased grow from ~0.15 to 1
+          appear[r][c] = Math.max(0, a - 0.09);
+        }
+
         // brick (wall) — chipped by adjacent pops, destroyed instantly by items
         if (grid[r][c] === BRICK) {
           ctx.save();
+          const cxb = x + cell/2, cyb = y + cell/2;
+          ctx.translate(cxb, cyb); ctx.scale(apScale, apScale); ctx.translate(-cxb, -cyb);
           const dmg = 1 - hp[r][c] / BRICK_HP;         // 0 = full, ->1 = cracked
           ctx.fillStyle = dmg > 0.6 ? "#7a4a4a" : dmg > 0.3 ? "#6a5a52" : "#5b6178";
           roundRect(x + g, y + g, cell - g*2, cell - g*2, cell*0.16); ctx.fill();
@@ -602,7 +614,7 @@
         // bud
         const v = grid[r][c];
         if (v !== -1) {
-          const cx = x + cell/2, cy = y + cell/2, rad = cell*0.32;
+          const cx = x + cell/2, cy = y + cell/2, rad = cell*0.32 * apScale;
           ctx.save();
           ctx.shadowColor = COLORS[v]; ctx.shadowBlur = cell*0.28;
           ctx.fillStyle = COLORS[v];
