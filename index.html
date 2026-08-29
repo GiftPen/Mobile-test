@@ -138,6 +138,7 @@
   const BRICK = -2;            // grid value for a brick (wall; only items can clear it)
   const BRICK_START_SCORE = 3000; // TEST value; raise to 50000 for release
   const BRICK_EVERY = 5;       // one brick spawns every N touches once unlocked
+  const BRICK_HP = 3;          // adjacent color-pops to crack a brick (items destroy instantly)
 
   // ---- state ----
   let grid;                    // grid[r][c] = colorIndex | -1 (empty) | BRICK
@@ -150,6 +151,7 @@
   let fishes = [];             // {sr,sc,tr,tc,t} swimming fish, eats target bud on arrival
   let glow;                    // glow[r][c] = {c: colorIdx, t: 0..1}
   let special;                 // special[r][c] = null | "bomb" | "lineH" | "lineV" | "rainbow"
+  let hp;                      // hp[r][c] = brick health (only when grid === BRICK)
 
   // ---- canvas / layout ----
   const canvas = document.getElementById("game");
@@ -179,6 +181,7 @@
     grid = Array.from({length: N}, () => Array(N).fill(-1));
     glow = Array.from({length: N}, () => Array(N).fill(null));
     special = Array.from({length: N}, () => Array(N).fill(null)); // item type per cell
+    hp = Array.from({length: N}, () => Array(N).fill(0));         // brick health
   }
   function randInt(n) { return Math.floor(Math.random() * n); }
 
@@ -207,7 +210,7 @@
     const e = emptyCells();
     if (!e.length) return;
     const [r, c] = e[randInt(e.length)];
-    grid[r][c] = BRICK; special[r][c] = null;
+    grid[r][c] = BRICK; special[r][c] = null; hp[r][c] = BRICK_HP;
   }
 
   function pickNext() {
@@ -283,8 +286,21 @@
     flashBox(r0, c0, R, color);   // flash the whole burst box (feedback even on a miss)
 
     let popped = 0;
+    const hitBricks = new Set();   // bricks adjacent to a pop this burst -> chip 1 HP
     function step() {
-      if (!frontier.length) { finishBurst(r0, c0, color, popped); return; }
+      if (!frontier.length) {
+        let broke = 0;
+        hitBricks.forEach(key => {
+          const br = (key / N) | 0, bc = key % N;
+          if (grid[br][bc] !== BRICK) return;   // already destroyed by a blast
+          hp[br][bc]--;
+          glow[br][bc] = { c: 0, t: 0.9 };
+          if (hp[br][bc] <= 0) { grid[br][bc] = -1; special[br][bc] = null; burst(br, bc, "#9aa0b5"); broke++; }
+        });
+        if (broke) score += broke * 15;
+        finishBurst(r0, c0, color, popped);
+        return;
+      }
       const next = [];
       for (const it of frontier) {
         const { r, c, mode } = it;
@@ -295,6 +311,15 @@
         popped++;
         burst(r, c, vis);
         glow[r][c] = { c: vis, t: 1 };
+
+        // chip any bricks orthogonally/diagonally adjacent to this pop
+        for (let dr = -1; dr <= 1; dr++)
+          for (let dc = -1; dc <= 1; dc++) {
+            if (dr === 0 && dc === 0) continue;
+            const nr = r + dr, nc = c + dc;
+            if (nr >= 0 && nr < N && nc >= 0 && nc < N && grid[nr][nc] === BRICK)
+              hitBricks.add(nr * N + nc);
+          }
 
         // same-color flood continues through color-mode pops (matching this item's color)
         if (mode === "color")
@@ -495,12 +520,13 @@
 
   // ---- juice: particles + combo popup ----
   function burst(r, c, color) {
+    const col = typeof color === "number" ? (COLORS[color] || "#fff") : (color || "#fff");
     const cx = pad + c * cell + cell / 2;
     const cy = pad + r * cell + cell / 2;
     for (let i = 0; i < 10; i++) {
       const a = Math.random() * Math.PI * 2, sp = 1 + Math.random() * 2.4;
       particles.push({ x: cx, y: cy, vx: Math.cos(a)*sp, vy: Math.sin(a)*sp,
-        life: 1, color });
+        life: 1, color: col });
     }
   }
 
@@ -555,15 +581,20 @@
           if (gl.t <= 0) glow[r][c] = null;
         }
 
-        // brick (wall) — only items can clear it
+        // brick (wall) — chipped by adjacent pops, destroyed instantly by items
         if (grid[r][c] === BRICK) {
           ctx.save();
-          ctx.fillStyle = "#5b6178";
+          const dmg = 1 - hp[r][c] / BRICK_HP;         // 0 = full, ->1 = cracked
+          ctx.fillStyle = dmg > 0.6 ? "#7a4a4a" : dmg > 0.3 ? "#6a5a52" : "#5b6178";
           roundRect(x + g, y + g, cell - g*2, cell - g*2, cell*0.16); ctx.fill();
-          ctx.strokeStyle = "#3a3f52"; ctx.lineWidth = cell*0.05;
+          ctx.strokeStyle = "#33384a"; ctx.lineWidth = cell*0.05;
           const m = cell*0.5;
           ctx.beginPath(); ctx.moveTo(x+g, y+m); ctx.lineTo(x+cell-g, y+m); // brick seams
           ctx.moveTo(x+m, y+g); ctx.lineTo(x+m, y+m); ctx.stroke();
+          ctx.fillStyle = "#e8eaf2";                    // remaining HP number
+          ctx.font = `bold ${cell*0.32}px sans-serif`;
+          ctx.textAlign = "center"; ctx.textBaseline = "middle";
+          ctx.fillText(hp[r][c], x + cell/2, y + cell*0.5 + cell*0.02);
           ctx.restore();
           continue;
         }
