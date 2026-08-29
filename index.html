@@ -126,7 +126,6 @@
   const COLORS = ["#ff5a7a", "#4d8bff", "#43d17a", "#ffc93c"]; // red/blue/green/yellow
   const START_BUDS = 10;
   const SPAWN_PER_MOVE = 2;    // new buds added after each move
-  const FILL_LIMIT = 0.80;     // game over when this fraction of cells filled
   const WAVE_STEP_MS = 70;     // time between chain steps
   const BURST_RADIUS = 1;      // 1 = 3x3 burst (Chebyshev). items can raise this later
   const MAX_MULT = 5;          // streak multiplier cap
@@ -238,12 +237,11 @@
     document.getElementById("st-touch").textContent = touchCount;
     document.getElementById("st-empty").textContent = emptyCells().length;
     document.getElementById("st-spawn").textContent = SPAWN_PER_MOVE;
-    const cap = N * N * FILL_LIMIT;
-    const ratio = Math.min(1, filledCount() / cap);
+    const ratio = filledCount() / (N * N);          // fill vs the whole board
     const fill = document.getElementById("dangerfill");
     fill.style.width = (ratio * 100).toFixed(0) + "%";
-    fill.style.background = ratio < 0.6 ? "#43d17a" : ratio < 0.85 ? "#ffc93c" : "#ff5a5f";
-    document.getElementById("danger-label").textContent = ratio >= 0.85 ? "⚠️ 아웃 위험!" : "";
+    fill.style.background = ratio < 0.7 ? "#43d17a" : ratio < 0.88 ? "#ffc93c" : "#ff5a5f";
+    document.getElementById("danger-label").textContent = ratio >= 0.88 ? "⚠️ 아웃 위험!" : "";
   }
 
   // ---- input ----
@@ -499,8 +497,10 @@
     if (score > best) { best = score; localStorage.setItem("bloom_best", best); }
     updateHUD();
 
-    if (filledCount() >= N * N * FILL_LIMIT || emptyCells().length === 0) {
-      gameOver();
+    if (emptyCells().length === 0) {
+      // board is completely full -> let the player see the packed board, then over
+      busy = true;
+      setTimeout(gameOver, 400);
     } else {
       busy = false;
     }
