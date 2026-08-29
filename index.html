@@ -33,7 +33,23 @@
     width: 34px; height: 34px; border-radius: 50%; margin-top: 4px;
     box-shadow: 0 0 16px currentColor; transition: color .2s, background .2s;
   }
-  #stage-wrap { position: relative; }
+  #stats {
+    width: 100%; max-width: 520px; padding: 4px 18px 0;
+    display: flex; align-items: center; gap: 8px;
+  }
+  .chip {
+    background: var(--panel); border-radius: 999px; padding: 4px 10px;
+    font-size: 12px; color: var(--muted); white-space: nowrap;
+  }
+  .chip b { color: var(--text); font-weight: 800; }
+  #danger-label { margin-left: auto; font-size: 12px; font-weight: 800; color: #ff5a5f; }
+  #dangerbar {
+    width: 100%; max-width: 520px; padding: 0; height: 8px; margin: 6px auto 0;
+    background: #1e2130; border-radius: 999px; overflow: hidden;
+  }
+  #dangerfill { height: 100%; width: 0%; background: #43d17a;
+    border-radius: 999px; transition: width .25s, background .25s; }
+  #stage-wrap { position: relative; margin-top: 8px; }
   canvas { display: block; border-radius: 18px; touch-action: none; }
   #combo {
     position: absolute; left: 50%; top: 42%; transform: translate(-50%,-50%);
@@ -77,6 +93,14 @@
     </div>
   </div>
 
+  <div id="stats">
+    <span class="chip">👆 <b id="st-touch">0</b></span>
+    <span class="chip">⬜ <b id="st-empty">64</b></span>
+    <span class="chip">➕ <b id="st-spawn">2</b></span>
+    <span id="danger-label"></span>
+  </div>
+  <div id="dangerbar"><div id="dangerfill"></div></div>
+
   <div id="stage-wrap">
     <canvas id="game"></canvas>
     <div id="combo"></div>
@@ -111,11 +135,15 @@
   const LINE_THRESHOLD = 7;    // -> a line bud (clears a row/col)
   const RAINBOW_THRESHOLD = 10; // -> a rainbow bud (any-color wildcard, bridges chains)
   const FISH_SCORE = 20;       // score for each bud a fish eats
+  const BRICK = -2;            // grid value for a brick (wall; only items can clear it)
+  const BRICK_START_SCORE = 3000; // TEST value; raise to 50000 for release
+  const BRICK_EVERY = 5;       // one brick spawns every N touches once unlocked
 
   // ---- state ----
-  let grid;                    // grid[r][c] = colorIndex | -1 (empty)
+  let grid;                    // grid[r][c] = colorIndex | -1 (empty) | BRICK
   let nextColor;
   let score, best, streak;     // streak = consecutive successful taps
+  let touchCount;              // total taps this game
   let running = false;
   let busy = false;            // wave animating -> block input
   let particles = [];
@@ -175,6 +203,13 @@
     }
   }
 
+  function spawnBrick() {
+    const e = emptyCells();
+    if (!e.length) return;
+    const [r, c] = e[randInt(e.length)];
+    grid[r][c] = BRICK; special[r][c] = null;
+  }
+
   function pickNext() {
     nextColor = randInt(COLORS.length);
     const dot = document.getElementById("next-dot");
@@ -185,7 +220,7 @@
   // ---- game start ----
   function start() {
     emptyGrid();
-    score = 0; streak = 0; particles = []; fishes = [];
+    score = 0; streak = 0; touchCount = 0; particles = []; fishes = [];
     spawnBuds(START_BUDS);
     pickNext();
     updateHUD();
@@ -197,6 +232,15 @@
   function updateHUD() {
     document.getElementById("score").textContent = score;
     document.getElementById("best").textContent = best;
+    document.getElementById("st-touch").textContent = touchCount;
+    document.getElementById("st-empty").textContent = emptyCells().length;
+    document.getElementById("st-spawn").textContent = SPAWN_PER_MOVE;
+    const cap = N * N * FILL_LIMIT;
+    const ratio = Math.min(1, filledCount() / cap);
+    const fill = document.getElementById("dangerfill");
+    fill.style.width = (ratio * 100).toFixed(0) + "%";
+    fill.style.background = ratio < 0.6 ? "#43d17a" : ratio < 0.85 ? "#ffc93c" : "#ff5a5f";
+    document.getElementById("danger-label").textContent = ratio >= 0.85 ? "⚠️ 아웃 위험!" : "";
   }
 
   // ---- input ----
@@ -225,6 +269,7 @@
   // Rule 2: different colors are walls — the burst never pops or passes them.
   function plant(r0, c0, color) {
     busy = true;
+    touchCount++;
     grid[r0][c0] = color;            // the placed ball (removed later if it clears)
     special[r0][c0] = null;
     const R = BURST_RADIUS;
@@ -423,6 +468,8 @@
     }
 
     spawnBuds(SPAWN_PER_MOVE);
+    // milestone gimmick: bricks start appearing, one every few touches
+    if (score >= BRICK_START_SCORE && touchCount % BRICK_EVERY === 0) spawnBrick();
     pickNext();
     if (score > best) { best = score; localStorage.setItem("bloom_best", best); }
     updateHUD();
@@ -506,6 +553,19 @@
           ctx.restore();
           gl.t -= 0.06;
           if (gl.t <= 0) glow[r][c] = null;
+        }
+
+        // brick (wall) — only items can clear it
+        if (grid[r][c] === BRICK) {
+          ctx.save();
+          ctx.fillStyle = "#5b6178";
+          roundRect(x + g, y + g, cell - g*2, cell - g*2, cell*0.16); ctx.fill();
+          ctx.strokeStyle = "#3a3f52"; ctx.lineWidth = cell*0.05;
+          const m = cell*0.5;
+          ctx.beginPath(); ctx.moveTo(x+g, y+m); ctx.lineTo(x+cell-g, y+m); // brick seams
+          ctx.moveTo(x+m, y+g); ctx.lineTo(x+m, y+m); ctx.stroke();
+          ctx.restore();
+          continue;
         }
 
         // bud
