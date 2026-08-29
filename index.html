@@ -88,7 +88,7 @@
     <p><b>빈 칸</b>에 다음 색을 놓으면 <b>주변 3×3</b>이 터집니다.<br/>
        같은 색이 맞붙어 있으면 <b>연쇄</b>로 우르르! 다른 색은 벽이에요.<br/>
        연속으로 성공할수록 점수 <b>배수</b>가 올라갑니다. 헛방이면 리셋!<br/>
-       한 번에 많이 터뜨리면 아이템: <b>5</b>💣폭탄 · <b>7</b>↔️라인 · <b>10</b>🌈무지개</p>
+       터뜨린 개수로 아이템: <b>3</b>🐟물고기 · <b>5</b>💣폭탄 · <b>7</b>↔️라인 · <b>10</b>🌈무지개</p>
     <div class="big" id="ov-msg"></div>
     <button id="start-btn">시작하기</button>
   </div>
@@ -106,9 +106,11 @@
   const WAVE_STEP_MS = 70;     // time between chain steps
   const BURST_RADIUS = 1;      // 1 = 3x3 burst (Chebyshev). items can raise this later
   const MAX_MULT = 5;          // streak multiplier cap
+  const FISH_THRESHOLD = 3;    // pop this many (but < bomb) -> a fish eats a random junk bud
   const BOMB_THRESHOLD = 5;    // pop this many in one tap -> a bomb bud
   const LINE_THRESHOLD = 7;    // -> a line bud (clears a row/col)
   const RAINBOW_THRESHOLD = 10; // -> a rainbow bud (any-color wildcard, bridges chains)
+  const FISH_SCORE = 20;       // score for each bud a fish eats
 
   // ---- state ----
   let grid;                    // grid[r][c] = colorIndex | -1 (empty)
@@ -117,6 +119,7 @@
   let running = false;
   let busy = false;            // wave animating -> block input
   let particles = [];
+  let fishes = [];             // {sr,sc,tr,tc,t} swimming fish, eats target bud on arrival
   let glow;                    // glow[r][c] = {c: colorIdx, t: 0..1}
   let special;                 // special[r][c] = null | "bomb" | "lineH" | "lineV" | "rainbow"
 
@@ -182,7 +185,7 @@
   // ---- game start ----
   function start() {
     emptyGrid();
-    score = 0; streak = 0; particles = [];
+    score = 0; streak = 0; particles = []; fishes = [];
     spawnBuds(START_BUDS);
     pickNext();
     updateHUD();
@@ -329,6 +332,38 @@
     }
   }
 
+  // ---- fish: swims to a random junk bud and eats it ----
+  const cellCenter = (r, c) => [pad + c * cell + cell / 2, pad + r * cell + cell / 2];
+
+  function sameColorNeighbors(r, c) {
+    const col = grid[r][c]; let n = 0;
+    for (let dr = -1; dr <= 1; dr++)
+      for (let dc = -1; dc <= 1; dc++) {
+        if (dr === 0 && dc === 0) continue;
+        const nr = r + dr, nc = c + dc;
+        if (nr >= 0 && nr < N && nc >= 0 && nc < N && grid[nr][nc] === col) n++;
+      }
+    return n;
+  }
+
+  // prefer the most isolated buds (junk); random among the best
+  function chooseFishTarget(exclude) {
+    const buds = [];
+    for (let r = 0; r < N; r++) for (let c = 0; c < N; c++)
+      if (grid[r][c] !== -1 && !(exclude && exclude[r * N + c])) buds.push([r, c]);
+    if (!buds.length) return null;
+    const junk = buds.filter(([r, c]) => sameColorNeighbors(r, c) === 0);
+    const pool = junk.length ? junk : buds;
+    return pool[randInt(pool.length)];
+  }
+
+  function spawnFish(fromR, fromC) {
+    const t = chooseFishTarget(null);
+    if (!t) return false;
+    fishes.push({ sr: fromR, sc: fromC, tr: t[0], tc: t[1], t: 0 });
+    return true;
+  }
+
   function flashBox(r0, c0, R, colorIdx) {
     for (let dr = -R; dr <= R; dr++)
       for (let dc = -R; dc <= R; dc++) {
@@ -360,6 +395,8 @@
       } else if (popped >= BOMB_THRESHOLD) {
         grid[r0][c0] = color; special[r0][c0] = "bomb";
         itemMsg = "💣 폭탄 봉오리! 터지면 주변 3×3 폭발";
+      } else if (popped >= FISH_THRESHOLD) {
+        if (spawnFish(r0, c0)) itemMsg = "🐟 물고기가 쓰레기 봉오리를 청소!";
       }
       if (itemMsg) { burst(r0, c0, color); document.getElementById("hint").textContent = itemMsg; }
     } else {
@@ -510,6 +547,32 @@
       ctx.restore();
     }
 
+    // fishes swimming to their target
+    for (let i = fishes.length - 1; i >= 0; i--) {
+      const f = fishes[i];
+      f.t += 0.035;
+      const [sx, sy] = cellCenter(f.sr, f.sc);
+      const [tx, ty] = cellCenter(f.tr, f.tc);
+      const e = f.t < 1 ? f.t * (2 - f.t) : 1;   // ease-out
+      const x = sx + (tx - sx) * e, y = sy + (ty - sy) * e;
+      ctx.save();
+      ctx.font = `${cell * 0.62}px serif`;
+      ctx.textAlign = "center"; ctx.textBaseline = "middle";
+      ctx.fillText("🐟", x, y);
+      ctx.restore();
+      if (f.t >= 1) {
+        if (grid[f.tr][f.tc] !== -1) {           // eat the target bud
+          const col = grid[f.tr][f.tc];
+          grid[f.tr][f.tc] = -1; special[f.tr][f.tc] = null;
+          burst(f.tr, f.tc, col);
+          score += FISH_SCORE;
+          if (score > best) { best = score; localStorage.setItem("bloom_best", best); }
+          updateHUD();
+        }
+        fishes.splice(i, 1);
+      }
+    }
+
     requestAnimationFrame(draw);
   }
 
@@ -517,7 +580,7 @@
   document.getElementById("start-btn").addEventListener("click", () => {
     document.querySelector("#overlay h1").textContent = "Bloom";
     document.querySelector("#overlay p").innerHTML =
-      "<b>빈 칸</b>에 다음 색을 놓으면 <b>주변 3×3</b>이 터집니다.<br/>같은 색 <b>연쇄</b> + 연속 <b>배수</b>! 아이템: 5💣 · 7↔️ · 10🌈";
+      "<b>빈 칸</b>에 다음 색을 놓으면 <b>주변 3×3</b>이 터집니다.<br/>같은 색 <b>연쇄</b> + 연속 <b>배수</b>! 아이템: 3🐟 · 5💣 · 7↔️ · 10🌈";
     start();
   });
 
