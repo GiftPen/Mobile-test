@@ -125,7 +125,9 @@
   const N = 8;                 // grid size
   const COLORS = ["#ff5a7a", "#4d8bff", "#43d17a", "#ffc93c"]; // red/blue/green/yellow
   const START_BUDS = 10;
-  const SPAWN_PER_MOVE = 2;    // new buds added after each move
+  const SPAWN_BASE = 2;        // buds spawned per move at score 0
+  const SPAWN_MAX = 5;         // cap
+  const SPAWN_STEP = 5000;     // +1 spawn per this many points
   const WAVE_STEP_MS = 70;     // time between chain steps
   const BURST_RADIUS = 1;      // 1 = 3x3 burst (Chebyshev). items can raise this later
   const MAX_MULT = 5;          // streak multiplier cap
@@ -185,6 +187,7 @@
     appear = Array.from({length: N}, () => Array(N).fill(0));     // spawn pop-in
   }
   function randInt(n) { return Math.floor(Math.random() * n); }
+  function spawnCount() { return Math.min(SPAWN_MAX, SPAWN_BASE + Math.floor(score / SPAWN_STEP)); }
 
   function emptyCells() {
     const out = [];
@@ -238,7 +241,7 @@
     document.getElementById("best").textContent = best;
     document.getElementById("st-touch").textContent = touchCount;
     document.getElementById("st-empty").textContent = emptyCells().length;
-    document.getElementById("st-spawn").textContent = SPAWN_PER_MOVE;
+    document.getElementById("st-spawn").textContent = spawnCount();
     const ratio = filledCount() / (N * N);          // fill vs the whole board
     const fill = document.getElementById("dangerfill");
     fill.style.width = (ratio * 100).toFixed(0) + "%";
@@ -493,7 +496,7 @@
     }
     if (grid[r0][c0] !== -1) appear[r0][c0] = 1;  // placed ball (junk/item) pops in too
 
-    spawnBuds(SPAWN_PER_MOVE);
+    spawnBuds(spawnCount());
     // milestone gimmick: bricks start appearing, one every few touches
     if (score >= BRICK_START_SCORE && touchCount % BRICK_EVERY === 0) spawnBrick();
     pickNext();
