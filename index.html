@@ -491,6 +491,7 @@
     } else {
       streak = 0;                        // miss -> placed ball stays as junk, streak resets
     }
+    if (grid[r0][c0] !== -1) appear[r0][c0] = 1;  // placed ball (junk/item) pops in too
 
     spawnBuds(SPAWN_PER_MOVE);
     // milestone gimmick: bricks start appearing, one every few touches
