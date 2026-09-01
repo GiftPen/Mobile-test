@@ -122,7 +122,7 @@
   // ---- config ----
   const N = 8;                 // grid size
   // full palette (7). Only the first activeColors() are in play, growing with score.
-  const COLORS = ["#ff5a7a", "#4d8bff", "#43d17a", "#ffc93c", "#a66cff", "#2ee6d6", "#ff8a3c"];
+  const COLORS = ["#ff5a7a", "#f45b00", "#43d17a", "#ffc93c", "#a66cff", "#2ee6d6", "#ff8a3c"];
   const BASE_COLORS = 4;       // colors in play at score 0
   const MAX_COLORS = 7;        // cap
   const START_BUDS = 10;
@@ -180,7 +180,46 @@
     <path d="M 55 60 C 53 64, 53 71, 56 75 C 54 71, 54 65, 57 60 C 58 57, 57 57, 55 60 Z" fill="#ffffff" opacity="0.65" />
     <circle cx="61" cy="59" r="2" fill="#ffffff" opacity="0.8" /></g>
 </svg>`;
-  const FRUIT_SVG = [CHERRY_SVG, null, null, null, null, null, null];  // index = color slot
+  const ORANGE_SVG = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" width="100%" height="100%">
+  <defs>
+    <linearGradient id="peelGrad" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#ff8800" /><stop offset="35%" stop-color="#f45b00" /><stop offset="75%" stop-color="#ba181b" /><stop offset="100%" stop-color="#660708" />
+    </linearGradient>
+    <linearGradient id="rindGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#ffb703" /><stop offset="100%" stop-color="#fb8500" />
+    </linearGradient>
+    <radialGradient id="pulpGrad" cx="50%" cy="40%" r="58%">
+      <stop offset="0%" stop-color="#ffe66d" /><stop offset="30%" stop-color="#ff9e00" /><stop offset="80%" stop-color="#e85d04" /><stop offset="100%" stop-color="#dc2f02" />
+    </radialGradient>
+    <linearGradient id="orangeLeaf" x1="0%" y1="100%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#2d6a4f" /><stop offset="50%" stop-color="#52b788" /><stop offset="100%" stop-color="#b7efc5" />
+    </linearGradient>
+  </defs>
+  <g><path d="M 74 34 C 82 22, 91 18, 93 15 C 88 26, 80 34, 73 37 Z" fill="url(#orangeLeaf)" />
+    <path d="M 74 34 Q 85 24 93 15" fill="none" stroke="#d8f3dc" stroke-width="0.8" stroke-linecap="round" opacity="0.9" /></g>
+  <path d="M 14 44 C 14 67, 30 84, 50 84 C 70 84, 86 67, 86 44 Z" fill="url(#peelGrad)" />
+  <path d="M 17 48 C 19 65, 32 78, 50 80 C 35 77, 21 65, 18 49 Z" fill="#ffffff" opacity="0.25" />
+  <path d="M 30 79 C 40 82, 60 82, 70 79 C 62 81, 38 81, 30 79 Z" fill="#ffffff" opacity="0.3" />
+  <ellipse cx="50" cy="44" rx="36" ry="21.5" fill="url(#rindGrad)" />
+  <ellipse cx="50" cy="44" rx="33.5" ry="19.8" fill="#fff5d6" />
+  <ellipse cx="50" cy="44" rx="31" ry="18" fill="#ff7b00" opacity="0.35" />
+  <g fill="url(#pulpGrad)">
+    <path d="M 52.5 44 L 77 44 A 28 16 0 0 0 71.5 34 L 52 42.5 Z" />
+    <path d="M 51.5 41.5 L 68 31.5 A 28 16 0 0 0 53 28.5 L 50.6 41 Z" />
+    <path d="M 49.4 41 L 47 28.5 A 28 16 0 0 0 32 31.5 L 48.5 41.5 Z" />
+    <path d="M 48 42.5 L 28.5 34 A 28 16 0 0 0 23 44 L 47.5 44 Z" />
+    <path d="M 47.5 45.5 L 23 45.5 A 28 16 0 0 0 28.5 54 L 48 46.8 Z" />
+    <path d="M 48.5 47.5 L 32 56.5 A 28 16 0 0 0 47 59.5 L 49.4 48 Z" />
+    <path d="M 50.6 48 L 53 59.5 A 28 16 0 0 0 68 56.5 L 51.5 47.5 Z" />
+    <path d="M 52 46.8 L 71.5 54 A 28 16 0 0 0 77 45.5 L 52.5 45.5 Z" />
+  </g>
+  <ellipse cx="50" cy="44" rx="2.6" ry="1.6" fill="#fff5d6" />
+  <g fill="#ffffff" opacity="0.75">
+    <circle cx="65" cy="37" r="1" /><circle cx="58" cy="33" r="0.8" /><circle cx="38" cy="34" r="0.9" />
+    <circle cx="65" cy="49" r="1.1" /><circle cx="44" cy="53" r="0.8" /><circle cx="31" cy="42" r="0.9" />
+  </g>
+</svg>`;
+  const FRUIT_SVG = [CHERRY_SVG, ORANGE_SVG, null, null, null, null, null];  // index = color slot
 
   // ---- state ----
   let grid;                    // grid[r][c] = colorIndex | -1 (empty) | BRICK
