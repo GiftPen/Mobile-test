@@ -112,7 +112,8 @@
     <p><b>빈 칸</b>에 다음 색을 놓으면 <b>주변 3×3</b>이 터집니다.<br/>
        같은 색이 맞붙어 있으면 <b>연쇄</b>로 우르르! 다른 색은 벽이에요.<br/>
        연속으로 성공할수록 점수 <b>배수</b>가 올라갑니다. 헛방이면 리셋!<br/>
-       터뜨린 개수로 아이템: <b>4</b>🐦참새 · <b>5</b>↔️라인 · <b>6</b>💣폭탄 · <b>7</b>🌟별</p>
+       터뜨린 개수로 아이템: <b>4</b>🐦 · <b>5</b>↔️ · <b>6</b>💣 · <b>7</b>🌟<br/>
+       아이템 봉오리는 <b>탭</b>하거나 <b>연쇄</b>로 발동!</p>
     <div class="big" id="ov-msg"></div>
     <button id="start-btn">시작하기</button>
   </div>
@@ -283,8 +284,9 @@
     const rc = cellFromEvent(ev);
     if (!rc) return;
     const [r, c] = rc;
-    if (grid[r][c] !== -1) return; // must plant on empty
-    plant(r, c, nextColor);
+    if (grid[r][c] === -1) plant(r, c, nextColor);        // empty -> place next color
+    else if (special[r][c]) tapItem(r, c);                // item bud -> trigger it
+    // normal fruit or brick -> nothing
   });
 
   // ---- the bloom burst ----
@@ -292,23 +294,34 @@
   //         buds inside pop, and each popped bud re-bursts the same box (chain).
   // Rule 2: different colors are walls — the burst never pops or passes them.
   function plant(r0, c0, color) {
-    busy = true; dirty = true;
     touchCount++;
     grid[r0][c0] = color;            // the placed ball (removed later if it clears)
     special[r0][c0] = null;
     const R = BURST_RADIUS;
     const visited = Array.from({length: N}, () => Array(N).fill(false));
     visited[r0][c0] = true;
+    // frontier items {r,c,mode,color}: "color" = same-color flood, "blast" = item-cleared
+    const frontier = seedsAround(r0, c0, R, color, visited).map(([r, c]) => ({ r, c, mode: "color", color }));
+    flashBox(r0, c0, R, color);
+    runChain(r0, c0, color, visited, frontier, true);
+  }
 
-    // frontier items: {r, c, mode, color}
-    //   mode "color" = same-color flood (color = the color to match)
-    //   mode "blast" = cleared by an item, no further color flood
-    let frontier = seedsAround(r0, c0, R, color, visited).map(([r, c]) => ({ r, c, mode: "color", color }));
-    flashBox(r0, c0, R, color);   // flash the whole burst box (feedback even on a miss)
+  // tap an existing item bud to trigger it directly (counts as a turn)
+  function tapItem(r0, c0) {
+    touchCount++;
+    const color = grid[r0][c0];
+    const visited = Array.from({length: N}, () => Array(N).fill(false));
+    runChain(r0, c0, color, visited, [{ r: r0, c: c0, mode: "blast", color }], false);
+  }
 
-    let popped = 0;          // total pops this tap (for score)
+  // run the chain from an initial frontier; placement=true means a ball was placed
+  function runChain(r0, c0, color, visited, initialFrontier, placement) {
+    busy = true; dirty = true;
+    const R = BURST_RADIUS;
+    let frontier = initialFrontier;
+    let popped = 0;          // total pops (for score)
     let chainPopped = 0;     // only your own color-chain pops (for item generation)
-    const hitBricks = new Set();   // bricks adjacent to a pop this burst -> chip 1 HP
+    const hitBricks = new Set();   // bricks adjacent to a pop -> chip 1 HP
     function step() {
       if (!frontier.length) {
         let broke = 0;
@@ -320,7 +333,7 @@
           if (hp[br][bc] <= 0) { grid[br][bc] = -1; special[br][bc] = null; burst(br, bc, "#9aa0b5"); broke++; }
         });
         if (broke) score += broke * 15;
-        finishBurst(r0, c0, color, popped, chainPopped);
+        finishBurst(r0, c0, color, popped, chainPopped, placement);
         return;
       }
       const next = [];
@@ -394,6 +407,8 @@
           // small local splash so the star itself pops immediately
           for (const [nr, nc] of budsAround(r, c, R, visited))
             next.push({ r: nr, c: nc, mode: "blast", color: grid[nr][nc] });
+        } else if (sp === "bird") {
+          spawnBird(r, c);          // bird flies off from here to a target
         }
       }
       frontier = next;
@@ -512,45 +527,55 @@
       }
   }
 
-  function finishBurst(r0, c0, color, popped, chainPopped) {
-    if (popped > 0) {
-      grid[r0][c0] = -1;                 // success -> placed ball is consumed cleanly
-      burst(r0, c0, color);
-      streak++;
-      const cleared = popped + 1;            // include the ball you placed
-      const chainCount = chainPopped + 1;    // your color group size, inclusive
-      const mult = Math.min(1 + (streak - 1) * 0.5, MAX_MULT);
-      const base = cleared * 10 + (cleared - 1) * (cleared - 1) * 5;
-      const gained = Math.round(base * mult);
-      score += gained;
-      showCombo(cleared, gained, mult);
-      addShake(Math.min(12, cleared * 0.7));   // bigger pop -> bigger jolt
+  function finishBurst(r0, c0, color, popped, chainPopped, placement) {
+    if (placement) {
+      if (popped > 0) {
+        grid[r0][c0] = -1;               // success -> placed ball consumed cleanly
+        burst(r0, c0, color);
+        streak++;
+        const cleared = popped + 1;          // include the ball you placed
+        const chainCount = chainPopped + 1;  // your color group size, inclusive
+        const mult = Math.min(1 + (streak - 1) * 0.5, MAX_MULT);
+        const gained = Math.round((cleared * 10 + (cleared - 1) * (cleared - 1) * 5) * mult);
+        score += gained;
+        showCombo(cleared, gained, mult);
+        addShake(Math.min(12, cleared * 0.7));
 
-      // reward: item tier from YOUR color group only (chainCount), not item cascades
-      let itemMsg = "";
-      if (chainCount >= STAR_THRESHOLD) {
-        grid[r0][c0] = color; special[r0][c0] = "star";
-        itemMsg = "🌟 별 봉오리! 같은 색을 별자리로 이어 팡!";
-      } else if (chainCount >= BOMB_THRESHOLD) {
-        grid[r0][c0] = color; special[r0][c0] = "bomb";
-        itemMsg = "💣 폭탄 봉오리! 터지면 주변 5×5 대폭발";
-      } else if (chainCount >= LINE_THRESHOLD) {
-        grid[r0][c0] = color; special[r0][c0] = randInt(2) ? "lineH" : "lineV";
-        itemMsg = "↔️ 라인 봉오리! 터지면 한 줄을 청소";
-      } else if (chainCount >= BIRD_THRESHOLD) {
-        if (spawnBird(r0, c0)) itemMsg = "🐦 참새가 방해물/쓰레기를 쪼아 먹어요!";
+        // reward: item tier from YOUR color group only (chainCount), not item cascades.
+        // items now sit on the board — tap them, or chain into them, to trigger.
+        let itemMsg = "";
+        if (chainCount >= STAR_THRESHOLD) {
+          grid[r0][c0] = color; special[r0][c0] = "star";
+          itemMsg = "🌟 별! 탭하거나 연쇄로 발동 — 같은 색 별자리 팡";
+        } else if (chainCount >= BOMB_THRESHOLD) {
+          grid[r0][c0] = color; special[r0][c0] = "bomb";
+          itemMsg = "💣 폭탄! 탭하거나 연쇄로 발동 — 5×5 대폭발";
+        } else if (chainCount >= LINE_THRESHOLD) {
+          grid[r0][c0] = color; special[r0][c0] = randInt(2) ? "lineH" : "lineV";
+          itemMsg = "↔️ 라인! 탭하거나 연쇄로 발동 — 한 줄 청소";
+        } else if (chainCount >= BIRD_THRESHOLD) {
+          grid[r0][c0] = color; special[r0][c0] = "bird";
+          itemMsg = "🐦 참새! 탭하거나 연쇄로 발동 — 방해물로 날아가요";
+        }
+        if (itemMsg) { burst(r0, c0, color); document.getElementById("hint").textContent = itemMsg; }
+      } else {
+        streak = 0;                      // miss -> placed ball stays as junk, streak resets
       }
-      if (itemMsg) { burst(r0, c0, color); document.getElementById("hint").textContent = itemMsg; }
-    } else {
-      streak = 0;                        // miss -> placed ball stays as junk, streak resets
+      if (grid[r0][c0] !== -1) appear[r0][c0] = 1;  // placed ball (junk/item) pops in too
+    } else if (popped > 0) {
+      // manual item tap: score the clears, no new item, keep the queued color
+      const mult = Math.min(1 + (streak - 1) * 0.5, MAX_MULT);
+      const gained = Math.round((popped * 10 + (popped - 1) * (popped - 1) * 5) * mult);
+      score += gained;
+      showCombo(popped, gained, mult);
+      addShake(Math.min(12, popped * 0.7));
     }
-    if (grid[r0][c0] !== -1) appear[r0][c0] = 1;  // placed ball (junk/item) pops in too
 
     spawnBuds(spawnCount());
     // staged gimmick: once bricks are unlocked, one spawns every few touches at current HP level
     const bLvl = brickHpLevel();
     if (bLvl >= 1 && touchCount % BRICK_EVERY === 0) spawnBrick(bLvl);
-    pickNext();
+    if (placement) pickNext();           // a tap-trigger keeps the queued next color
     if (score > best) { best = score; localStorage.setItem("bloom_best", best); }
     updateHUD();
     dirty = true;
@@ -810,6 +835,11 @@
           } else if (sp === "star") {
             // white star overlay = the star (constellation) item
             drawStar(cx, cy, rad * 0.7, "#fff");
+          } else if (sp === "bird") {
+            // bird item bud — small 🐦 badge on the fruit
+            ctx.font = `${cell * 0.4}px serif`;
+            ctx.textAlign = "center"; ctx.textBaseline = "middle";
+            ctx.fillText("🐦", cx, cy);
           }
           ctx.restore();
         }
