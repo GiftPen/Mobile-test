@@ -390,6 +390,49 @@
     </g>
   </g>
 </svg>`;
+  const PEACH_SVG = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" width="100%" height="100%">
+  <defs>
+    <radialGradient id="peachBody" cx="36%" cy="38%" r="65%">
+      <stop offset="0%" stop-color="#fff0f3" /><stop offset="25%" stop-color="#ffccd5" /><stop offset="55%" stop-color="#ff758f" /><stop offset="85%" stop-color="#d90429" /><stop offset="100%" stop-color="#7a001e" />
+    </radialGradient>
+    <radialGradient id="peachWarmCheek" cx="68%" cy="45%" r="50%">
+      <stop offset="0%" stop-color="#fff1e6" /><stop offset="35%" stop-color="#fed9b7" /><stop offset="70%" stop-color="#f07167" stop-opacity="0.8" /><stop offset="100%" stop-color="#c9184a" stop-opacity="0" />
+    </radialGradient>
+    <linearGradient id="peachBottomShade" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#590d22" stop-opacity="0" /><stop offset="100%" stop-color="#400010" stop-opacity="0.5" />
+    </linearGradient>
+    <linearGradient id="peachStem" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#a67c52" /><stop offset="60%" stop-color="#6e4722" /><stop offset="100%" stop-color="#3d210b" />
+    </linearGradient>
+    <linearGradient id="peachLeaf" x1="0%" y1="100%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#1b4332" /><stop offset="45%" stop-color="#40916c" /><stop offset="100%" stop-color="#b7efc5" />
+    </linearGradient>
+    <linearGradient id="peachLeafSmall" x1="100%" y1="100%" x2="0%" y2="0%">
+      <stop offset="0%" stop-color="#2d6a4f" /><stop offset="60%" stop-color="#52b788" /><stop offset="100%" stop-color="#d8f3dc" />
+    </linearGradient>
+  </defs>
+  <g>
+    <path d="M 49 24 C 42 19, 32 20, 27 25 C 33 30, 42 29, 49 24 Z" fill="url(#peachLeafSmall)" />
+    <path d="M 49 24 Q 38 23 28 25" fill="none" stroke="#d8f3dc" stroke-width="0.6" stroke-linecap="round" opacity="0.8" />
+    <path d="M 50 20 C 58 11, 73 12, 78 18 C 72 26, 58 27, 50 20 Z" fill="url(#peachLeaf)" />
+    <path d="M 50 20 Q 64 18 76 18" fill="none" stroke="#d8f3dc" stroke-width="0.8" stroke-linecap="round" opacity="0.85" />
+    <path d="M 50 29 C 49 21, 51 17, 47 13" fill="none" stroke="url(#peachStem)" stroke-width="2.6" stroke-linecap="round" />
+  </g>
+  <path d="M 50 29 C 42 27, 26 31, 19 45 C 12 59, 18 76, 34 84 C 42 88, 48 87, 50 86 C 52 87, 58 88, 66 84 C 82 76, 88 59, 81 45 C 74 31, 58 27, 50 29 Z" fill="url(#peachBody)" />
+  <ellipse cx="64" cy="54" rx="16" ry="19" fill="url(#peachWarmCheek)" />
+  <g>
+    <path d="M 50 29 C 46 44, 46 65, 49 86" fill="none" stroke="#68001a" stroke-width="1.8" stroke-linecap="round" opacity="0.45" />
+    <path d="M 48.5 32 C 45 45, 45 64, 48 84" fill="none" stroke="#ffffff" stroke-width="0.9" stroke-linecap="round" opacity="0.45" />
+  </g>
+  <path d="M 26 73 C 32 82, 42 86, 50 86 C 58 86, 68 82, 74 73 C 66 81, 58 84, 50 84 C 42 84, 34 81, 26 73 Z" fill="url(#peachBottomShade)" />
+  <g>
+    <ellipse cx="32" cy="46" rx="6.5" ry="11" transform="rotate(-20, 32, 46)" fill="#ffffff" opacity="0.65" />
+    <circle cx="29" cy="40" r="2.2" fill="#ffffff" opacity="0.9" /><circle cx="33" cy="35" r="1.3" fill="#ffffff" opacity="0.75" />
+    <circle cx="68" cy="43" r="1.6" fill="#ffffff" opacity="0.7" /><circle cx="72" cy="48" r="1.1" fill="#ffffff" opacity="0.6" />
+    <path d="M 36 82 C 42 85, 58 85, 64 82 C 58 83.5, 42 83.5, 36 82 Z" fill="#ffffff" opacity="0.5" />
+  </g>
+</svg>`;
+  // PEACH_SVG is benched (not in the active 7) — see chat: peach's pink clashes with cherry's red
   const FRUIT_SVG = [CHERRY_SVG, ORANGE_SVG, KIWI_SVG, LEMON_SVG, GRAPE_SVG, PEAR_SVG, BANANA_SVG];  // index = color slot
 
   // ---- state ----
