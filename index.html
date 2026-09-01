@@ -810,13 +810,21 @@
           continue;
         }
 
-        // fruit
+        // fruit / item
         const v = grid[r][c];
         if (v !== -1) {
           const cx = x + cell/2, cy = y + cell/2, rad = cell*0.34 * apScale;
+          const sp = special[r][c];
+          if (sp === "bird") {           // bird item = just a bird, no fruit under it
+            ctx.save();
+            ctx.font = `${cell * 0.62 * apScale}px serif`;
+            ctx.textAlign = "center"; ctx.textBaseline = "middle";
+            ctx.fillText("🐦", cx, cy);
+            ctx.restore();
+            continue;
+          }
           ctx.save();
           drawFruit(v, cx, cy, rad);
-          const sp = special[r][c];
           if (sp === "bomb") {
             // bold white ring + dark core so it reads as "charged"
             ctx.lineWidth = cell*0.09; ctx.strokeStyle = "#fff";
@@ -835,11 +843,6 @@
           } else if (sp === "star") {
             // white star overlay = the star (constellation) item
             drawStar(cx, cy, rad * 0.7, "#fff");
-          } else if (sp === "bird") {
-            // bird item bud — small 🐦 badge on the fruit
-            ctx.font = `${cell * 0.4}px serif`;
-            ctx.textAlign = "center"; ctx.textBaseline = "middle";
-            ctx.fillText("🐦", cx, cy);
           }
           ctx.restore();
         }
