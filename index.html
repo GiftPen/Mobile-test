@@ -488,7 +488,7 @@
   function spawnBird(fromR, fromC) {
     const t = chooseBirdTarget(null);
     if (!t) return false;
-    birds.push({ sr: fromR, sc: fromC, tr: t[0], tc: t[1], t: 0 });
+    birds.push({ sr: fromR, sc: fromC, tr: t[0], tc: t[1], t: 0, curve: Math.random() < 0.5 ? -1 : 1 });
     return true;
   }
 
@@ -892,18 +892,34 @@
       if (L.prog >= maxIdx + 6) links.splice(i, 1);    // linger briefly after the 팡
     }
 
-    // birds (참새) flying to their target fruit
+    // birds (참새) swooping along a curved path to their target fruit
     for (let i = birds.length - 1; i >= 0; i--) {
       const f = birds[i];
-      f.t += 0.035;
+      f.t += 0.04;
+      const tt = Math.min(1, f.t);
       const [sx, sy] = cellCenter(f.sr, f.sc);
       const [tx, ty] = cellCenter(f.tr, f.tc);
-      const e = f.t < 1 ? f.t * (2 - f.t) : 1;   // ease-out
-      const x = sx + (tx - sx) * e, y = sy + (ty - sy) * e - Math.sin(e * Math.PI) * cell * 0.5; // little arc hop
+      const dx = tx - sx, dy = ty - sy, len = Math.hypot(dx, dy) || 1;
+      const mx = (sx + tx) / 2, my = (sy + ty) / 2;
+      const cpx = mx + (-dy / len) * len * 0.45 * f.curve;      // perpendicular swoop
+      const cpy = my + ( dx / len) * len * 0.45 * f.curve - len * 0.2;
+      const bez = (u) => { const v = 1 - u; return [v*v*sx + 2*v*u*cpx + u*u*tx, v*v*sy + 2*v*u*cpy + u*u*ty]; };
+      const ease = (u) => u < 0.5 ? 2*u*u : 1 - Math.pow(-2*u+2, 2) / 2;  // ease-in-out
+      const e = ease(tt);
+      const pos = bez(e);
+      const x = pos[0], y = pos[1] + Math.sin(tt * Math.PI * 7) * cell * 0.05;  // wing bob
+      const p0 = bez(Math.max(0, e - 0.02)), p1 = bez(Math.min(1, e + 0.02));
+      const faceRight = (p1[0] - p0[0]) >= 0;
+      const bank = Math.max(-0.5, Math.min(0.5, (p1[1] - p0[1]) * 0.04));
       ctx.save();
-      ctx.font = `${cell * 0.6}px serif`;
+      ctx.translate(x, y);
+      ctx.scale(faceRight ? -1 : 1, 1);          // 🐦 faces left by default -> flip when going right
+      ctx.rotate((faceRight ? -1 : 1) * bank);
+      ctx.font = `${cell * 0.62}px serif`;
       ctx.textAlign = "center"; ctx.textBaseline = "middle";
-      ctx.fillText("🐦", x, y);
+      ctx.globalAlpha = 0.22; ctx.fillText("🐦", cell * 0.28, 0);   // whoosh trail
+      ctx.globalAlpha = 0.45; ctx.fillText("🐦", cell * 0.14, 0);
+      ctx.globalAlpha = 1;    ctx.fillText("🐦", 0, 0);
       ctx.restore();
       if (f.t >= 1) {
         if (grid[f.tr][f.tc] !== -1) {           // eat the target fruit
