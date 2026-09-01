@@ -112,7 +112,7 @@
     <p><b>빈 칸</b>에 다음 색을 놓으면 <b>주변 3×3</b>이 터집니다.<br/>
        같은 색이 맞붙어 있으면 <b>연쇄</b>로 우르르! 다른 색은 벽이에요.<br/>
        연속으로 성공할수록 점수 <b>배수</b>가 올라갑니다. 헛방이면 리셋!<br/>
-       터뜨린 개수로 아이템: <b>3</b>🐟물고기 · <b>5</b>💣폭탄 · <b>7</b>↔️라인 · <b>10</b>🌈무지개</p>
+       터뜨린 개수로 아이템: <b>3</b>🐦참새 · <b>5</b>💣폭탄 · <b>7</b>↔️라인 · <b>10</b>🌈무지개</p>
     <div class="big" id="ov-msg"></div>
     <button id="start-btn">시작하기</button>
   </div>
@@ -134,13 +134,14 @@
   const SPAWN_STEP = 10000;    // +1 spawn per this many points
   const WAVE_STEP_MS = 70;     // time between chain steps
   const PI2 = Math.PI * 2;
+  const SHAKE_MAX = 16;        // screen-shake cap (px)
   const BURST_RADIUS = 1;      // 1 = 3x3 burst (Chebyshev). items can raise this later
   const MAX_MULT = 5;          // streak multiplier cap
-  const FISH_THRESHOLD = 3;    // pop this many (but < bomb) -> a fish eats a random junk bud
+  const BIRD_THRESHOLD = 3;    // pop this many (but < bomb) -> a bird eats a random junk fruit
   const BOMB_THRESHOLD = 5;    // pop this many in one tap -> a bomb bud
   const LINE_THRESHOLD = 7;    // -> a line bud (clears a row/col)
   const RAINBOW_THRESHOLD = 10; // -> a rainbow bud (any-color wildcard, bridges chains)
-  const FISH_SCORE = 20;       // score for each bud a fish eats
+  const BIRD_SCORE = 20;       // score for each fruit a bird eats
   const BRICK = -2;            // grid value for a brick (wall; only items can clear it)
   const BRICK_START_SCORE = 3000; // TEST value; raise to 50000 for release
   const BRICK_EVERY = 5;       // one brick spawns every N touches once unlocked
@@ -154,7 +155,10 @@
   let running = false;
   let busy = false;            // wave animating -> block input
   let particles = [];
-  let fishes = [];             // {sr,sc,tr,tc,t} swimming fish, eats target bud on arrival
+  let birds = [];             // {sr,sc,tr,tc,t} bird flies to a junk fruit and eats it
+  let flares = [];            // {cx,cy,kind,maxR,t} item explosion: growing fruit silhouette
+  let beams = [];             // {type:'h'|'v', idx, color, t} line-clear flash
+  let shake = 0;              // screen-shake magnitude
   let glow;                    // glow[r][c] = {c: colorIdx, t: 0..1}
   let special;                 // special[r][c] = null | "bomb" | "lineH" | "lineV" | "rainbow"
   let hp;                      // hp[r][c] = brick health (only when grid === BRICK)
@@ -194,6 +198,7 @@
   function randInt(n) { return Math.floor(Math.random() * n); }
   function spawnCount() { return Math.min(SPAWN_MAX, SPAWN_BASE + Math.floor(score / SPAWN_STEP)); }
   function activeColors() { return Math.min(MAX_COLORS, BASE_COLORS + Math.floor(score / COLOR_STEP)); }
+  function addShake(a) { shake = Math.min(SHAKE_MAX, shake + a); }
 
   function emptyCells() {
     const out = [];
@@ -233,7 +238,7 @@
   // ---- game start ----
   function start() {
     emptyGrid();
-    score = 0; streak = 0; touchCount = 0; particles = []; fishes = [];
+    score = 0; streak = 0; touchCount = 0; particles = []; birds = []; flares = []; beams = []; shake = 0;
     spawnBuds(START_BUDS);
     pickNext();
     updateHUD();
@@ -338,14 +343,23 @@
         // ---- item detonations (fire regardless of how this cell was popped) ----
         if (sp === "bomb") {                     // 3x3 blast, ignores color walls
           flashBox(r, c, R, cellColor);
+          const [fx, fy] = cellCenter(r, c);
+          flares.push({ cx: fx, cy: fy, kind: cellColor < 0 ? it.color : cellColor, maxR: cell * 1.9, t: 0 });
+          addShake(7);
           for (const [nr, nc] of budsAround(r, c, R, visited))
             next.push({ r: nr, c: nc, mode: "blast", color: cellColor });
         } else if (sp === "lineH" || sp === "lineV") { // clears whole row / column
           flashLine(r, c, sp);
+          beams.push({ type: sp === "lineH" ? "h" : "v", idx: sp === "lineH" ? r : c,
+                       color: cellColor < 0 ? it.color : cellColor, t: 0 });
+          addShake(8);
           for (const [nr, nc] of lineCells(r, c, sp, visited))
             next.push({ r: nr, c: nc, mode: "blast", color: cellColor });
         } else if (sp === "rainbow") {           // COLOR BOMB: wipe the trigger color board-wide
           flashBox(r, c, R, cellColor);
+          const [fx, fy] = cellCenter(r, c);
+          flares.push({ cx: fx, cy: fy, kind: cellColor < 0 ? it.color : cellColor, maxR: cell * 3.4, t: 0 });
+          addShake(14);
           const target = mode === "color" ? it.color : mostCommonColor();
           if (target >= 0)
             for (let rr = 0; rr < N; rr++)
@@ -430,7 +444,7 @@
     return bi;
   }
 
-  // ---- fish: swims to a random junk bud and eats it ----
+  // ---- bird (참새): flies to a random junk fruit and eats it ----
   const cellCenter = (r, c) => [pad + c * cell + cell / 2, pad + r * cell + cell / 2];
 
   function sameColorNeighbors(r, c) {
@@ -445,7 +459,7 @@
   }
 
   // prefer the most isolated buds (junk); random among the best
-  function chooseFishTarget(exclude) {
+  function chooseBirdTarget(exclude) {
     const buds = [];
     for (let r = 0; r < N; r++) for (let c = 0; c < N; c++)
       if (grid[r][c] !== -1 && !(exclude && exclude[r * N + c])) buds.push([r, c]);
@@ -455,10 +469,10 @@
     return pool[randInt(pool.length)];
   }
 
-  function spawnFish(fromR, fromC) {
-    const t = chooseFishTarget(null);
+  function spawnBird(fromR, fromC) {
+    const t = chooseBirdTarget(null);
     if (!t) return false;
-    fishes.push({ sr: fromR, sc: fromC, tr: t[0], tc: t[1], t: 0 });
+    birds.push({ sr: fromR, sc: fromC, tr: t[0], tc: t[1], t: 0 });
     return true;
   }
 
@@ -481,6 +495,7 @@
       const gained = Math.round(base * mult);
       score += gained;
       showCombo(popped, gained, mult);
+      addShake(Math.min(12, popped * 0.7));   // bigger pop -> bigger jolt
 
       // reward: a big burst leaves an item bud where you tapped (bigger = better)
       let itemMsg = "";
@@ -493,8 +508,8 @@
       } else if (popped >= BOMB_THRESHOLD) {
         grid[r0][c0] = color; special[r0][c0] = "bomb";
         itemMsg = "💣 폭탄 봉오리! 터지면 주변 3×3 폭발";
-      } else if (popped >= FISH_THRESHOLD) {
-        if (spawnFish(r0, c0)) itemMsg = "🐟 물고기가 쓰레기 봉오리를 청소!";
+      } else if (popped >= BIRD_THRESHOLD) {
+        if (spawnBird(r0, c0)) itemMsg = "🐦 참새가 쓰레기 과일을 쪼아 먹어요!";
       }
       if (itemMsg) { burst(r0, c0, color); document.getElementById("hint").textContent = itemMsg; }
     } else {
@@ -663,7 +678,15 @@
 
   function draw() {
     if (!grid || !glow) { requestAnimationFrame(draw); return; } // not started yet
-    ctx.clearRect(0, 0, boardPx, boardPx);
+    // clear the whole canvas in raw pixels (so shake leaves no smear), keep dpr transform
+    ctx.save(); ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.clearRect(0, 0, canvas.width, canvas.height); ctx.restore();
+
+    // screen shake
+    let ox = 0, oy = 0;
+    if (shake > 0.3) { ox = (Math.random() - .5) * shake; oy = (Math.random() - .5) * shake; shake *= 0.86; }
+    else shake = 0;
+    ctx.save(); ctx.translate(ox, oy);
+
     // board bg
     ctx.fillStyle = "#171a26";
     roundRect(0, 0, boardPx, boardPx, 18); ctx.fill();
@@ -778,32 +801,61 @@
       ctx.restore();
     }
 
-    // fishes swimming to their target
-    for (let i = fishes.length - 1; i >= 0; i--) {
-      const f = fishes[i];
+    // line-clear beams (bright bar across the row/col)
+    for (let i = beams.length - 1; i >= 0; i--) {
+      const b = beams[i]; b.t += 0.08;
+      if (b.t >= 1) { beams.splice(i, 1); continue; }
+      ctx.save();
+      ctx.globalAlpha = (1 - b.t) * 0.55;
+      ctx.fillStyle = COLORS[b.color] || "#fff";
+      if (b.type === "h") ctx.fillRect(pad, pad + b.idx * cell, boardPx - pad*2, cell);
+      else                ctx.fillRect(pad + b.idx * cell, pad, cell, boardPx - pad*2);
+      ctx.restore();
+    }
+
+    // item flares (fruit silhouette grows and bursts + shockwave ring)
+    for (let i = flares.length - 1; i >= 0; i--) {
+      const fl = flares[i]; fl.t += 0.06;
+      if (fl.t >= 1) { flares.splice(i, 1); continue; }
+      const e = fl.t * (2 - fl.t), fade = 1 - fl.t, rad = fl.maxR * e;
+      ctx.save();
+      ctx.globalAlpha = fade * 0.5;
+      ctx.strokeStyle = COLORS[fl.kind] || "#fff"; ctx.lineWidth = cell * 0.12 * fade + 0.5;
+      ctx.beginPath(); ctx.arc(fl.cx, fl.cy, rad, 0, PI2); ctx.stroke();
+      ctx.restore();
+      ctx.save();
+      ctx.globalAlpha = fade * 0.85;
+      drawFruit(fl.kind, fl.cx, fl.cy, rad * 0.6);
+      ctx.restore();
+    }
+
+    // birds (참새) flying to their target fruit
+    for (let i = birds.length - 1; i >= 0; i--) {
+      const f = birds[i];
       f.t += 0.035;
       const [sx, sy] = cellCenter(f.sr, f.sc);
       const [tx, ty] = cellCenter(f.tr, f.tc);
       const e = f.t < 1 ? f.t * (2 - f.t) : 1;   // ease-out
-      const x = sx + (tx - sx) * e, y = sy + (ty - sy) * e;
+      const x = sx + (tx - sx) * e, y = sy + (ty - sy) * e - Math.sin(e * Math.PI) * cell * 0.5; // little arc hop
       ctx.save();
-      ctx.font = `${cell * 0.62}px serif`;
+      ctx.font = `${cell * 0.6}px serif`;
       ctx.textAlign = "center"; ctx.textBaseline = "middle";
-      ctx.fillText("🐟", x, y);
+      ctx.fillText("🐦", x, y);
       ctx.restore();
       if (f.t >= 1) {
-        if (grid[f.tr][f.tc] !== -1) {           // eat the target bud
+        if (grid[f.tr][f.tc] !== -1) {           // eat the target fruit
           const col = grid[f.tr][f.tc];
           grid[f.tr][f.tc] = -1; special[f.tr][f.tc] = null;
           burst(f.tr, f.tc, col);
-          score += FISH_SCORE;
+          score += BIRD_SCORE;
           if (score > best) { best = score; localStorage.setItem("bloom_best", best); }
           updateHUD();
         }
-        fishes.splice(i, 1);
+        birds.splice(i, 1);
       }
     }
 
+    ctx.restore();   // end screen-shake transform
     requestAnimationFrame(draw);
   }
 
@@ -811,7 +863,7 @@
   document.getElementById("start-btn").addEventListener("click", () => {
     document.querySelector("#overlay h1").textContent = "Bloom";
     document.querySelector("#overlay p").innerHTML =
-      "<b>빈 칸</b>에 다음 색을 놓으면 <b>주변 3×3</b>이 터집니다.<br/>같은 색 <b>연쇄</b> + 연속 <b>배수</b>! 아이템: 3🐟 · 5💣 · 7↔️ · 10🌈";
+      "<b>빈 칸</b>에 다음 색을 놓으면 <b>주변 3×3</b>이 터집니다.<br/>같은 색 <b>연쇄</b> + 연속 <b>배수</b>! 아이템: 3🐦 · 5💣 · 7↔️ · 10🌈";
     start();
   });
 
