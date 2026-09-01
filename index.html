@@ -112,7 +112,7 @@
     <p><b>빈 칸</b>에 다음 색을 놓으면 <b>주변 3×3</b>이 터집니다.<br/>
        같은 색이 맞붙어 있으면 <b>연쇄</b>로 우르르! 다른 색은 벽이에요.<br/>
        연속으로 성공할수록 점수 <b>배수</b>가 올라갑니다. 헛방이면 리셋!<br/>
-       터뜨린 개수로 아이템: <b>3</b>🐦참새 · <b>5</b>💣폭탄 · <b>7</b>↔️라인 · <b>10</b>🌈무지개</p>
+       터뜨린 개수로 아이템: <b>3</b>🐦참새 · <b>5</b>↔️라인 · <b>7</b>💣폭탄 · <b>10</b>🌈무지개</p>
     <div class="big" id="ov-msg"></div>
     <button id="start-btn">시작하기</button>
   </div>
@@ -138,8 +138,9 @@
   const BURST_RADIUS = 1;      // 1 = 3x3 burst (Chebyshev). items can raise this later
   const MAX_MULT = 5;          // streak multiplier cap
   const BIRD_THRESHOLD = 3;    // pop this many (but < bomb) -> a bird eats a random junk fruit
-  const BOMB_THRESHOLD = 5;    // pop this many in one tap -> a bomb bud
-  const LINE_THRESHOLD = 7;    // -> a line bud (clears a row/col)
+  const LINE_THRESHOLD = 5;    // pop this many -> a line bud (clears a row/col)
+  const BOMB_THRESHOLD = 7;    // -> a bomb bud (harder to make, bigger blast)
+  const BOMB_RADIUS = 2;       // bomb blast = 5x5 (Chebyshev 2)
   const RAINBOW_THRESHOLD = 10; // -> a rainbow bud (any-color wildcard, bridges chains)
   const BIRD_SCORE = 20;       // score for each fruit a bird eats
   const BRICK = -2;            // grid value for a brick (wall; only items can clear it)
@@ -341,12 +342,12 @@
             next.push({ r: nr, c: nc, mode: "color", color: it.color });
 
         // ---- item detonations (fire regardless of how this cell was popped) ----
-        if (sp === "bomb") {                     // 3x3 blast, ignores color walls
-          flashBox(r, c, R, cellColor);
+        if (sp === "bomb") {                     // 5x5 blast, ignores color walls
+          flashBox(r, c, BOMB_RADIUS, cellColor);
           const [fx, fy] = cellCenter(r, c);
-          flares.push({ cx: fx, cy: fy, kind: cellColor < 0 ? it.color : cellColor, maxR: cell * 1.9, t: 0 });
-          addShake(7);
-          for (const [nr, nc] of budsAround(r, c, R, visited))
+          flares.push({ cx: fx, cy: fy, kind: cellColor < 0 ? it.color : cellColor, maxR: cell * 2.8, t: 0 });
+          addShake(11);
+          for (const [nr, nc] of budsAround(r, c, BOMB_RADIUS, visited))
             next.push({ r: nr, c: nc, mode: "blast", color: cellColor });
         } else if (sp === "lineH" || sp === "lineV") { // clears whole row / column
           flashLine(r, c, sp);
@@ -502,12 +503,12 @@
       if (popped >= RAINBOW_THRESHOLD) {
         grid[r0][c0] = color; special[r0][c0] = "rainbow";
         itemMsg = "🌈 무지개 봉오리! 옆에 놓은 색을 판 전체에서 제거";
+      } else if (popped >= BOMB_THRESHOLD) {
+        grid[r0][c0] = color; special[r0][c0] = "bomb";
+        itemMsg = "💣 폭탄 봉오리! 터지면 주변 5×5 대폭발";
       } else if (popped >= LINE_THRESHOLD) {
         grid[r0][c0] = color; special[r0][c0] = randInt(2) ? "lineH" : "lineV";
         itemMsg = "↔️ 라인 봉오리! 터지면 한 줄을 청소";
-      } else if (popped >= BOMB_THRESHOLD) {
-        grid[r0][c0] = color; special[r0][c0] = "bomb";
-        itemMsg = "💣 폭탄 봉오리! 터지면 주변 3×3 폭발";
       } else if (popped >= BIRD_THRESHOLD) {
         if (spawnBird(r0, c0)) itemMsg = "🐦 참새가 쓰레기 과일을 쪼아 먹어요!";
       }
@@ -863,7 +864,7 @@
   document.getElementById("start-btn").addEventListener("click", () => {
     document.querySelector("#overlay h1").textContent = "Bloom";
     document.querySelector("#overlay p").innerHTML =
-      "<b>빈 칸</b>에 다음 색을 놓으면 <b>주변 3×3</b>이 터집니다.<br/>같은 색 <b>연쇄</b> + 연속 <b>배수</b>! 아이템: 3🐦 · 5💣 · 7↔️ · 10🌈";
+      "<b>빈 칸</b>에 다음 색을 놓으면 <b>주변 3×3</b>이 터집니다.<br/>같은 색 <b>연쇄</b> + 연속 <b>배수</b>! 아이템: 3🐦 · 5↔️ · 7💣 · 10🌈";
     start();
   });
 
