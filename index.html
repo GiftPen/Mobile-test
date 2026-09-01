@@ -112,7 +112,7 @@
     <p><b>빈 칸</b>에 다음 색을 놓으면 <b>주변 3×3</b>이 터집니다.<br/>
        같은 색이 맞붙어 있으면 <b>연쇄</b>로 우르르! 다른 색은 벽이에요.<br/>
        연속으로 성공할수록 점수 <b>배수</b>가 올라갑니다. 헛방이면 리셋!<br/>
-       터뜨린 개수로 아이템: <b>3</b>🐦참새 · <b>5</b>↔️라인 · <b>7</b>💣폭탄 · <b>10</b>🌈무지개</p>
+       터뜨린 개수로 아이템: <b>3</b>🐦참새 · <b>5</b>↔️라인 · <b>7</b>💣폭탄 · <b>10</b>🌟별</p>
     <div class="big" id="ov-msg"></div>
     <button id="start-btn">시작하기</button>
   </div>
@@ -141,7 +141,7 @@
   const LINE_THRESHOLD = 5;    // pop this many -> a line bud (clears a row/col)
   const BOMB_THRESHOLD = 7;    // -> a bomb bud (harder to make, bigger blast)
   const BOMB_RADIUS = 2;       // bomb blast = 5x5 (Chebyshev 2)
-  const RAINBOW_THRESHOLD = 10; // -> a rainbow bud (any-color wildcard, bridges chains)
+  const STAR_THRESHOLD = 10; // -> a star bud (any-color wildcard, bridges chains)
   const BIRD_SCORE = 20;       // score for each fruit a bird eats
   const BRICK = -2;            // grid value for a brick (wall; only items can clear it)
   const BRICK_START_SCORE = 3000; // TEST value; raise to 50000 for release
@@ -159,11 +159,11 @@
   let birds = [];             // {sr,sc,tr,tc,t} bird flies to a junk fruit and eats it
   let flares = [];            // {cx,cy,kind,maxR,t} item explosion: growing fruit silhouette
   let beams = [];             // {type:'h'|'v', idx, color, t} line-clear flash
-  let links = [];             // {nodes,color,prog,reached,done} rainbow one-stroke constellation
+  let links = [];             // {nodes,color,prog,reached,done} star one-stroke constellation
   let shake = 0;              // screen-shake magnitude
-  let flash = 0;              // white screen flash (0..1) for the rainbow 팡
+  let flash = 0;              // white screen flash (0..1) for the star 팡
   let glow;                    // glow[r][c] = {c: colorIdx, t: 0..1}
-  let special;                 // special[r][c] = null | "bomb" | "lineH" | "lineV" | "rainbow"
+  let special;                 // special[r][c] = null | "bomb" | "lineH" | "lineV" | "star"
   let hp;                      // hp[r][c] = brick health (only when grid === BRICK)
   let appear;                  // appear[r][c] = 1..0 pop-in animation for newly spawned cells
 
@@ -358,7 +358,7 @@
           addShake(8);
           for (const [nr, nc] of lineCells(r, c, sp, visited))
             next.push({ r: nr, c: nc, mode: "blast", color: cellColor });
-        } else if (sp === "rainbow") {           // COLOR BOMB: connect-the-dots then 팡
+        } else if (sp === "star") {           // COLOR BOMB: connect-the-dots then 팡
           flashBox(r, c, R, cellColor);
           addShake(5);
           const target = mode === "color" ? it.color : mostCommonColor();
@@ -372,7 +372,7 @@
                   grid[rr][cc] = -1; special[rr][cc] = null; popped++;
                   tCells.push([rr, cc]);
                 }
-          // order nearest-neighbor from the rainbow origin = a one-stroke path
+          // order nearest-neighbor from the star origin = a one-stroke path
           const path = [[r, c]];
           let cur = [r, c];
           while (tCells.length) {
@@ -384,7 +384,7 @@
             cur = tCells.splice(bi, 1)[0]; path.push(cur);
           }
           links.push({ nodes: path, color: target, prog: 0, reached: 0, done: false });
-          // small local splash so the rainbow itself pops immediately
+          // small local splash so the star itself pops immediately
           for (const [nr, nc] of budsAround(r, c, R, visited))
             next.push({ r: nr, c: nc, mode: "blast", color: grid[nr][nc] });
         }
@@ -395,7 +395,7 @@
     step();
   }
 
-  // same-color buds within Chebyshev radius R (rainbow buds match ANY color)
+  // same-color buds within Chebyshev radius R (star buds match ANY color)
   function seedsAround(r, c, R, color, visited) {
     const out = [];
     for (let dr = -R; dr <= R; dr++) {
@@ -403,7 +403,7 @@
         if (dr === 0 && dc === 0) continue;
         const nr = r + dr, nc = c + dc;
         if (nr < 0 || nr >= N || nc < 0 || nc >= N || visited[nr][nc]) continue;
-        if (grid[nr][nc] === color || special[nr][nc] === "rainbow") {
+        if (grid[nr][nc] === color || special[nr][nc] === "star") {
           visited[nr][nc] = true; out.push([nr, nc]);
         }
       }
@@ -411,7 +411,7 @@
     return out;
   }
 
-  // ANY bud within R (used by bomb/rainbow blast — ignores color walls)
+  // ANY bud within R (used by bomb/star blast — ignores color walls)
   function budsAround(r, c, R, visited) {
     const out = [];
     for (let dr = -R; dr <= R; dr++) {
@@ -515,9 +515,9 @@
 
       // reward: a big burst leaves an item bud where you tapped (bigger = better)
       let itemMsg = "";
-      if (popped >= RAINBOW_THRESHOLD) {
-        grid[r0][c0] = color; special[r0][c0] = "rainbow";
-        itemMsg = "🌈 무지개 봉오리! 옆에 놓은 색을 판 전체에서 제거";
+      if (popped >= STAR_THRESHOLD) {
+        grid[r0][c0] = color; special[r0][c0] = "star";
+        itemMsg = "🌟 별 봉오리! 같은 색을 별자리로 이어 팡!";
       } else if (popped >= BOMB_THRESHOLD) {
         grid[r0][c0] = color; special[r0][c0] = "bomb";
         itemMsg = "💣 폭탄 봉오리! 터지면 주변 5×5 대폭발";
@@ -789,18 +789,9 @@
               else                { ctx.moveTo(cx + off, cy - rad*0.7); ctx.lineTo(cx + off, cy + rad*0.7); }
               ctx.stroke();
             }
-          } else if (sp === "rainbow") {
-            // multi-color ring = wildcard (evenly split by palette size)
-            ctx.lineWidth = cell*0.11;
-            const seg = PI2 / COLORS.length;
-            for (let k = 0; k < COLORS.length; k++) {
-              ctx.strokeStyle = COLORS[k];
-              ctx.beginPath();
-              ctx.arc(cx, cy, rad*0.66, k*seg, (k+1)*seg);
-              ctx.stroke();
-            }
-            ctx.fillStyle = "#fff";
-            ctx.beginPath(); ctx.arc(cx, cy, rad*0.24, 0, PI2); ctx.fill();
+          } else if (sp === "star") {
+            // white star overlay = the star (constellation) item
+            drawStar(cx, cy, rad * 0.7, "#fff");
           }
           ctx.restore();
         }
@@ -861,7 +852,7 @@
       ctx.restore();
     }
 
-    // rainbow constellation — one-stroke path links same-color fruits, then 팡
+    // star constellation — one-stroke path links same-color fruits, then 팡
     for (let i = links.length - 1; i >= 0; i--) {
       const L = links[i];
       L.prog += 0.28;                                  // nodes traversed per frame
@@ -927,7 +918,7 @@
       }
     }
 
-    // rainbow 팡 — white screen flash
+    // star 팡 — white screen flash
     if (flash > 0.01) {
       ctx.save();
       ctx.globalAlpha = flash;
@@ -945,7 +936,7 @@
   document.getElementById("start-btn").addEventListener("click", () => {
     document.querySelector("#overlay h1").textContent = "Bloom";
     document.querySelector("#overlay p").innerHTML =
-      "<b>빈 칸</b>에 다음 색을 놓으면 <b>주변 3×3</b>이 터집니다.<br/>같은 색 <b>연쇄</b> + 연속 <b>배수</b>! 아이템: 3🐦 · 5↔️ · 7💣 · 10🌈";
+      "<b>빈 칸</b>에 다음 색을 놓으면 <b>주변 3×3</b>이 터집니다.<br/>같은 색 <b>연쇄</b> + 연속 <b>배수</b>! 아이템: 3🐦 · 5↔️ · 7💣 · 10🌟";
     start();
   });
 
