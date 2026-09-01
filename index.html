@@ -247,7 +247,43 @@
       <circle cx="9" cy="-7" r="1.3" fill="#ffffff" opacity="0.8" /></g>
   </g>
 </svg>`;
-  const FRUIT_SVG = [CHERRY_SVG, ORANGE_SVG, null, LEMON_SVG, null, null, null];  // index = color slot
+  const KIWI_SVG = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" width="100%" height="100%">
+  <defs>
+    <linearGradient id="kiwiSkin" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#8d5b2d" /><stop offset="35%" stop-color="#6f421a" /><stop offset="75%" stop-color="#4a2810" /><stop offset="100%" stop-color="#2b1406" />
+    </linearGradient>
+    <linearGradient id="kiwiRim" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#a46b38" /><stop offset="100%" stop-color="#6a3e17" />
+    </linearGradient>
+    <radialGradient id="kiwiPulp" cx="50%" cy="44%" r="52%">
+      <stop offset="0%" stop-color="#e8fccf" /><stop offset="25%" stop-color="#c7f9cc" /><stop offset="55%" stop-color="#70e000" /><stop offset="85%" stop-color="#38b000" /><stop offset="100%" stop-color="#007200" />
+    </radialGradient>
+    <radialGradient id="kiwiCore" cx="50%" cy="42%" r="50%">
+      <stop offset="0%" stop-color="#ffffff" /><stop offset="60%" stop-color="#fff8e7" /><stop offset="100%" stop-color="#d8f3dc" />
+    </radialGradient>
+  </defs>
+  <path d="M 14 44 C 14 67, 30 84, 50 84 C 70 84, 86 67, 86 44 Z" fill="url(#kiwiSkin)" />
+  <path d="M 17 48 C 19 65, 32 78, 50 80 C 35 77, 21 65, 18 49 Z" fill="#ffffff" opacity="0.18" />
+  <path d="M 30 79 C 40 82, 60 82, 70 79 C 62 81, 38 81, 30 79 Z" fill="#ffffff" opacity="0.22" />
+  <ellipse cx="50" cy="44" rx="36" ry="21.5" fill="url(#kiwiRim)" />
+  <ellipse cx="50" cy="44" rx="34" ry="20" fill="url(#kiwiPulp)" />
+  <g stroke="#ffffff" stroke-width="0.75" stroke-linecap="round" opacity="0.45">
+    <line x1="50" y1="36" x2="50" y2="28" /><line x1="56" y1="37" x2="62" y2="30" /><line x1="59" y1="41" x2="71" y2="36" /><line x1="60" y1="44" x2="77" y2="44" />
+    <line x1="59" y1="47" x2="71" y2="52" /><line x1="56" y1="51" x2="62" y2="58" /><line x1="50" y1="52" x2="50" y2="60" /><line x1="44" y1="51" x2="38" y2="58" />
+    <line x1="41" y1="47" x2="29" y2="52" /><line x1="40" y1="44" x2="23" y2="44" /><line x1="41" y1="41" x2="29" y2="36" /><line x1="44" y1="37" x2="38" y2="30" />
+  </g>
+  <g fill="#1f140e">
+    <ellipse cx="66" cy="44" rx="1.4" ry="0.8" transform="rotate(90, 66, 44)" /><ellipse cx="64" cy="49" rx="1.4" ry="0.8" transform="rotate(65, 64, 49)" /><ellipse cx="58" cy="53" rx="1.4" ry="0.8" transform="rotate(35, 58, 53)" /><ellipse cx="50" cy="54.5" rx="1.4" ry="0.8" />
+    <ellipse cx="42" cy="53" rx="1.4" ry="0.8" transform="rotate(-35, 42, 53)" /><ellipse cx="36" cy="49" rx="1.4" ry="0.8" transform="rotate(-65, 36, 49)" /><ellipse cx="34" cy="44" rx="1.4" ry="0.8" transform="rotate(90, 34, 44)" /><ellipse cx="36" cy="39" rx="1.4" ry="0.8" transform="rotate(65, 36, 39)" />
+    <ellipse cx="42" cy="35" rx="1.4" ry="0.8" transform="rotate(35, 42, 35)" /><ellipse cx="50" cy="33.5" rx="1.4" ry="0.8" /><ellipse cx="58" cy="35" rx="1.4" ry="0.8" transform="rotate(-35, 58, 35)" /><ellipse cx="64" cy="39" rx="1.4" ry="0.8" transform="rotate(-65, 64, 39)" />
+  </g>
+  <ellipse cx="50" cy="44" rx="10" ry="6.2" fill="url(#kiwiCore)" />
+  <g fill="#ffffff" opacity="0.75">
+    <circle cx="68" cy="40" r="1.1" /><circle cx="61" cy="34" r="0.8" /><circle cx="34" cy="38" r="0.9" /><circle cx="67" cy="48" r="1" /><circle cx="45" cy="56" r="0.8" /><circle cx="28" cy="44" r="0.9" />
+    <ellipse cx="48" cy="42" rx="4.5" ry="1.8" transform="rotate(-8, 48, 42)" fill="#ffffff" opacity="0.6" />
+  </g>
+</svg>`;
+  const FRUIT_SVG = [CHERRY_SVG, ORANGE_SVG, KIWI_SVG, LEMON_SVG, null, null, null];  // index = color slot
 
   // ---- state ----
   let grid;                    // grid[r][c] = colorIndex | -1 (empty) | BRICK
