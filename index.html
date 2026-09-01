@@ -304,7 +304,8 @@
     let frontier = seedsAround(r0, c0, R, color, visited).map(([r, c]) => ({ r, c, mode: "color", color }));
     flashBox(r0, c0, R, color);   // flash the whole burst box (feedback even on a miss)
 
-    let popped = 0;
+    let popped = 0;          // total pops this tap (for score)
+    let chainPopped = 0;     // only your own color-chain pops (for item generation)
     const hitBricks = new Set();   // bricks adjacent to a pop this burst -> chip 1 HP
     function step() {
       if (!frontier.length) {
@@ -317,7 +318,7 @@
           if (hp[br][bc] <= 0) { grid[br][bc] = -1; special[br][bc] = null; burst(br, bc, "#9aa0b5"); broke++; }
         });
         if (broke) score += broke * 15;
-        finishBurst(r0, c0, color, popped);
+        finishBurst(r0, c0, color, popped, chainPopped);
         return;
       }
       const next = [];
@@ -328,6 +329,7 @@
         const vis = cellColor < 0 ? it.color : cellColor;
         grid[r][c] = -1; special[r][c] = null;
         popped++;
+        if (mode === "color") chainPopped++;   // items only reward your own matching
         burst(r, c, vis);
         glow[r][c] = { c: vis, t: 1 };
 
@@ -504,7 +506,7 @@
       }
   }
 
-  function finishBurst(r0, c0, color, popped) {
+  function finishBurst(r0, c0, color, popped, chainPopped) {
     if (popped > 0) {
       grid[r0][c0] = -1;                 // success -> placed ball is consumed cleanly
       burst(r0, c0, color);
@@ -516,18 +518,18 @@
       showCombo(popped, gained, mult);
       addShake(Math.min(12, popped * 0.7));   // bigger pop -> bigger jolt
 
-      // reward: a big burst leaves an item bud where you tapped (bigger = better)
+      // reward: item tier from YOUR color chain only (chainPopped), not item cascades
       let itemMsg = "";
-      if (popped >= STAR_THRESHOLD) {
+      if (chainPopped >= STAR_THRESHOLD) {
         grid[r0][c0] = color; special[r0][c0] = "star";
         itemMsg = "🌟 별 봉오리! 같은 색을 별자리로 이어 팡!";
-      } else if (popped >= BOMB_THRESHOLD) {
+      } else if (chainPopped >= BOMB_THRESHOLD) {
         grid[r0][c0] = color; special[r0][c0] = "bomb";
         itemMsg = "💣 폭탄 봉오리! 터지면 주변 5×5 대폭발";
-      } else if (popped >= LINE_THRESHOLD) {
+      } else if (chainPopped >= LINE_THRESHOLD) {
         grid[r0][c0] = color; special[r0][c0] = randInt(2) ? "lineH" : "lineV";
         itemMsg = "↔️ 라인 봉오리! 터지면 한 줄을 청소";
-      } else if (popped >= BIRD_THRESHOLD) {
+      } else if (chainPopped >= BIRD_THRESHOLD) {
         if (spawnBird(r0, c0)) itemMsg = "🐦 참새가 쓰레기 과일을 쪼아 먹어요!";
       }
       if (itemMsg) { burst(r0, c0, color); document.getElementById("hint").textContent = itemMsg; }
@@ -831,23 +833,23 @@
 
     // line-clear waves — a ripple rolls out from the item along the row/col
     for (let i = waves.length - 1; i >= 0; i--) {
-      const w = waves[i]; w.t += 0.045;
+      const w = waves[i]; w.t += 0.024;            // slower roll
       if (w.t >= 1) { waves.splice(i, 1); continue; }
-      const front = w.t * (N + 2);                 // wave front distance from origin
+      const front = w.t * (N + 3);                 // wave front distance from origin
       ctx.save();
       ctx.fillStyle = COLORS[w.color] || "#fff";
       for (let k = 0; k < N; k++) {
         const dist = Math.abs(k - w.origin);
         const behind = front - dist;               // how long since front passed this cell
         if (behind <= 0) continue;
-        const amp = Math.max(0, 1 - behind * 0.35); // fade out behind the front
+        const amp = Math.max(0, 1 - behind * 0.26); // longer wave train
         if (amp <= 0) continue;
-        const off = Math.sin(behind * 2.2) * cell * 0.3 * amp;  // perpendicular ripple
+        const off = Math.sin(behind * 1.5) * cell * 0.45 * amp;  // taller, longer ripple
         let x, y;
         if (w.type === "h") { const p = cellCenter(w.fixed, k); x = p[0]; y = p[1] + off; }
         else                { const p = cellCenter(k, w.fixed); x = p[0] + off; y = p[1]; }
         ctx.globalAlpha = amp * 0.85;
-        ctx.beginPath(); ctx.arc(x, y, cell * 0.34 * amp, 0, PI2); ctx.fill();
+        ctx.beginPath(); ctx.arc(x, y, cell * 0.36 * amp, 0, PI2); ctx.fill();
       }
       ctx.restore();
     }
