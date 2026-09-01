@@ -568,6 +568,85 @@
   </g>
 </svg>`;
 
+  // brick HP states: 3 = full, 2 = damaged, 1 = nearly broken
+  const BRICK3_SVG = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" width="100%" height="100%">
+  <defs>
+    <linearGradient id="mortarGrad" x1="0%" y1="0%" x2="0%" y2="100%"><stop offset="0%" stop-color="#2d3142" /><stop offset="100%" stop-color="#1b1d28" /></linearGradient>
+    <linearGradient id="brickMain" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" stop-color="#e27158" /><stop offset="40%" stop-color="#c84c31" /><stop offset="85%" stop-color="#932b17" /><stop offset="100%" stop-color="#6a1b0c" /></linearGradient>
+    <linearGradient id="brickAlt" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" stop-color="#d9654c" /><stop offset="40%" stop-color="#b84026" /><stop offset="85%" stop-color="#802210" /><stop offset="100%" stop-color="#551205" /></linearGradient>
+    <linearGradient id="bevelTop" x1="0%" y1="0%" x2="0%" y2="100%"><stop offset="0%" stop-color="#f89e86" /><stop offset="100%" stop-color="#d95a3f" /></linearGradient>
+    <linearGradient id="bevelBottom" x1="0%" y1="0%" x2="0%" y2="100%"><stop offset="0%" stop-color="#601607" /><stop offset="100%" stop-color="#3d0a00" /></linearGradient>
+  </defs>
+  <rect width="100" height="100" fill="url(#mortarGrad)" />
+  <g>
+    <g transform="translate(0, 0)"><rect x="0" y="0" width="47" height="22" fill="url(#brickMain)" /><polygon points="0,0 47,0 45,2 2,2 2,20 0,22" fill="url(#bevelTop)" /><polygon points="47,0 47,22 0,22 2,20 45,20 45,2" fill="url(#bevelBottom)" /></g>
+    <g transform="translate(51, 0)"><rect x="0" y="0" width="49" height="22" fill="url(#brickAlt)" /><polygon points="0,0 49,0 47,2 2,2 2,20 0,22" fill="url(#bevelTop)" /><polygon points="49,0 49,22 0,22 2,20 47,20 47,2" fill="url(#bevelBottom)" /></g>
+    <g transform="translate(0, 26)"><rect x="0" y="0" width="22" height="22" fill="url(#brickAlt)" /><polygon points="0,0 22,0 20,2 2,2 2,20 0,22" fill="url(#bevelTop)" /><polygon points="22,0 22,22 0,22 2,20 20,20 20,2" fill="url(#bevelBottom)" /></g>
+    <g transform="translate(26, 26)"><rect x="0" y="0" width="48" height="22" fill="url(#brickMain)" /><polygon points="0,0 48,0 46,2 2,2 2,20 0,22" fill="url(#bevelTop)" /><polygon points="48,0 48,22 0,22 2,20 46,20 46,2" fill="url(#bevelBottom)" /></g>
+    <g transform="translate(78, 26)"><rect x="0" y="0" width="22" height="22" fill="url(#brickMain)" /><polygon points="0,0 22,0 20,2 2,2 2,20 0,22" fill="url(#bevelTop)" /><polygon points="22,0 22,22 0,22 2,20 20,20 20,2" fill="url(#bevelBottom)" /></g>
+    <g transform="translate(0, 52)"><rect x="0" y="0" width="47" height="22" fill="url(#brickMain)" /><polygon points="0,0 47,0 45,2 2,2 2,20 0,22" fill="url(#bevelTop)" /><polygon points="47,0 47,22 0,22 2,20 45,20 45,2" fill="url(#bevelBottom)" /></g>
+    <g transform="translate(51, 52)"><rect x="0" y="0" width="49" height="22" fill="url(#brickAlt)" /><polygon points="0,0 49,0 47,2 2,2 2,20 0,22" fill="url(#bevelTop)" /><polygon points="49,0 49,22 0,22 2,20 47,20 47,2" fill="url(#bevelBottom)" /></g>
+    <g transform="translate(0, 78)"><rect x="0" y="0" width="22" height="22" fill="url(#brickAlt)" /><polygon points="0,0 22,0 20,2 2,2 2,20 0,22" fill="url(#bevelTop)" /><polygon points="22,0 22,22 0,22 2,20 20,20 20,2" fill="url(#bevelBottom)" /></g>
+    <g transform="translate(26, 78)"><rect x="0" y="0" width="48" height="22" fill="url(#brickMain)" /><polygon points="0,0 48,0 46,2 2,2 2,20 0,22" fill="url(#bevelTop)" /><polygon points="48,0 48,22 0,22 2,20 46,20 46,2" fill="url(#bevelBottom)" /></g>
+    <g transform="translate(78, 78)"><rect x="0" y="0" width="22" height="22" fill="url(#brickMain)" /><polygon points="0,0 22,0 20,2 2,2 2,20 0,22" fill="url(#bevelTop)" /><polygon points="22,0 22,22 0,22 2,20 20,20 20,2" fill="url(#bevelBottom)" /></g>
+  </g>
+  <g fill="#551205" opacity="0.35"><circle cx="15" cy="10" r="0.8" /><circle cx="35" cy="15" r="0.6" /><circle cx="70" cy="8" r="0.9" /><circle cx="48" cy="38" r="0.8" /><circle cx="62" cy="34" r="0.7" /><circle cx="18" cy="62" r="0.8" /><circle cx="75" cy="65" r="0.9" /><circle cx="50" cy="88" r="0.8" /></g>
+</svg>`;
+
+  const BRICK2_SVG = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" width="100%" height="100%">
+  <defs>
+    <linearGradient id="mortarGrad2" x1="0%" y1="0%" x2="0%" y2="100%"><stop offset="0%" stop-color="#2d3142" /><stop offset="100%" stop-color="#1b1d28" /></linearGradient>
+    <linearGradient id="brickMain2" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" stop-color="#e27158" /><stop offset="40%" stop-color="#c84c31" /><stop offset="85%" stop-color="#932b17" /><stop offset="100%" stop-color="#6a1b0c" /></linearGradient>
+    <linearGradient id="brickAlt2" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" stop-color="#d9654c" /><stop offset="40%" stop-color="#b84026" /><stop offset="85%" stop-color="#802210" /><stop offset="100%" stop-color="#551205" /></linearGradient>
+    <linearGradient id="fractureClay" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" stop-color="#ff8c69" /><stop offset="50%" stop-color="#ab321c" /><stop offset="100%" stop-color="#4a0e05" /></linearGradient>
+  </defs>
+  <rect width="100" height="100" fill="url(#mortarGrad2)" />
+  <g>
+    <rect x="0" y="0" width="47" height="22" fill="url(#brickMain2)" /><rect x="51" y="0" width="49" height="22" fill="url(#brickAlt2)" />
+    <rect x="0" y="26" width="22" height="22" fill="url(#brickAlt2)" />
+    <path d="M 26 26 L 74 26 L 74 48 L 56 48 L 52 42 L 48 48 L 26 48 Z" fill="url(#brickMain2)" />
+    <rect x="78" y="26" width="22" height="22" fill="url(#brickMain2)" />
+    <path d="M 0 52 L 47 52 L 44 60 L 48 68 L 47 74 L 0 74 Z" fill="url(#brickMain2)" />
+    <path d="M 51 52 L 53 58 L 50 66 L 54 74 L 100 74 L 100 52 Z" fill="url(#brickAlt2)" />
+    <rect x="0" y="78" width="22" height="22" fill="url(#brickAlt2)" /><rect x="26" y="78" width="48" height="22" fill="url(#brickMain2)" /><rect x="78" y="78" width="22" height="22" fill="url(#brickMain2)" />
+  </g>
+  <polygon points="46,38 56,36 60,46 52,58 42,54 40,44" fill="url(#fractureClay)" /><polygon points="48,42 54,40 56,48 50,54 44,50" fill="#1b1d28" />
+  <g stroke="#1b1d28" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M 50 14 L 48 26 L 54 36 L 46 44 L 52 58 L 47 74 L 52 86" stroke-width="2.2" fill="none" />
+    <path d="M 48 26 L 38 20 L 32 26" stroke-width="1.2" fill="none" /><path d="M 54 36 L 66 32 L 72 38" stroke-width="1.4" fill="none" /><path d="M 46 44 L 34 50 L 28 46" stroke-width="1.3" fill="none" /><path d="M 52 58 L 64 64 L 70 60" stroke-width="1.4" fill="none" /><path d="M 47 74 L 38 82 L 32 80" stroke-width="1.2" fill="none" />
+  </g>
+  <g stroke="#f89e86" stroke-width="0.8" fill="none" opacity="0.8"><path d="M 49 15 L 47 27 L 53 37" /><path d="M 55 37 L 67 33" /><path d="M 45 45 L 33 51" /><path d="M 53 59 L 65 65" /><path d="M 48 75 L 53 87" /></g>
+  <g fill="#c84c31" stroke="#3d0a00" stroke-width="0.5"><polygon points="48,50 51,48 50,53" /><polygon points="56,52 59,50 58,55" /><polygon points="42,60 45,58 44,63" /><circle cx="53" cy="62" r="1.2" fill="#d95a3f" /><circle cx="47" cy="68" r="0.9" fill="#ff8c69" /></g>
+</svg>`;
+
+  const BRICK1_SVG = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" width="100%" height="100%">
+  <defs>
+    <linearGradient id="mortarDark3" x1="0%" y1="0%" x2="0%" y2="100%"><stop offset="0%" stop-color="#1b1d28" /><stop offset="100%" stop-color="#0a0b10" /></linearGradient>
+    <linearGradient id="brickMain3" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" stop-color="#e27158" /><stop offset="40%" stop-color="#c84c31" /><stop offset="85%" stop-color="#932b17" /><stop offset="100%" stop-color="#6a1b0c" /></linearGradient>
+    <linearGradient id="brickAlt3" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" stop-color="#d9654c" /><stop offset="40%" stop-color="#b84026" /><stop offset="85%" stop-color="#802210" /><stop offset="100%" stop-color="#551205" /></linearGradient>
+    <linearGradient id="holeDepth" x1="0%" y1="0%" x2="0%" y2="100%"><stop offset="0%" stop-color="#000000" /><stop offset="100%" stop-color="#141722" /></linearGradient>
+    <linearGradient id="rubbleGrad" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" stop-color="#f48c71" /><stop offset="60%" stop-color="#b84026" /><stop offset="100%" stop-color="#4a0e05" /></linearGradient>
+  </defs>
+  <rect width="100" height="100" fill="url(#mortarDark3)" />
+  <g>
+    <polygon points="0,0 42,0 36,18 20,22 0,22" fill="url(#brickMain3)" /><polygon points="58,0 100,0 100,22 76,22 62,12" fill="url(#brickAlt3)" />
+    <polygon points="0,26 22,26 18,48 0,48" fill="url(#brickAlt3)" /><polygon points="0,52 24,52 16,74 0,74" fill="url(#brickMain3)" />
+    <polygon points="78,26 100,26 100,48 84,48 80,36" fill="url(#brickMain3)" /><polygon points="82,52 100,52 100,74 76,74 78,60" fill="url(#brickAlt3)" />
+    <polygon points="0,78 26,78 30,100 0,100" fill="url(#brickAlt3)" /><polygon points="74,78 100,78 100,100 68,100" fill="url(#brickMain3)" />
+  </g>
+  <polygon points="26,24 48,16 66,20 78,34 72,58 76,76 56,84 34,80 20,64 24,40" fill="url(#holeDepth)" stroke="#0a0b10" stroke-width="2" />
+  <g stroke="#000000" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M 0 12 L 20 18 L 26 24" stroke-width="2.5" fill="none" /><path d="M 100 10 L 80 16 L 66 20" stroke-width="2.5" fill="none" /><path d="M 48 0 L 48 16" stroke-width="2.2" fill="none" /><path d="M 0 60 L 16 62 L 20 64" stroke-width="2.5" fill="none" /><path d="M 100 62 L 84 66 L 76 76" stroke-width="2.5" fill="none" /><path d="M 44 100 L 48 88 L 56 84" stroke-width="2.5" fill="none" />
+  </g>
+  <g>
+    <polygon points="30,34 44,30 40,46 26,44" transform="rotate(-15, 35, 38)" fill="url(#rubbleGrad)" stroke="#3d0a00" stroke-width="0.8" />
+    <polygon points="56,36 70,38 66,52 52,48" transform="rotate(22, 61, 44)" fill="url(#rubbleGrad)" stroke="#3d0a00" stroke-width="0.8" />
+    <polygon points="40,58 58,56 54,72 38,70" transform="rotate(-8, 48, 64)" fill="url(#rubbleGrad)" stroke="#3d0a00" stroke-width="0.8" />
+    <polygon points="48,22 55,20 52,28" fill="#e27158" stroke="#3d0a00" stroke-width="0.6" /><polygon points="22,50 28,47 26,56" fill="#c84c31" stroke="#3d0a00" stroke-width="0.6" /><polygon points="72,62 78,58 75,68" fill="#e27158" stroke="#3d0a00" stroke-width="0.6" /><polygon points="34,76 42,72 38,82" fill="#c84c31" stroke="#3d0a00" stroke-width="0.6" /><polygon points="62,74 68,70 66,79" fill="#932b17" stroke="#3d0a00" stroke-width="0.6" />
+  </g>
+  <g fill="#f89e86" opacity="0.9"><circle cx="38" cy="26" r="1.5" /><circle cx="62" cy="28" r="1.3" /><circle cx="50" cy="40" r="1.8" /><circle cx="34" cy="54" r="1.2" /><circle cx="65" cy="56" r="1.6" /><circle cx="46" cy="74" r="1.4" /><circle cx="58" cy="66" r="1.2" /><circle cx="28" cy="38" r="0.9" /><circle cx="74" cy="46" r="1" /></g>
+</svg>`;
+
   // ---- state ----
   let grid;                    // grid[r][c] = colorIndex | -1 (empty) | BRICK
   let nextColor;
@@ -589,6 +668,7 @@
   let bombImg = null;         // loaded bomb SVG image for the bomb item
   let lineImg = null;         // loaded line (double-arrow) SVG image
   let starImg = null;         // loaded star SVG image
+  const brickImg = [];        // brickImg[hp] = SVG image (1..3)
   let glow;                    // glow[r][c] = {c: colorIdx, t: 0..1}
   let special;                 // special[r][c] = null | "bomb" | "lineH" | "lineV" | "star"
   let hp;                      // hp[r][c] = brick health (only when grid === BRICK)
@@ -1147,6 +1227,12 @@
     starImg = new Image();
     starImg.onload = () => { dirty = true; };
     starImg.src = svgDataURL(STAR_SVG);
+    [[1, BRICK1_SVG], [2, BRICK2_SVG], [3, BRICK3_SVG]].forEach(([hpv, svg]) => {
+      const im = new Image();
+      im.onload = () => { dirty = true; };
+      im.src = svgDataURL(svg);
+      brickImg[hpv] = im;
+    });
   }
   const birdReady = () => birdImg && birdImg.complete && birdImg.naturalWidth;
   const bombReady = () => bombImg && bombImg.complete && bombImg.naturalWidth;
@@ -1290,23 +1376,20 @@
           appear[r][c] = Math.max(0, a - 0.09);
         }
 
-        // brick (wall) — chipped by adjacent pops, destroyed instantly by items
+        // brick (wall) — art swaps by HP: 3 full, 2 damaged, 1 nearly broken
         if (grid[r][c] === BRICK) {
-          ctx.save();
+          const h = Math.max(1, Math.min(3, hp[r][c]));
+          const bim = brickImg[h];
+          const S = cell * apScale;
           const cxb = x + cell/2, cyb = y + cell/2;
-          ctx.translate(cxb, cyb); ctx.scale(apScale, apScale); ctx.translate(-cxb, -cyb);
-          const h = hp[r][c];                          // remaining HP (1..3)
-          ctx.fillStyle = h >= 3 ? "#5b6178" : h === 2 ? "#6a5a52" : "#7a4a4a";
-          roundRect(x + g, y + g, cell - g*2, cell - g*2, cell*0.16); ctx.fill();
-          ctx.strokeStyle = "#33384a"; ctx.lineWidth = cell*0.05;
-          const m = cell*0.5;
-          ctx.beginPath(); ctx.moveTo(x+g, y+m); ctx.lineTo(x+cell-g, y+m); // brick seams
-          ctx.moveTo(x+m, y+g); ctx.lineTo(x+m, y+m); ctx.stroke();
-          ctx.fillStyle = "#e8eaf2";                    // remaining HP number
-          ctx.font = `bold ${cell*0.32}px sans-serif`;
-          ctx.textAlign = "center"; ctx.textBaseline = "middle";
-          ctx.fillText(hp[r][c], x + cell/2, y + cell*0.5 + cell*0.02);
-          ctx.restore();
+          if (bim && bim.complete && bim.naturalWidth) {
+            ctx.drawImage(bim, cxb - S/2, cyb - S/2, S, S);
+          } else {                                       // fallback gray block
+            ctx.save();
+            ctx.fillStyle = h >= 3 ? "#5b6178" : h === 2 ? "#6a5a52" : "#7a4a4a";
+            roundRect(x + g, y + g, cell - g*2, cell - g*2, cell*0.16); ctx.fill();
+            ctx.restore();
+          }
           continue;
         }
 
