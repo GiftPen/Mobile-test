@@ -435,6 +435,47 @@
   // PEACH_SVG is benched (not in the active 7) — see chat: peach's pink clashes with cherry's red
   const FRUIT_SVG = [CHERRY_SVG, ORANGE_SVG, KIWI_SVG, LEMON_SVG, GRAPE_SVG, PEAR_SVG, BANANA_SVG];  // index = color slot
 
+  // ---- item art (SVG). the bird (참새) faces left by default ----
+  const SPARROW_SVG = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" width="100%" height="100%">
+  <defs>
+    <linearGradient id="sparrowCrown" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" stop-color="#b06c3b" /><stop offset="50%" stop-color="#7f431e" /><stop offset="100%" stop-color="#4a240d" /></linearGradient>
+    <radialGradient id="sparrowBelly" cx="38%" cy="40%" r="65%"><stop offset="0%" stop-color="#ffffff" /><stop offset="40%" stop-color="#f5ebe0" /><stop offset="75%" stop-color="#ddbea9" /><stop offset="100%" stop-color="#b79479" /></radialGradient>
+    <linearGradient id="sparrowWing" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" stop-color="#d4a373" /><stop offset="45%" stop-color="#935728" /><stop offset="85%" stop-color="#582f0e" /><stop offset="100%" stop-color="#331800" /></linearGradient>
+    <linearGradient id="sparrowTail" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" stop-color="#6f3e1b" /><stop offset="100%" stop-color="#2a1205" /></linearGradient>
+    <linearGradient id="sparrowBeak" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" stop-color="#ffb703" /><stop offset="60%" stop-color="#fb8500" /><stop offset="100%" stop-color="#d00000" /></linearGradient>
+    <linearGradient id="sparrowFeet" x1="0%" y1="0%" x2="0%" y2="100%"><stop offset="0%" stop-color="#fb8500" /><stop offset="100%" stop-color="#b7094c" /></linearGradient>
+  </defs>
+  <g>
+    <g><path d="M 66 56 L 84 65 L 81 70 L 64 62 Z" fill="url(#sparrowTail)" /><path d="M 64 60 L 82 72 L 78 75 L 62 65 Z" fill="#2a1205" /></g>
+    <g stroke="url(#sparrowFeet)" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" fill="none">
+      <path d="M 42 76 L 41 84 M 41 84 L 36 86 M 41 84 L 41 87 M 41 84 L 45 86" /><path d="M 52 75 L 51 84 M 51 84 L 46 86 M 51 84 L 51 87 M 51 84 L 55 86" />
+    </g>
+    <path d="M 31 34 C 30 24, 38 18, 48 19 C 60 20, 68 28, 72 44 C 74 54, 70 66, 58 76 C 46 79, 32 72, 28 58 C 26 48, 28 38, 31 34 Z" fill="url(#sparrowCrown)" />
+    <path d="M 31 34 C 35 34, 44 38, 48 46 C 50 56, 48 68, 54 74 C 44 78, 32 70, 29 56 C 27 46, 28 38, 31 34 Z" fill="url(#sparrowBelly)" />
+    <path d="M 28 42 C 30 46, 33 50, 36 52 C 34 46, 33 42, 31 39 Z" fill="#1c1008" />
+    <ellipse cx="41" cy="42" rx="3.5" ry="4.5" transform="rotate(20, 41, 42)" fill="#1c1008" />
+    <g>
+      <path d="M 46 36 C 58 33, 70 40, 74 52 C 76 62, 70 68, 58 66 C 48 64, 44 48, 46 36 Z" fill="url(#sparrowWing)" />
+      <path d="M 50 43 C 55 42, 63 45, 68 50" fill="none" stroke="#ffffff" stroke-width="2" stroke-linecap="round" opacity="0.9" />
+      <path d="M 52 47 C 56 46, 62 49, 66 53" fill="none" stroke="#1c1008" stroke-width="1.2" stroke-linecap="round" opacity="0.8" />
+      <path d="M 56 56 C 62 55, 68 59, 72 63" fill="none" stroke="#2b1406" stroke-width="1.6" stroke-linecap="round" />
+      <path d="M 50 53 C 55 53, 60 57, 63 61" fill="none" stroke="#2b1406" stroke-width="1.6" stroke-linecap="round" />
+    </g>
+    <g>
+      <polygon points="18,37 31,31 30,42" fill="url(#sparrowBeak)" />
+      <line x1="18" y1="37" x2="30" y2="37" stroke="#4a1800" stroke-width="0.8" />
+      <polygon points="21,36.5 29,33 29,36.5" fill="#ffffff" opacity="0.45" />
+    </g>
+    <g>
+      <circle cx="34" cy="28" r="4.2" fill="#1c1008" /><circle cx="32.8" cy="26.6" r="1.5" fill="#ffffff" /><circle cx="35.5" cy="29.5" r="0.7" fill="#ffffff" opacity="0.85" />
+    </g>
+    <g>
+      <path d="M 37 22 C 43 20, 52 21, 57 25 C 51 22.5, 43 22, 37 22 Z" fill="#ffffff" opacity="0.65" /><circle cx="44" cy="21.5" r="1.2" fill="#ffffff" opacity="0.8" />
+      <path d="M 33 62 C 38 71, 46 75, 52 74 C 45 74, 38 70, 33 62 Z" fill="#ffffff" opacity="0.5" />
+    </g>
+  </g>
+</svg>`;
+
   // ---- state ----
   let grid;                    // grid[r][c] = colorIndex | -1 (empty) | BRICK
   let nextColor;
@@ -452,6 +493,7 @@
   let dirty = true;           // redraw needed; when idle we skip drawing to save battery/heat
   const fruitImg = [];        // loaded SVG Images per color slot
   let fruitSprite = [];       // pre-rendered offscreen canvases (sprite cache) per color slot
+  let birdImg = null;         // loaded sparrow (참새) SVG image for the bird item
   let glow;                    // glow[r][c] = {c: colorIdx, t: 0..1}
   let special;                 // special[r][c] = null | "bomb" | "lineH" | "lineV" | "star"
   let hp;                      // hp[r][c] = brick health (only when grid === BRICK)
@@ -998,7 +1040,11 @@
       img.src = svgDataURL(FRUIT_SVG[i]);
       fruitImg[i] = img;
     }
+    birdImg = new Image();
+    birdImg.onload = () => { dirty = true; };
+    birdImg.src = svgDataURL(SPARROW_SVG);
   }
+  const birdReady = () => birdImg && birdImg.complete && birdImg.naturalWidth;
   function buildFruitSprite(i) {
     const img = fruitImg[i];
     if (!img || !img.complete || !img.naturalWidth || !cell) return;
@@ -1163,11 +1209,9 @@
           const cx = x + cell/2, cy = y + cell/2, rad = cell*0.34 * apScale;
           const sp = special[r][c];
           if (sp === "bird") {           // bird item = just a bird, no fruit under it
-            ctx.save();
-            ctx.font = `${cell * 0.62 * apScale}px serif`;
-            ctx.textAlign = "center"; ctx.textBaseline = "middle";
-            ctx.fillText("🐦", cx, cy);
-            ctx.restore();
+            const S = cell * apScale;
+            if (birdReady()) ctx.drawImage(birdImg, cx - S/2, cy - S/2, S, S);
+            else { ctx.save(); ctx.font = `${cell*0.62*apScale}px serif`; ctx.textAlign="center"; ctx.textBaseline="middle"; ctx.fillText("🐦", cx, cy); ctx.restore(); }
             continue;
           }
           ctx.save();
@@ -1321,13 +1365,17 @@
       const bank = Math.max(-0.5, Math.min(0.5, (p1[1] - p0[1]) * 0.04));
       ctx.save();
       ctx.translate(x, y);
-      ctx.scale(faceRight ? -1 : 1, 1);          // 🐦 faces left by default -> flip when going right
+      ctx.scale(faceRight ? -1 : 1, 1);          // sparrow faces left by default -> flip when going right
       ctx.rotate((faceRight ? -1 : 1) * bank);
-      ctx.font = `${cell * 0.62}px serif`;
-      ctx.textAlign = "center"; ctx.textBaseline = "middle";
-      ctx.globalAlpha = 0.22; ctx.fillText("🐦", cell * 0.28, 0);   // whoosh trail
-      ctx.globalAlpha = 0.45; ctx.fillText("🐦", cell * 0.14, 0);
-      ctx.globalAlpha = 1;    ctx.fillText("🐦", 0, 0);
+      const S = cell * 0.9;
+      if (birdReady()) {
+        ctx.globalAlpha = 0.22; ctx.drawImage(birdImg, -S/2 + cell*0.26, -S/2, S, S);  // whoosh trail
+        ctx.globalAlpha = 0.45; ctx.drawImage(birdImg, -S/2 + cell*0.13, -S/2, S, S);
+        ctx.globalAlpha = 1;    ctx.drawImage(birdImg, -S/2, -S/2, S, S);
+      } else {
+        ctx.font = `${cell * 0.62}px serif`; ctx.textAlign = "center"; ctx.textBaseline = "middle";
+        ctx.globalAlpha = 1; ctx.fillText("🐦", 0, 0);
+      }
       ctx.restore();
       if (f.t >= 1) {
         if (grid[f.tr][f.tc] !== -1) {           // eat the target fruit
