@@ -148,6 +148,43 @@
   const BRICK = -2;            // grid value for a brick (wall; only items can clear it)
   const BRICK_EVERY = 5;       // one brick spawns every N touches once unlocked
 
+  // ---- optional custom fruit art (SVG string). null = use built-in procedural drawing ----
+  const CHERRY_SVG = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" width="100%" height="100%">
+  <defs>
+    <radialGradient id="cherryLeft" cx="38%" cy="36%" r="62%">
+      <stop offset="0%" stop-color="#ff6b8b" /><stop offset="45%" stop-color="#d90429" />
+      <stop offset="85%" stop-color="#7a001e" /><stop offset="100%" stop-color="#400010" />
+    </radialGradient>
+    <radialGradient id="cherryRight" cx="38%" cy="36%" r="62%">
+      <stop offset="0%" stop-color="#ff758f" /><stop offset="45%" stop-color="#e60039" />
+      <stop offset="85%" stop-color="#8a0022" /><stop offset="100%" stop-color="#4a0012" />
+    </radialGradient>
+    <linearGradient id="stemGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#aacc00" /><stop offset="50%" stop-color="#55a630" /><stop offset="100%" stop-color="#2b580c" />
+    </linearGradient>
+    <linearGradient id="leafGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#c7f9cc" /><stop offset="30%" stop-color="#57cc99" /><stop offset="80%" stop-color="#22577a" /><stop offset="100%" stop-color="#1b4332" />
+    </linearGradient>
+    <linearGradient id="dimpleShade" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#30000a" stop-opacity="0.8" /><stop offset="100%" stop-color="#30000a" stop-opacity="0" />
+    </linearGradient>
+  </defs>
+  <path d="M 37 56 C 35 38, 42 24, 49 16" fill="none" stroke="url(#stemGrad)" stroke-width="2.6" stroke-linecap="round" />
+  <path d="M 64 57 C 65 38, 56 23, 49 16" fill="none" stroke="url(#stemGrad)" stroke-width="2.6" stroke-linecap="round" />
+  <circle cx="49" cy="16" r="2.2" fill="#55a630" />
+  <path d="M 49 16 C 58 10, 74 12, 80 20 C 74 27, 58 26, 49 16 Z" fill="url(#leafGrad)" />
+  <path d="M 49 16 Q 64 19 78 20" fill="none" stroke="#80ed99" stroke-width="0.8" stroke-linecap="round" opacity="0.8" />
+  <g><circle cx="36" cy="67" r="16" fill="url(#cherryLeft)" />
+    <ellipse cx="37" cy="54" rx="4.5" ry="2" fill="url(#dimpleShade)" />
+    <path d="M 28 59 C 26 62, 26 68, 29 72 C 27 68, 27 63, 30 58 C 31 56, 30 56, 28 59 Z" fill="#ffffff" opacity="0.6" />
+    <circle cx="33" cy="58" r="1.8" fill="#ffffff" opacity="0.75" /></g>
+  <g><circle cx="64" cy="69" r="17.5" fill="url(#cherryRight)" />
+    <ellipse cx="64" cy="55" rx="5" ry="2.2" fill="url(#dimpleShade)" />
+    <path d="M 55 60 C 53 64, 53 71, 56 75 C 54 71, 54 65, 57 60 C 58 57, 57 57, 55 60 Z" fill="#ffffff" opacity="0.65" />
+    <circle cx="61" cy="59" r="2" fill="#ffffff" opacity="0.8" /></g>
+</svg>`;
+  const FRUIT_SVG = [CHERRY_SVG, null, null, null, null, null, null];  // index = color slot
+
   // ---- state ----
   let grid;                    // grid[r][c] = colorIndex | -1 (empty) | BRICK
   let nextColor;
@@ -163,6 +200,8 @@
   let shake = 0;              // screen-shake magnitude
   let flash = 0;              // white screen flash (0..1) for the star 팡
   let dirty = true;           // redraw needed; when idle we skip drawing to save battery/heat
+  const fruitImg = [];        // loaded SVG Images per color slot
+  let fruitSprite = [];       // pre-rendered offscreen canvases (sprite cache) per color slot
   let glow;                    // glow[r][c] = {c: colorIdx, t: 0..1}
   let special;                 // special[r][c] = null | "bomb" | "lineH" | "lineV" | "star"
   let hp;                      // hp[r][c] = brick health (only when grid === BRICK)
@@ -185,6 +224,7 @@
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
     pad = boardPx * 0.02;
     cell = (boardPx - pad * 2) / N;
+    rebuildSprites();   // re-cache art at the new cell size
   }
   window.addEventListener("resize", layout);
 
@@ -675,6 +715,30 @@
     ctx.restore();
   }
 
+  // ---- custom SVG art -> sprite cache (also the perf win: rasterize once, drawImage after) ----
+  function svgDataURL(svg) {
+    return "data:image/svg+xml," + encodeURIComponent(svg.replace('width="100%" height="100%"', 'width="256" height="256"'));
+  }
+  function loadFruitArt() {
+    for (let i = 0; i < FRUIT_SVG.length; i++) {
+      if (!FRUIT_SVG[i]) continue;
+      const img = new Image();
+      img.onload = () => { buildFruitSprite(i); dirty = true; };
+      img.src = svgDataURL(FRUIT_SVG[i]);
+      fruitImg[i] = img;
+    }
+  }
+  function buildFruitSprite(i) {
+    const img = fruitImg[i];
+    if (!img || !img.complete || !img.naturalWidth || !cell) return;
+    const S = Math.max(1, Math.round(cell * dpr));
+    const cv = document.createElement("canvas");
+    cv.width = S; cv.height = S;
+    cv.getContext("2d").drawImage(img, 0, 0, S, S);
+    fruitSprite[i] = cv;
+  }
+  function rebuildSprites() { for (let i = 0; i < FRUIT_SVG.length; i++) buildFruitSprite(i); }
+
   function drawFruit(kind, cx, cy, rad) {
     const col = COLORS[kind] || "#fff";
     ctx.save();
@@ -828,7 +892,12 @@
             continue;
           }
           ctx.save();
-          drawFruit(v, cx, cy, rad);
+          if (fruitSprite[v]) {                      // custom SVG art (sprite-cached)
+            const S = cell * apScale;
+            ctx.drawImage(fruitSprite[v], cx - S/2, cy - S/2, S, S);
+          } else {
+            drawFruit(v, cx, cy, rad);
+          }
           if (sp === "bomb") {
             // bold white ring + dark core so it reads as "charged"
             ctx.lineWidth = cell*0.09; ctx.strokeStyle = "#fff";
@@ -1024,6 +1093,7 @@
 
   layout();
   emptyGrid();      // init grid/glow so the render loop is safe before "시작하기"
+  loadFruitArt();   // load custom SVG art -> sprite cache
   updateHUD();
   requestAnimationFrame(draw);
 })();
