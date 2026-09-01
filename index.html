@@ -802,31 +802,35 @@
       ctx.restore();
     }
 
-    // line-clear beams (bright bar across the row/col)
+    // line-clear beams (bright bar across the row/col) — lingers so it's readable
     for (let i = beams.length - 1; i >= 0; i--) {
-      const b = beams[i]; b.t += 0.08;
+      const b = beams[i]; b.t += 0.035;
       if (b.t >= 1) { beams.splice(i, 1); continue; }
+      const hold = b.t < 0.4 ? 1 : (1 - b.t) / 0.6;   // full, then fade
       ctx.save();
-      ctx.globalAlpha = (1 - b.t) * 0.55;
+      ctx.globalAlpha = hold * 0.6;
       ctx.fillStyle = COLORS[b.color] || "#fff";
       if (b.type === "h") ctx.fillRect(pad, pad + b.idx * cell, boardPx - pad*2, cell);
       else                ctx.fillRect(pad + b.idx * cell, pad, cell, boardPx - pad*2);
       ctx.restore();
     }
 
-    // item flares (fruit silhouette grows and bursts + shockwave ring)
+    // item flares — fruit silhouette pops to full fast, HOLDS, then fades; ring expands out
     for (let i = flares.length - 1; i >= 0; i--) {
-      const fl = flares[i]; fl.t += 0.06;
+      const fl = flares[i]; fl.t += 0.025;
       if (fl.t >= 1) { flares.splice(i, 1); continue; }
-      const e = fl.t * (2 - fl.t), fade = 1 - fl.t, rad = fl.maxR * e;
+      const grow = Math.min(1, fl.t * 2.4);            // reach full size by ~40%
+      const fruitR = fl.maxR * 0.6 * grow * (2 - grow);
+      const fade = fl.t < 0.45 ? 1 : (1 - fl.t) / 0.55; // hold bright, then fade
+      const ringR = fl.maxR * (fl.t * (2 - fl.t));     // shockwave keeps expanding
       ctx.save();
-      ctx.globalAlpha = fade * 0.5;
-      ctx.strokeStyle = COLORS[fl.kind] || "#fff"; ctx.lineWidth = cell * 0.12 * fade + 0.5;
-      ctx.beginPath(); ctx.arc(fl.cx, fl.cy, rad, 0, PI2); ctx.stroke();
+      ctx.globalAlpha = (1 - fl.t) * 0.5;
+      ctx.strokeStyle = COLORS[fl.kind] || "#fff"; ctx.lineWidth = cell * 0.14 * (1 - fl.t) + 0.5;
+      ctx.beginPath(); ctx.arc(fl.cx, fl.cy, ringR, 0, PI2); ctx.stroke();
       ctx.restore();
       ctx.save();
-      ctx.globalAlpha = fade * 0.85;
-      drawFruit(fl.kind, fl.cx, fl.cy, rad * 0.6);
+      ctx.globalAlpha = fade * 0.9;
+      drawFruit(fl.kind, fl.cx, fl.cy, fruitR);
       ctx.restore();
     }
 
