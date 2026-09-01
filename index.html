@@ -517,26 +517,28 @@
       grid[r0][c0] = -1;                 // success -> placed ball is consumed cleanly
       burst(r0, c0, color);
       streak++;
+      const cleared = popped + 1;            // include the ball you placed
+      const chainCount = chainPopped + 1;    // your color group size, inclusive
       const mult = Math.min(1 + (streak - 1) * 0.5, MAX_MULT);
-      const base = popped * 10 + (popped - 1) * (popped - 1) * 5;
+      const base = cleared * 10 + (cleared - 1) * (cleared - 1) * 5;
       const gained = Math.round(base * mult);
       score += gained;
-      showCombo(popped, gained, mult);
-      addShake(Math.min(12, popped * 0.7));   // bigger pop -> bigger jolt
+      showCombo(cleared, gained, mult);
+      addShake(Math.min(12, cleared * 0.7));   // bigger pop -> bigger jolt
 
-      // reward: item tier from YOUR color chain only (chainPopped), not item cascades
+      // reward: item tier from YOUR color group only (chainCount), not item cascades
       let itemMsg = "";
-      if (chainPopped >= STAR_THRESHOLD) {
+      if (chainCount >= STAR_THRESHOLD) {
         grid[r0][c0] = color; special[r0][c0] = "star";
         itemMsg = "🌟 별 봉오리! 같은 색을 별자리로 이어 팡!";
-      } else if (chainPopped >= BOMB_THRESHOLD) {
+      } else if (chainCount >= BOMB_THRESHOLD) {
         grid[r0][c0] = color; special[r0][c0] = "bomb";
         itemMsg = "💣 폭탄 봉오리! 터지면 주변 5×5 대폭발";
-      } else if (chainPopped >= LINE_THRESHOLD) {
+      } else if (chainCount >= LINE_THRESHOLD) {
         grid[r0][c0] = color; special[r0][c0] = randInt(2) ? "lineH" : "lineV";
         itemMsg = "↔️ 라인 봉오리! 터지면 한 줄을 청소";
-      } else if (chainPopped >= BIRD_THRESHOLD) {
-        if (spawnBird(r0, c0)) itemMsg = "🐦 참새가 쓰레기 과일을 쪼아 먹어요!";
+      } else if (chainCount >= BIRD_THRESHOLD) {
+        if (spawnBird(r0, c0)) itemMsg = "🐦 참새가 방해물/쓰레기를 쪼아 먹어요!";
       }
       if (itemMsg) { burst(r0, c0, color); document.getElementById("hint").textContent = itemMsg; }
     } else {
@@ -591,11 +593,9 @@
     }
   }
 
-  function showCombo(popped, gained, mult) {
-    if (popped < 2 && mult <= 1) return;
+  function showCombo(cleared, gained, mult) {
     const el = document.getElementById("combo");
-    const multTxt = mult > 1 ? ` x${mult}` : "";
-    el.textContent = `${popped} 연쇄${multTxt}  +${gained}`;
+    el.textContent = mult > 1 ? `COMBO ×${mult}   +${gained}` : `+${gained}`;
     el.style.color = "#fff";
     el.animate(
       [ {opacity:0, transform:"translate(-50%,-50%) scale(.6)"},
