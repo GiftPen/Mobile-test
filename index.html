@@ -159,6 +159,7 @@
   let birds = [];             // {sr,sc,tr,tc,t} bird flies to a junk fruit and eats it
   let flares = [];            // {cx,cy,kind,maxR,t} item explosion: growing fruit silhouette
   let beams = [];             // {type:'h'|'v', idx, color, t} line-clear flash
+  let links = [];             // {ox,oy,targets,t} rainbow energy lines fanning out
   let shake = 0;              // screen-shake magnitude
   let glow;                    // glow[r][c] = {c: colorIdx, t: 0..1}
   let special;                 // special[r][c] = null | "bomb" | "lineH" | "lineV" | "rainbow"
@@ -239,7 +240,7 @@
   // ---- game start ----
   function start() {
     emptyGrid();
-    score = 0; streak = 0; touchCount = 0; particles = []; birds = []; flares = []; beams = []; shake = 0;
+    score = 0; streak = 0; touchCount = 0; particles = []; birds = []; flares = []; beams = []; links = []; shake = 0;
     spawnBuds(START_BUDS);
     pickNext();
     updateHUD();
@@ -359,16 +360,20 @@
         } else if (sp === "rainbow") {           // COLOR BOMB: wipe the trigger color board-wide
           flashBox(r, c, R, cellColor);
           const [fx, fy] = cellCenter(r, c);
-          flares.push({ cx: fx, cy: fy, kind: cellColor < 0 ? it.color : cellColor, maxR: cell * 3.4, t: 0 });
           addShake(14);
           const target = mode === "color" ? it.color : mostCommonColor();
+          const linkTargets = [];
           if (target >= 0)
             for (let rr = 0; rr < N; rr++)
               for (let cc = 0; cc < N; cc++)
                 if (!visited[rr][cc] && grid[rr][cc] === target) {
                   visited[rr][cc] = true;
                   next.push({ r: rr, c: cc, mode: "blast", color: target });
+                  linkTargets.push(cellCenter(rr, cc));
                 }
+          // energy lines fan out to every same-color fruit, lit clockwise
+          linkTargets.sort((a, b) => Math.atan2(a[1]-fy, a[0]-fx) - Math.atan2(b[1]-fy, b[0]-fx));
+          links.push({ ox: fx, oy: fy, targets: linkTargets, t: 0 });
           // plus a local 3x3 splash so it always lands with a bang
           for (const [nr, nc] of budsAround(r, c, R, visited))
             next.push({ r: nr, c: nc, mode: "blast", color: grid[nr][nc] });
@@ -831,6 +836,35 @@
       ctx.save();
       ctx.globalAlpha = fade * 0.9;
       drawFruit(fl.kind, fl.cx, fl.cy, fruitR);
+      ctx.restore();
+    }
+
+    // rainbow links — energy lines fan out to each same-color fruit, lit clockwise
+    for (let i = links.length - 1; i >= 0; i--) {
+      const L = links[i]; L.t += 0.02;
+      if (L.t >= 1) { links.splice(i, 1); continue; }
+      const n = L.targets.length;
+      ctx.save();
+      ctx.lineCap = "round"; ctx.lineWidth = cell * 0.11;
+      ctx.shadowBlur = cell * 0.25;
+      const overall = L.t < 0.7 ? 1 : (1 - L.t) / 0.3;  // hold, then fade
+      for (let k = 0; k < n; k++) {
+        const startAt = (k / Math.max(1, n)) * 0.5;      // clockwise stagger
+        const local = (L.t - startAt) / 0.45;
+        if (local <= 0) continue;
+        const g = Math.min(1, local), gg = g * (2 - g);
+        const [tx, ty] = L.targets[k];
+        const ex = L.ox + (tx - L.ox) * gg, ey = L.oy + (ty - L.oy) * gg;
+        const col = COLORS[k % COLORS.length];
+        ctx.globalAlpha = overall * 0.9; ctx.strokeStyle = col; ctx.shadowColor = col;
+        ctx.beginPath(); ctx.moveTo(L.ox, L.oy); ctx.lineTo(ex, ey); ctx.stroke();
+        ctx.globalAlpha = overall; ctx.fillStyle = "#fff"; ctx.shadowBlur = 0;
+        ctx.beginPath(); ctx.arc(ex, ey, cell * 0.08 * g, 0, PI2); ctx.fill();
+        ctx.shadowBlur = cell * 0.25;
+      }
+      // bright core at the rainbow origin
+      ctx.globalAlpha = overall; ctx.shadowBlur = 0; ctx.fillStyle = "#fff";
+      ctx.beginPath(); ctx.arc(L.ox, L.oy, cell * 0.16 * overall + 2, 0, PI2); ctx.fill();
       ctx.restore();
     }
 
