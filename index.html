@@ -159,8 +159,9 @@
   let birds = [];             // {sr,sc,tr,tc,t} bird flies to a junk fruit and eats it
   let flares = [];            // {cx,cy,kind,maxR,t} item explosion: growing fruit silhouette
   let beams = [];             // {type:'h'|'v', idx, color, t} line-clear flash
-  let links = [];             // {ox,oy,targets,t} rainbow energy lines fanning out
+  let links = [];             // {nodes,color,prog,reached,done} rainbow one-stroke constellation
   let shake = 0;              // screen-shake magnitude
+  let flash = 0;              // white screen flash (0..1) for the rainbow 팡
   let glow;                    // glow[r][c] = {c: colorIdx, t: 0..1}
   let special;                 // special[r][c] = null | "bomb" | "lineH" | "lineV" | "rainbow"
   let hp;                      // hp[r][c] = brick health (only when grid === BRICK)
@@ -240,7 +241,7 @@
   // ---- game start ----
   function start() {
     emptyGrid();
-    score = 0; streak = 0; touchCount = 0; particles = []; birds = []; flares = []; beams = []; links = []; shake = 0;
+    score = 0; streak = 0; touchCount = 0; particles = []; birds = []; flares = []; beams = []; links = []; shake = 0; flash = 0;
     spawnBuds(START_BUDS);
     pickNext();
     updateHUD();
@@ -357,24 +358,33 @@
           addShake(8);
           for (const [nr, nc] of lineCells(r, c, sp, visited))
             next.push({ r: nr, c: nc, mode: "blast", color: cellColor });
-        } else if (sp === "rainbow") {           // COLOR BOMB: wipe the trigger color board-wide
+        } else if (sp === "rainbow") {           // COLOR BOMB: connect-the-dots then 팡
           flashBox(r, c, R, cellColor);
-          const [fx, fy] = cellCenter(r, c);
-          addShake(14);
+          addShake(5);
           const target = mode === "color" ? it.color : mostCommonColor();
-          const linkTargets = [];
+          // collect same-color cells, clear them NOW (logic) but hold them as ghosts (visual)
+          const tCells = [];
           if (target >= 0)
             for (let rr = 0; rr < N; rr++)
               for (let cc = 0; cc < N; cc++)
                 if (!visited[rr][cc] && grid[rr][cc] === target) {
                   visited[rr][cc] = true;
-                  next.push({ r: rr, c: cc, mode: "blast", color: target });
-                  linkTargets.push(cellCenter(rr, cc));
+                  grid[rr][cc] = -1; special[rr][cc] = null; popped++;
+                  tCells.push([rr, cc]);
                 }
-          // energy lines fan out to every same-color fruit, lit clockwise
-          linkTargets.sort((a, b) => Math.atan2(a[1]-fy, a[0]-fx) - Math.atan2(b[1]-fy, b[0]-fx));
-          links.push({ ox: fx, oy: fy, targets: linkTargets, t: 0 });
-          // plus a local 3x3 splash so it always lands with a bang
+          // order nearest-neighbor from the rainbow origin = a one-stroke path
+          const path = [[r, c]];
+          let cur = [r, c];
+          while (tCells.length) {
+            let bi = 0, bd = Infinity;
+            for (let k = 0; k < tCells.length; k++) {
+              const dr = tCells[k][0]-cur[0], dc = tCells[k][1]-cur[1], d = dr*dr+dc*dc;
+              if (d < bd) { bd = d; bi = k; }
+            }
+            cur = tCells.splice(bi, 1)[0]; path.push(cur);
+          }
+          links.push({ nodes: path, color: target, prog: 0, reached: 0, done: false });
+          // small local splash so the rainbow itself pops immediately
           for (const [nr, nc] of budsAround(r, c, R, visited))
             next.push({ r: nr, c: nc, mode: "blast", color: grid[nr][nc] });
         }
@@ -610,6 +620,18 @@
     ctx.strokeStyle = "#7a5b3a"; ctx.lineWidth = rad*0.16; ctx.lineCap = "round";
     ctx.beginPath(); ctx.moveTo(cx, cy - rad*0.85); ctx.lineTo(cx + rad*0.05, cy - rad*1.15); ctx.stroke();
   }
+  function drawStar(x, y, r, col) {
+    ctx.save();
+    ctx.fillStyle = col; ctx.shadowColor = col; ctx.shadowBlur = r * 1.4;
+    ctx.beginPath();
+    for (let k = 0; k < 5; k++) {
+      const a = -Math.PI/2 + k * PI2/5, a2 = a + PI2/10;
+      ctx.lineTo(x + Math.cos(a)*r, y + Math.sin(a)*r);
+      ctx.lineTo(x + Math.cos(a2)*r*0.45, y + Math.sin(a2)*r*0.45);
+    }
+    ctx.closePath(); ctx.fill();
+    ctx.restore();
+  }
 
   function drawFruit(kind, cx, cy, rad) {
     const col = COLORS[kind] || "#fff";
@@ -839,33 +861,44 @@
       ctx.restore();
     }
 
-    // rainbow links — energy lines fan out to each same-color fruit, lit clockwise
+    // rainbow constellation — one-stroke path links same-color fruits, then 팡
     for (let i = links.length - 1; i >= 0; i--) {
-      const L = links[i]; L.t += 0.02;
-      if (L.t >= 1) { links.splice(i, 1); continue; }
-      const n = L.targets.length;
-      ctx.save();
-      ctx.lineCap = "round"; ctx.lineWidth = cell * 0.11;
-      ctx.shadowBlur = cell * 0.25;
-      const overall = L.t < 0.7 ? 1 : (1 - L.t) / 0.3;  // hold, then fade
-      for (let k = 0; k < n; k++) {
-        const startAt = (k / Math.max(1, n)) * 0.5;      // clockwise stagger
-        const local = (L.t - startAt) / 0.45;
-        if (local <= 0) continue;
-        const g = Math.min(1, local), gg = g * (2 - g);
-        const [tx, ty] = L.targets[k];
-        const ex = L.ox + (tx - L.ox) * gg, ey = L.oy + (ty - L.oy) * gg;
-        const col = COLORS[k % COLORS.length];
-        ctx.globalAlpha = overall * 0.9; ctx.strokeStyle = col; ctx.shadowColor = col;
-        ctx.beginPath(); ctx.moveTo(L.ox, L.oy); ctx.lineTo(ex, ey); ctx.stroke();
-        ctx.globalAlpha = overall; ctx.fillStyle = "#fff"; ctx.shadowBlur = 0;
-        ctx.beginPath(); ctx.arc(ex, ey, cell * 0.08 * g, 0, PI2); ctx.fill();
-        ctx.shadowBlur = cell * 0.25;
+      const L = links[i];
+      L.prog += 0.28;                                  // nodes traversed per frame
+      const nodes = L.nodes, maxIdx = nodes.length - 1;
+      const p = Math.min(L.prog, maxIdx);              // continuous position along path
+      // pop fruits as the stroke reaches each node (juice)
+      while (L.reached < Math.floor(p)) {
+        L.reached++;
+        const nd = nodes[L.reached];
+        if (nd) burst(nd[0], nd[1], L.color);
       }
-      // bright core at the rainbow origin
-      ctx.globalAlpha = overall; ctx.shadowBlur = 0; ctx.fillStyle = "#fff";
-      ctx.beginPath(); ctx.arc(L.ox, L.oy, cell * 0.16 * overall + 2, 0, PI2); ctx.fill();
+      const seg = Math.floor(p), frac = p - seg;
+      const C = (n) => cellCenter(n[0], n[1]);
+      // one-stroke line up to current progress
+      ctx.save();
+      ctx.lineCap = "round"; ctx.lineJoin = "round"; ctx.lineWidth = cell * 0.09;
+      ctx.shadowBlur = cell * 0.3;
+      ctx.beginPath();
+      const [px0, py0] = C(nodes[0]); ctx.moveTo(px0, py0);
+      for (let s = 1; s <= seg; s++) { const [nx, ny] = C(nodes[s]); ctx.lineTo(nx, ny); }
+      if (seg < maxIdx) {                              // partial current segment
+        const [ax, ay] = C(nodes[seg]), [bx, by] = C(nodes[seg+1]);
+        ctx.lineTo(ax + (bx-ax)*frac, ay + (by-ay)*frac);
+      }
+      ctx.strokeStyle = "#fff"; ctx.shadowColor = COLORS[L.color] || "#fff";
+      ctx.globalAlpha = 0.95; ctx.stroke();
       ctx.restore();
+      // ghost fruits (not yet reached) + stars (reached)
+      for (let j = 1; j <= maxIdx; j++) {
+        const [nx, ny] = C(nodes[j]);
+        if (j <= p) drawStar(nx, ny, cell * 0.2, "#fff");
+        else { ctx.save(); ctx.globalAlpha = 0.9; drawFruit(L.color, nx, ny, cell*0.3); ctx.restore(); }
+      }
+      drawStar(px0, py0, cell * 0.24, "#fff");         // bright origin
+      // completion -> 팡
+      if (!L.done && L.prog >= maxIdx) { L.done = true; flash = 0.55; addShake(15); }
+      if (L.prog >= maxIdx + 6) links.splice(i, 1);    // linger briefly after the 팡
     }
 
     // birds (참새) flying to their target fruit
@@ -893,6 +926,16 @@
         birds.splice(i, 1);
       }
     }
+
+    // rainbow 팡 — white screen flash
+    if (flash > 0.01) {
+      ctx.save();
+      ctx.globalAlpha = flash;
+      ctx.fillStyle = "#fff";
+      roundRect(0, 0, boardPx, boardPx, 18); ctx.fill();
+      ctx.restore();
+      flash *= 0.82;
+    } else flash = 0;
 
     ctx.restore();   // end screen-shake transform
     requestAnimationFrame(draw);
