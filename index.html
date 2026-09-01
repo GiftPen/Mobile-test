@@ -112,7 +112,7 @@
     <p><b>빈 칸</b>에 다음 색을 놓으면 <b>주변 3×3</b>이 터집니다.<br/>
        같은 색이 맞붙어 있으면 <b>연쇄</b>로 우르르! 다른 색은 벽이에요.<br/>
        연속으로 성공할수록 점수 <b>배수</b>가 올라갑니다. 헛방이면 리셋!<br/>
-       터뜨린 개수로 아이템: <b>3</b>🐦참새 · <b>5</b>↔️라인 · <b>7</b>💣폭탄 · <b>9</b>🌟별</p>
+       터뜨린 개수로 아이템: <b>4</b>🐦참새 · <b>5</b>↔️라인 · <b>6</b>💣폭탄 · <b>7</b>🌟별</p>
     <div class="big" id="ov-msg"></div>
     <button id="start-btn">시작하기</button>
   </div>
@@ -138,11 +138,11 @@
   const SHAKE_MAX = 16;        // screen-shake cap (px)
   const BURST_RADIUS = 1;      // 1 = 3x3 burst (Chebyshev). items can raise this later
   const MAX_MULT = 5;          // streak multiplier cap
-  const BIRD_THRESHOLD = 3;    // pop this many (but < bomb) -> a bird eats a random junk fruit
-  const LINE_THRESHOLD = 5;    // pop this many -> a line bud (clears a row/col)
-  const BOMB_THRESHOLD = 7;    // -> a bomb bud (harder to make, bigger blast)
+  const BIRD_THRESHOLD = 4;    // pop this many (but < line) -> a bird
+  const LINE_THRESHOLD = 5;    // -> a line bud (clears a row/col)
+  const BOMB_THRESHOLD = 6;    // -> a bomb bud (5x5 blast)
   const BOMB_RADIUS = 2;       // bomb blast = 5x5 (Chebyshev 2)
-  const STAR_THRESHOLD = 9;   // -> a star bud (color bomb + constellation)
+  const STAR_THRESHOLD = 7;    // -> a star bud (color bomb + constellation)
   const BIRD_SCORE = 20;       // score for each fruit a bird eats
   const BRICK = -2;            // grid value for a brick (wall; only items can clear it)
   const BRICK_EVERY = 5;       // one brick spawns every N touches once unlocked
@@ -481,11 +481,15 @@
     return n;
   }
 
-  // prefer the most isolated buds (junk); random among the best
+  // target priority: bricks first, then the most isolated junk fruit, else any fruit
   function chooseBirdTarget(exclude) {
-    const buds = [];
-    for (let r = 0; r < N; r++) for (let c = 0; c < N; c++)
-      if (grid[r][c] !== -1 && !(exclude && exclude[r * N + c])) buds.push([r, c]);
+    const bricks = [], buds = [];
+    for (let r = 0; r < N; r++) for (let c = 0; c < N; c++) {
+      if (grid[r][c] === -1 || (exclude && exclude[r * N + c])) continue;
+      if (grid[r][c] === BRICK) bricks.push([r, c]);
+      else buds.push([r, c]);
+    }
+    if (bricks.length) return bricks[randInt(bricks.length)];   // clear obstacles first
     if (!buds.length) return null;
     const junk = buds.filter(([r, c]) => sameColorNeighbors(r, c) === 0);
     const pool = junk.length ? junk : buds;
@@ -977,7 +981,7 @@
   document.getElementById("start-btn").addEventListener("click", () => {
     document.querySelector("#overlay h1").textContent = "Bloom";
     document.querySelector("#overlay p").innerHTML =
-      "<b>빈 칸</b>에 다음 색을 놓으면 <b>주변 3×3</b>이 터집니다.<br/>같은 색 <b>연쇄</b> + 연속 <b>배수</b>! 아이템: 3🐦 · 5↔️ · 7💣 · 9🌟";
+      "<b>빈 칸</b>에 다음 색을 놓으면 <b>주변 3×3</b>이 터집니다.<br/>같은 색 <b>연쇄</b> + 연속 <b>배수</b>! 아이템: 4🐦 · 5↔️ · 6💣 · 7🌟";
     start();
   });
 
