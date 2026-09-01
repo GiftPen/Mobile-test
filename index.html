@@ -283,7 +283,49 @@
     <ellipse cx="48" cy="42" rx="4.5" ry="1.8" transform="rotate(-8, 48, 42)" fill="#ffffff" opacity="0.6" />
   </g>
 </svg>`;
-  const FRUIT_SVG = [CHERRY_SVG, ORANGE_SVG, KIWI_SVG, LEMON_SVG, null, null, null];  // index = color slot
+  const GRAPE_SVG = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" width="100%" height="100%">
+  <defs>
+    <radialGradient id="grapeFront" cx="35%" cy="30%" r="65%">
+      <stop offset="0%" stop-color="#e0aaff" /><stop offset="35%" stop-color="#9d4edd" /><stop offset="75%" stop-color="#5a189a" /><stop offset="100%" stop-color="#240046" />
+    </radialGradient>
+    <radialGradient id="grapeBack" cx="35%" cy="30%" r="65%">
+      <stop offset="0%" stop-color="#7b2cbf" /><stop offset="55%" stop-color="#3c096c" /><stop offset="100%" stop-color="#10002b" />
+    </radialGradient>
+    <linearGradient id="grapeLeaf" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#c7f9cc" /><stop offset="30%" stop-color="#57cc99" /><stop offset="75%" stop-color="#2d6a4f" /><stop offset="100%" stop-color="#1b4332" />
+    </linearGradient>
+    <linearGradient id="grapeStem" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#9c6644" /><stop offset="60%" stop-color="#7f4f24" /><stop offset="100%" stop-color="#4a2810" />
+    </linearGradient>
+    <linearGradient id="grapeTendril" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#aacc00" /><stop offset="100%" stop-color="#2d6a4f" />
+    </linearGradient>
+  </defs>
+  <g>
+    <path d="M 52 16 Q 66 8 72 15 Q 78 22 73 26 Q 68 28 68 23" fill="none" stroke="url(#grapeTendril)" stroke-width="1.6" stroke-linecap="round" />
+    <path d="M 49 10 C 51 15, 47 22, 50 28" fill="none" stroke="url(#grapeStem)" stroke-width="3" stroke-linecap="round" />
+    <path d="M 48 22 C 40 16, 26 12, 18 19 C 14 26, 20 32, 22 36 C 26 34, 30 36, 33 39 C 39 37, 43 32, 48 25 Z" fill="url(#grapeLeaf)" />
+    <path d="M 48 22 Q 32 24 20 20" fill="none" stroke="#d8f3dc" stroke-width="0.8" opacity="0.8" stroke-linecap="round" />
+    <path d="M 38 23 Q 28 30 23 35" fill="none" stroke="#d8f3dc" stroke-width="0.6" opacity="0.7" stroke-linecap="round" />
+    <path d="M 42 23 Q 36 17 28 15" fill="none" stroke="#d8f3dc" stroke-width="0.6" opacity="0.7" stroke-linecap="round" />
+  </g>
+  <g fill="url(#grapeBack)">
+    <circle cx="27" cy="42" r="7.2" /><circle cx="73" cy="44" r="7.2" /><circle cx="41" cy="40" r="7.8" /><circle cx="58" cy="42" r="7.8" /><circle cx="36" cy="69" r="6.8" /><circle cx="64" cy="68" r="6.8" />
+  </g>
+  <g fill="url(#grapeFront)">
+    <circle cx="34" cy="35" r="8.2" /><circle cx="48" cy="32" r="8.4" /><circle cx="63" cy="34" r="8.2" />
+    <circle cx="34" cy="49" r="8.8" /><circle cx="50" cy="45" r="9.2" /><circle cx="66" cy="49" r="8.8" />
+    <circle cx="40" cy="61" r="8.8" /><circle cx="59" cy="61" r="8.8" /><circle cx="49" cy="57" r="9" />
+    <circle cx="44" cy="73" r="8.2" /><circle cx="56" cy="74" r="8.2" /><circle cx="50" cy="83" r="7.5" />
+  </g>
+  <g fill="#ffffff">
+    <circle cx="32" cy="32" r="1.5" opacity="0.8" /><circle cx="46" cy="29" r="1.6" opacity="0.85" /><circle cx="61" cy="31" r="1.5" opacity="0.8" />
+    <circle cx="32" cy="46" r="1.7" opacity="0.85" /><circle cx="47" cy="42" r="1.8" opacity="0.9" /><circle cx="64" cy="46" r="1.7" opacity="0.85" />
+    <circle cx="38" cy="58" r="1.7" opacity="0.85" /><circle cx="47" cy="54" r="1.7" opacity="0.85" /><circle cx="57" cy="58" r="1.7" opacity="0.85" />
+    <circle cx="42" cy="70" r="1.5" opacity="0.8" /><circle cx="54" cy="71" r="1.5" opacity="0.8" /><circle cx="48" cy="80" r="1.4" opacity="0.8" />
+  </g>
+</svg>`;
+  const FRUIT_SVG = [CHERRY_SVG, ORANGE_SVG, KIWI_SVG, LEMON_SVG, GRAPE_SVG, null, null];  // index = color slot
 
   // ---- state ----
   let grid;                    // grid[r][c] = colorIndex | -1 (empty) | BRICK
