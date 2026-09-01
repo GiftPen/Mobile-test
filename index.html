@@ -122,7 +122,7 @@
   // ---- config ----
   const N = 8;                 // grid size
   // full palette (7). Only the first activeColors() are in play, growing with score.
-  const COLORS = ["#ff5a7a", "#f45b00", "#43d17a", "#ffc93c", "#a66cff", "#c4d8be", "#ff8a3c"];
+  const COLORS = ["#ff5a7a", "#f45b00", "#43d17a", "#ffc93c", "#a66cff", "#c4d8be", "#00b4d8"];
   const BASE_COLORS = 4;       // colors in play at score 0
   const MAX_COLORS = 7;        // cap
   const START_BUDS = 10;
@@ -356,7 +356,41 @@
     <path d="M 35 82 C 43 85, 57 85, 65 82 C 57 84, 43 84, 35 82 Z" fill="#ffffff" opacity="0.55" />
   </g>
 </svg>`;
-  const FRUIT_SVG = [CHERRY_SVG, ORANGE_SVG, KIWI_SVG, LEMON_SVG, GRAPE_SVG, PEAR_SVG, null];  // index = color slot
+  const BANANA_SVG = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" width="100%" height="100%">
+  <defs>
+    <linearGradient id="blueBananaTop" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#ffffff" /><stop offset="25%" stop-color="#e0fbfc" /><stop offset="65%" stop-color="#ade8f4" /><stop offset="100%" stop-color="#48cae4" />
+    </linearGradient>
+    <linearGradient id="blueBananaMid" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#90e0ef" /><stop offset="45%" stop-color="#00b4d8" /><stop offset="85%" stop-color="#0077b6" /><stop offset="100%" stop-color="#023e8a" />
+    </linearGradient>
+    <linearGradient id="blueBananaBottom" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#0077b6" /><stop offset="45%" stop-color="#023e8a" /><stop offset="100%" stop-color="#03045e" />
+    </linearGradient>
+    <linearGradient id="bananaStem" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#84a98c" /><stop offset="50%" stop-color="#52796f" /><stop offset="100%" stop-color="#2f3e46" />
+    </linearGradient>
+    <linearGradient id="stemCut" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#cad2c5" /><stop offset="100%" stop-color="#84a98c" />
+    </linearGradient>
+  </defs>
+  <g>
+    <path d="M 24 17 C 26 13, 29 13, 31 16 L 33 24 L 28 25 Z" fill="url(#bananaStem)" />
+    <ellipse cx="27.5" cy="15" rx="3.2" ry="2" transform="rotate(-30, 27.5, 15)" fill="url(#stemCut)" />
+    <path d="M 28 25 C 18 48, 26 77, 52 86 C 64 87, 72 81, 79 70 L 78 68 C 65 77, 44 76, 31 52 C 27 43, 27 33, 28 25 Z" fill="url(#blueBananaBottom)" />
+    <path d="M 28 25 C 27 33, 27 43, 31 52 C 44 76, 65 77, 78 68 L 76 63 C 62 67, 46 62, 34 42 C 31 36, 31 29, 31 24 Z" fill="url(#blueBananaMid)" />
+    <path d="M 31 24 C 31 29, 31 36, 34 42 C 46 62, 62 67, 76 63 L 77 61 C 62 55, 48 46, 39 33 C 35 28, 33 24, 32 23 Z" fill="url(#blueBananaTop)" />
+    <path d="M 77 61 L 81 65 L 78 68 L 76 63 Z" fill="#03045e" />
+    <circle cx="80" cy="65.5" r="1.3" fill="#1b263b" />
+    <g>
+      <path d="M 33 27 C 33 34, 36 43, 44 52 C 52 60, 62 64, 73 63" fill="none" stroke="#ffffff" stroke-width="1.2" stroke-linecap="round" opacity="0.8" />
+      <path d="M 35 25 C 40 33, 48 41, 58 48" fill="none" stroke="#ffffff" stroke-width="0.8" stroke-linecap="round" opacity="0.65" />
+      <circle cx="39" cy="42" r="1.6" fill="#ffffff" opacity="0.9" /><circle cx="48" cy="52" r="1.4" fill="#ffffff" opacity="0.85" /><circle cx="58" cy="58" r="1.2" fill="#ffffff" opacity="0.8" />
+      <path d="M 36 80 C 46 84, 58 84, 68 78 C 58 81, 46 81, 36 77 Z" fill="#caf0f8" opacity="0.45" />
+    </g>
+  </g>
+</svg>`;
+  const FRUIT_SVG = [CHERRY_SVG, ORANGE_SVG, KIWI_SVG, LEMON_SVG, GRAPE_SVG, PEAR_SVG, BANANA_SVG];  // index = color slot
 
   // ---- state ----
   let grid;                    // grid[r][c] = colorIndex | -1 (empty) | BRICK
