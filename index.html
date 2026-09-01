@@ -29,10 +29,7 @@
   .score-label { font-size: 11px; color: var(--muted); letter-spacing: 1px; text-transform: uppercase; }
   .score-val { font-size: 26px; font-weight: 800; line-height: 1; margin-top: 2px; }
   #next-wrap { display: flex; flex-direction: column; align-items: center; }
-  #next-dot {
-    width: 34px; height: 34px; border-radius: 50%; margin-top: 4px;
-    box-shadow: 0 0 16px currentColor; transition: color .2s, background .2s;
-  }
+  #next-dot { width: 38px; height: 38px; margin-top: 4px; }
   #stats {
     width: 100%; max-width: 520px; padding: 4px 18px 0;
     display: flex; align-items: center; gap: 8px;
@@ -88,8 +85,8 @@
       <span class="score-val" id="best" style="font-size:20px;color:var(--muted)">0</span>
     </div>
     <div id="next-wrap">
-      <span class="score-label">다음 색</span>
-      <div id="next-dot"></div>
+      <span class="score-label">다음</span>
+      <canvas id="next-dot" width="72" height="72"></canvas>
     </div>
   </div>
 
@@ -278,9 +275,22 @@
 
   function pickNext() {
     nextColor = randInt(activeColors());
-    const dot = document.getElementById("next-dot");
-    dot.style.background = COLORS[nextColor];
-    dot.style.color = COLORS[nextColor];
+    drawNextPreview();
+  }
+
+  function drawNextPreview() {
+    if (nextColor == null) return;
+    const cv = document.getElementById("next-dot");
+    const g = cv.getContext("2d");
+    const w = cv.width, h = cv.height;
+    g.clearRect(0, 0, w, h);
+    const sp = fruitSprite[nextColor];
+    if (sp) {
+      g.drawImage(sp, 2, 2, w - 4, h - 4);
+    } else {                                   // fallback: colored dot
+      g.fillStyle = COLORS[nextColor];
+      g.beginPath(); g.arc(w/2, h/2, w * 0.38, 0, PI2); g.fill();
+    }
   }
 
   // ---- game start ----
@@ -342,6 +352,14 @@
     visited[r0][c0] = true;
     // frontier items {r,c,mode,color}: "color" = same-color flood, "blast" = item-cleared
     const frontier = seedsAround(r0, c0, R, color, visited).map(([r, c]) => ({ r, c, mode: "color", color }));
+    // placing right next to an item detonates it too (the placement burst reaches it)
+    for (let dr = -R; dr <= R; dr++)
+      for (let dc = -R; dc <= R; dc++) {
+        if (dr === 0 && dc === 0) continue;
+        const nr = r0 + dr, nc = c0 + dc;
+        if (nr < 0 || nr >= N || nc < 0 || nc >= N || visited[nr][nc]) continue;
+        if (special[nr][nc]) { visited[nr][nc] = true; frontier.push({ r: nr, c: nc, mode: "blast", color: grid[nr][nc] }); }
+      }
     flashBox(r0, c0, R, color);
     runChain(r0, c0, color, visited, frontier, true);
   }
@@ -736,8 +754,16 @@
     cv.width = S; cv.height = S;
     cv.getContext("2d").drawImage(img, 0, 0, S, S);
     fruitSprite[i] = cv;
+    drawNextPreview();   // refresh preview if the queued fruit just got its art
   }
   function rebuildSprites() { for (let i = 0; i < FRUIT_SVG.length; i++) buildFruitSprite(i); }
+
+  // draw a fruit filling a box of side S — uses cached SVG sprite if present, else procedural
+  function fruitVisual(kind, cx, cy, S) {
+    const sp = fruitSprite[kind];
+    if (sp) ctx.drawImage(sp, cx - S/2, cy - S/2, S, S);
+    else drawFruit(kind, cx, cy, S * 0.34);   // procedural draws ~0.34*box radius
+  }
 
   function drawFruit(kind, cx, cy, rad) {
     const col = COLORS[kind] || "#fff";
@@ -892,12 +918,7 @@
             continue;
           }
           ctx.save();
-          if (fruitSprite[v]) {                      // custom SVG art (sprite-cached)
-            const S = cell * apScale;
-            ctx.drawImage(fruitSprite[v], cx - S/2, cy - S/2, S, S);
-          } else {
-            drawFruit(v, cx, cy, rad);
-          }
+          fruitVisual(v, cx, cy, cell * apScale);    // SVG sprite if available, else procedural
           if (sp === "bomb") {
             // bold white ring + dark core so it reads as "charged"
             ctx.lineWidth = cell*0.09; ctx.strokeStyle = "#fff";
@@ -982,7 +1003,7 @@
       ctx.restore();
       ctx.save();
       ctx.globalAlpha = fade * 0.9;
-      drawFruit(fl.kind, fl.cx, fl.cy, fruitR);
+      fruitVisual(fl.kind, fl.cx, fl.cy, fruitR / 0.34);   // match sprite/procedural scale
       ctx.restore();
     }
 
@@ -1018,7 +1039,7 @@
       for (let j = 1; j <= maxIdx; j++) {
         const [nx, ny] = C(nodes[j]);
         if (j <= p) drawStar(nx, ny, cell * 0.2, "#fff");
-        else { ctx.save(); ctx.globalAlpha = 0.9; drawFruit(L.color, nx, ny, cell*0.3); ctx.restore(); }
+        else { ctx.save(); ctx.globalAlpha = 0.9; fruitVisual(L.color, nx, ny, cell * 0.88); ctx.restore(); }
       }
       drawStar(px0, py0, cell * 0.24, "#fff");         // bright origin
       // completion -> 팡
