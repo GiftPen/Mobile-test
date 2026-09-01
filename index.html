@@ -133,6 +133,7 @@
   const SPAWN_MAX = 5;         // cap
   const SPAWN_STEP = 10000;    // +1 spawn per this many points
   const WAVE_STEP_MS = 70;     // time between chain steps
+  const PI2 = Math.PI * 2;
   const BURST_RADIUS = 1;      // 1 = 3x3 burst (Chebyshev). items can raise this later
   const MAX_MULT = 5;          // streak multiplier cap
   const FISH_THRESHOLD = 3;    // pop this many (but < bomb) -> a fish eats a random junk bud
@@ -534,10 +535,15 @@
     const col = typeof color === "number" ? (COLORS[color] || "#fff") : (color || "#fff");
     const cx = pad + c * cell + cell / 2;
     const cy = pad + r * cell + cell / 2;
-    for (let i = 0; i < 10; i++) {
-      const a = Math.random() * Math.PI * 2, sp = 1 + Math.random() * 2.4;
-      particles.push({ x: cx, y: cy, vx: Math.cos(a)*sp, vy: Math.sin(a)*sp,
-        life: 1, color: col });
+    // splash ring
+    particles.push({ type: "ring", x: cx, y: cy, life: 1, color: col, rad: cell * 0.12 });
+    // juice droplets (spray up, then gravity pulls them down)
+    for (let i = 0; i < 14; i++) {
+      const a = Math.random() * PI2, sp = 1 + Math.random() * 3.2;
+      particles.push({
+        x: cx, y: cy, vx: Math.cos(a) * sp, vy: Math.sin(a) * sp - 1,
+        life: 0.8 + Math.random() * 0.4, color: col, r: cell * (0.04 + Math.random() * 0.09)
+      });
     }
   }
 
@@ -563,6 +569,96 @@
     ctx.arcTo(x, y+h, x, y, r);
     ctx.arcTo(x, y, x+w, y, r);
     ctx.closePath();
+  }
+
+  // ---- fruit art (each color index = a distinct fruit silhouette) ----
+  function leaf(lx, ly, s, rot) {
+    ctx.save();
+    ctx.translate(lx, ly); ctx.rotate(rot);
+    ctx.fillStyle = "#4bbf6b";
+    ctx.beginPath(); ctx.ellipse(0, 0, s, s * 0.5, 0, 0, PI2); ctx.fill();
+    ctx.restore();
+  }
+  function gloss(cx, cy, rad) {
+    ctx.save();
+    ctx.globalAlpha = 0.35; ctx.fillStyle = "#fff";
+    ctx.beginPath(); ctx.ellipse(cx - rad*0.32, cy - rad*0.34, rad*0.34, rad*0.22, -0.6, 0, PI2); ctx.fill();
+    ctx.restore();
+  }
+  function stem(cx, cy, rad) {
+    ctx.strokeStyle = "#7a5b3a"; ctx.lineWidth = rad*0.16; ctx.lineCap = "round";
+    ctx.beginPath(); ctx.moveTo(cx, cy - rad*0.85); ctx.lineTo(cx + rad*0.05, cy - rad*1.15); ctx.stroke();
+  }
+
+  function drawFruit(kind, cx, cy, rad) {
+    const col = COLORS[kind] || "#fff";
+    ctx.save();
+    ctx.fillStyle = col;
+    ctx.shadowColor = col; ctx.shadowBlur = rad * 0.6;
+
+    if (kind === 0) {                     // cherry — two berries + stems
+      ctx.shadowBlur = 0;
+      ctx.strokeStyle = "#7a5b3a"; ctx.lineWidth = rad*0.12; ctx.lineCap = "round";
+      ctx.beginPath();
+      ctx.moveTo(cx, cy - rad*0.9);
+      ctx.quadraticCurveTo(cx - rad*0.5, cy - rad*0.5, cx - rad*0.45, cy - rad*0.05);
+      ctx.moveTo(cx, cy - rad*0.9);
+      ctx.quadraticCurveTo(cx + rad*0.5, cy - rad*0.5, cx + rad*0.45, cy - rad*0.05);
+      ctx.stroke();
+      ctx.shadowColor = col; ctx.shadowBlur = rad*0.5; ctx.fillStyle = col;
+      const rr = rad*0.52;
+      ctx.beginPath(); ctx.arc(cx - rad*0.42, cy + rad*0.35, rr, 0, PI2); ctx.fill();
+      ctx.beginPath(); ctx.arc(cx + rad*0.42, cy + rad*0.35, rr, 0, PI2); ctx.fill();
+      ctx.shadowBlur = 0;
+      gloss(cx - rad*0.42, cy + rad*0.35, rr); gloss(cx + rad*0.42, cy + rad*0.35, rr);
+    } else if (kind === 1) {              // blueberry — round + calyx star
+      ctx.beginPath(); ctx.arc(cx, cy, rad, 0, PI2); ctx.fill();
+      ctx.shadowBlur = 0;
+      ctx.strokeStyle = "rgba(0,0,0,.28)"; ctx.lineWidth = rad*0.08; ctx.lineCap = "round";
+      for (let k = 0; k < 5; k++) {
+        const a = -Math.PI/2 + k * PI2/5;
+        ctx.beginPath(); ctx.moveTo(cx, cy - rad*0.3);
+        ctx.lineTo(cx + Math.cos(a)*rad*0.42, cy - rad*0.3 + Math.sin(a)*rad*0.18); ctx.stroke();
+      }
+      gloss(cx, cy, rad);
+    } else if (kind === 2) {              // pear — teardrop + stem/leaf
+      ctx.beginPath();
+      ctx.moveTo(cx, cy - rad);
+      ctx.bezierCurveTo(cx - rad*0.55, cy - rad*0.75, cx - rad*0.72, cy + rad*0.35, cx, cy + rad);
+      ctx.bezierCurveTo(cx + rad*0.72, cy + rad*0.35, cx + rad*0.55, cy - rad*0.75, cx, cy - rad);
+      ctx.fill();
+      ctx.shadowBlur = 0;
+      stem(cx, cy - rad*0.05, rad); leaf(cx + rad*0.35, cy - rad*0.95, rad*0.38, 0.5);
+      gloss(cx, cy + rad*0.1, rad*0.9);
+    } else if (kind === 3) {              // lemon — pointed ellipse
+      ctx.beginPath(); ctx.ellipse(cx, cy, rad*1.05, rad*0.74, 0, 0, PI2); ctx.fill();
+      ctx.beginPath(); ctx.arc(cx - rad*1.02, cy, rad*0.12, 0, PI2); ctx.fill();
+      ctx.beginPath(); ctx.arc(cx + rad*1.02, cy, rad*0.12, 0, PI2); ctx.fill();
+      ctx.shadowBlur = 0; gloss(cx, cy, rad);
+    } else if (kind === 4) {              // grapes — cluster
+      ctx.shadowBlur = rad*0.4;
+      const rr = rad*0.4;
+      const pts = [[0,-0.6],[-0.5,-0.15],[0.5,-0.15],[-0.25,0.35],[0.25,0.35],[0,0.85]];
+      for (const [dx, dy] of pts) { ctx.beginPath(); ctx.arc(cx+dx*rad, cy+dy*rad, rr, 0, PI2); ctx.fill(); }
+      ctx.shadowBlur = 0; leaf(cx + rad*0.1, cy - rad*0.95, rad*0.4, -0.3);
+      gloss(cx - rad*0.25, cy - rad*0.15, rr);
+    } else if (kind === 5) {              // plum/gem — rounded diamond
+      ctx.save(); ctx.translate(cx, cy); ctx.rotate(Math.PI/4);
+      roundRect(-rad*0.72, -rad*0.72, rad*1.44, rad*1.44, rad*0.4); ctx.fill();
+      ctx.restore();
+      ctx.shadowBlur = 0; gloss(cx, cy, rad*0.95);
+    } else {                              // orange — citrus + leaf + navel
+      ctx.beginPath(); ctx.arc(cx, cy, rad, 0, PI2); ctx.fill();
+      ctx.shadowBlur = 0;
+      ctx.strokeStyle = "rgba(0,0,0,.18)"; ctx.lineWidth = rad*0.06;
+      for (let k = 0; k < 6; k++) {
+        const a = k * PI2/6;
+        ctx.beginPath(); ctx.moveTo(cx + rad*0.9*Math.cos(a), cy + rad*0.9*Math.sin(a));
+        ctx.lineTo(cx + rad*0.98*Math.cos(a), cy + rad*0.98*Math.sin(a)); ctx.stroke();
+      }
+      leaf(cx, cy - rad*0.95, rad*0.4, 0.2); gloss(cx, cy, rad);
+    }
+    ctx.restore();
   }
 
   function draw() {
@@ -620,22 +716,19 @@
           continue;
         }
 
-        // bud
+        // fruit
         const v = grid[r][c];
         if (v !== -1) {
-          const cx = x + cell/2, cy = y + cell/2, rad = cell*0.32 * apScale;
+          const cx = x + cell/2, cy = y + cell/2, rad = cell*0.34 * apScale;
           ctx.save();
-          ctx.shadowColor = COLORS[v]; ctx.shadowBlur = cell*0.28;
-          ctx.fillStyle = COLORS[v];
-          ctx.beginPath(); ctx.arc(cx, cy, rad, 0, Math.PI*2); ctx.fill();
-          ctx.shadowBlur = 0;
+          drawFruit(v, cx, cy, rad);
           const sp = special[r][c];
           if (sp === "bomb") {
             // bold white ring + dark core so it reads as "charged"
             ctx.lineWidth = cell*0.09; ctx.strokeStyle = "#fff";
-            ctx.beginPath(); ctx.arc(cx, cy, rad*0.72, 0, Math.PI*2); ctx.stroke();
+            ctx.beginPath(); ctx.arc(cx, cy, rad*0.62, 0, PI2); ctx.stroke();
             ctx.fillStyle = "#12131a";
-            ctx.beginPath(); ctx.arc(cx, cy, rad*0.34, 0, Math.PI*2); ctx.fill();
+            ctx.beginPath(); ctx.arc(cx, cy, rad*0.3, 0, PI2); ctx.fill();
           } else if (sp === "lineH" || sp === "lineV") {
             // white bars showing the clear direction
             ctx.strokeStyle = "#fff"; ctx.lineWidth = cell*0.07; ctx.lineCap = "round";
@@ -648,34 +741,40 @@
           } else if (sp === "rainbow") {
             // multi-color ring = wildcard (evenly split by palette size)
             ctx.lineWidth = cell*0.11;
-            const seg = (Math.PI * 2) / COLORS.length;
+            const seg = PI2 / COLORS.length;
             for (let k = 0; k < COLORS.length; k++) {
               ctx.strokeStyle = COLORS[k];
               ctx.beginPath();
-              ctx.arc(cx, cy, rad*0.72, k*seg, (k+1)*seg);
+              ctx.arc(cx, cy, rad*0.66, k*seg, (k+1)*seg);
               ctx.stroke();
             }
             ctx.fillStyle = "#fff";
-            ctx.beginPath(); ctx.arc(cx, cy, rad*0.28, 0, Math.PI*2); ctx.fill();
-          } else {
-            // normal bud inner highlight
-            ctx.globalAlpha = 0.35; ctx.fillStyle = "#fff";
-            ctx.beginPath(); ctx.arc(cx - rad*0.3, cy - rad*0.3, rad*0.4, 0, Math.PI*2); ctx.fill();
+            ctx.beginPath(); ctx.arc(cx, cy, rad*0.24, 0, PI2); ctx.fill();
           }
           ctx.restore();
         }
       }
     }
 
-    // particles
+    // particles (juice droplets + splash rings)
     for (let i = particles.length - 1; i >= 0; i--) {
       const p = particles[i];
-      p.x += p.vx; p.y += p.vy; p.vy += 0.08; p.life -= 0.03;
+      if (p.type === "ring") {
+        p.rad += cell * 0.07; p.life -= 0.06;
+        if (p.life <= 0) { particles.splice(i,1); continue; }
+        ctx.save();
+        ctx.globalAlpha = Math.max(0, p.life) * 0.6;
+        ctx.strokeStyle = p.color; ctx.lineWidth = cell * 0.05 * p.life + 0.5;
+        ctx.beginPath(); ctx.arc(p.x, p.y, p.rad, 0, PI2); ctx.stroke();
+        ctx.restore();
+        continue;
+      }
+      p.x += p.vx; p.y += p.vy; p.vy += 0.14; p.vx *= 0.99; p.life -= 0.03;
       if (p.life <= 0) { particles.splice(i,1); continue; }
       ctx.save();
       ctx.globalAlpha = Math.max(0, p.life);
       ctx.fillStyle = p.color;
-      ctx.beginPath(); ctx.arc(p.x, p.y, cell*0.08, 0, Math.PI*2); ctx.fill();
+      ctx.beginPath(); ctx.arc(p.x, p.y, p.r || cell*0.08, 0, PI2); ctx.fill();
       ctx.restore();
     }
 
