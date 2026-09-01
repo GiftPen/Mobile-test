@@ -113,7 +113,7 @@
        같은 색이 맞붙어 있으면 <b>연쇄</b>로 우르르! 다른 색은 벽이에요.<br/>
        연속으로 성공할수록 점수 <b>배수</b>가 올라갑니다. 헛방이면 리셋!<br/>
        터뜨린 개수로 아이템: <b>4</b>🐦 · <b>5</b>↔️ · <b>6</b>💣 · <b>7</b>🌟<br/>
-       아이템 봉오리는 <b>탭</b>하거나 <b>연쇄</b>로 발동!</p>
+       아이템 봉오리는 <b>탭</b>하거나 <b>주변이 터지면</b> 발동!</p>
     <div class="big" id="ov-msg"></div>
     <button id="start-btn">시작하기</button>
   </div>
@@ -348,13 +348,17 @@
         burst(r, c, vis);
         glow[r][c] = { c: vis, t: 1 };
 
-        // chip any bricks orthogonally/diagonally adjacent to this pop
+        // neighbors: chip bricks, and trigger any adjacent item (any color) via this pop
         for (let dr = -1; dr <= 1; dr++)
           for (let dc = -1; dc <= 1; dc++) {
             if (dr === 0 && dc === 0) continue;
             const nr = r + dr, nc = c + dc;
-            if (nr >= 0 && nr < N && nc >= 0 && nc < N && grid[nr][nc] === BRICK)
-              hitBricks.add(nr * N + nc);
+            if (nr < 0 || nr >= N || nc < 0 || nc >= N) continue;
+            if (grid[nr][nc] === BRICK) hitBricks.add(nr * N + nc);
+            else if (special[nr][nc] && !visited[nr][nc]) {   // adjacent item -> detonate it
+              visited[nr][nc] = true;
+              next.push({ r: nr, c: nc, mode: "blast", color: grid[nr][nc] });
+            }
           }
 
         // same-color flood continues through color-mode pops (matching this item's color)
@@ -417,7 +421,7 @@
     step();
   }
 
-  // same-color buds within Chebyshev radius R (star buds match ANY color)
+  // same-color plain fruits within Chebyshev radius R (items are NOT color-matched)
   function seedsAround(r, c, R, color, visited) {
     const out = [];
     for (let dr = -R; dr <= R; dr++) {
@@ -425,7 +429,7 @@
         if (dr === 0 && dc === 0) continue;
         const nr = r + dr, nc = c + dc;
         if (nr < 0 || nr >= N || nc < 0 || nc >= N || visited[nr][nc]) continue;
-        if (grid[nr][nc] === color || special[nr][nc] === "star") {
+        if (grid[nr][nc] === color && special[nr][nc] === null) {
           visited[nr][nc] = true; out.push([nr, nc]);
         }
       }
@@ -546,16 +550,16 @@
         let itemMsg = "";
         if (chainCount >= STAR_THRESHOLD) {
           grid[r0][c0] = color; special[r0][c0] = "star";
-          itemMsg = "🌟 별! 탭하거나 연쇄로 발동 — 같은 색 별자리 팡";
+          itemMsg = "🌟 별! 탭하거나 주변 폭발로 발동 — 같은 색 별자리 팡";
         } else if (chainCount >= BOMB_THRESHOLD) {
           grid[r0][c0] = color; special[r0][c0] = "bomb";
-          itemMsg = "💣 폭탄! 탭하거나 연쇄로 발동 — 5×5 대폭발";
+          itemMsg = "💣 폭탄! 탭하거나 주변 폭발로 발동 — 5×5 대폭발";
         } else if (chainCount >= LINE_THRESHOLD) {
           grid[r0][c0] = color; special[r0][c0] = randInt(2) ? "lineH" : "lineV";
-          itemMsg = "↔️ 라인! 탭하거나 연쇄로 발동 — 한 줄 청소";
+          itemMsg = "↔️ 라인! 탭하거나 주변 폭발로 발동 — 한 줄 청소";
         } else if (chainCount >= BIRD_THRESHOLD) {
           grid[r0][c0] = color; special[r0][c0] = "bird";
-          itemMsg = "🐦 참새! 탭하거나 연쇄로 발동 — 방해물로 날아가요";
+          itemMsg = "🐦 참새! 탭하거나 주변 폭발로 발동 — 방해물로 날아가요";
         }
         if (itemMsg) { burst(r0, c0, color); document.getElementById("hint").textContent = itemMsg; }
       } else {
