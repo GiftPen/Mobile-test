@@ -131,7 +131,8 @@
   // one staged difficulty step per MILESTONE_STEP points, cycling:
   //   brick(+HP) -> +1 color -> +1 spawn -> brick(+HP) -> ...
   const MILESTONE_STEP = 2000; // TEST value; raise (e.g. 8000) for release
-  const WAVE_STEP_MS = 70;     // time between chain steps
+  const WAVE_STEP_MS = 70;     // time between chain steps (rings)
+  const POP_STAGGER_MS = 15;   // extra micro-delay per cell within a ring (ripple feel)
   const PI2 = Math.PI * 2;
   const SHAKE_MAX = 16;        // screen-shake cap (px)
   const BURST_RADIUS = 1;      // 1 = 3x3 burst (Chebyshev). items can raise this later
@@ -866,17 +867,22 @@
         return;
       }
       const next = [];
+      let pi = 0;                    // stagger index within this ring
       for (const it of frontier) {
         const { r, c, mode } = it;
         const cellColor = grid[r][c];
         const sp = special[r][c];
         const vis = cellColor < 0 ? it.color : cellColor;
-        grid[r][c] = -1; special[r][c] = null;
+        grid[r][c] = -1; special[r][c] = null;   // logic clears immediately (game state stays correct)
         popped++;
         if (mode === "color") chainPopped++;   // items only reward your own matching
-        burst(r, c, vis);
-        glow[r][c] = { c: vis, t: 1 };
-        if (mode === "color") flashBox(r, c, R, vis);   // each chain pop ripples its 3x3 burst range
+        // stagger the VISUAL pop a hair so cells ripple out instead of firing all at once
+        setTimeout(() => {
+          burst(r, c, vis);
+          glow[r][c] = { c: vis, t: 1 };
+          if (mode === "color") flashBox(r, c, R, vis);   // ripple its 3x3 burst range
+          dirty = true;
+        }, (pi++) * POP_STAGGER_MS);
 
         // neighbors: chip bricks, and trigger any adjacent item (any color) via this pop
         for (let dr = -1; dr <= 1; dr++)
