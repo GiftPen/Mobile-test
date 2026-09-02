@@ -1137,17 +1137,22 @@
 
   // target priority: bricks first, then the most isolated junk fruit, else any fruit
   function chooseBirdTarget(exclude) {
-    const bricks = [], buds = [];
+    // priority: bricks -> plain fruits (junk first) -> items (last resort)
+    const bricks = [], fruits = [], items = [];
     for (let r = 0; r < N; r++) for (let c = 0; c < N; c++) {
       if (grid[r][c] === -1 || (exclude && exclude[r * N + c])) continue;
       if (grid[r][c] === BRICK) bricks.push([r, c]);
-      else buds.push([r, c]);
+      else if (special[r][c]) items.push([r, c]);   // item bud
+      else fruits.push([r, c]);                       // plain fruit
     }
-    if (bricks.length) return bricks[randInt(bricks.length)];   // clear obstacles first
-    if (!buds.length) return null;
-    const junk = buds.filter(([r, c]) => sameColorNeighbors(r, c) === 0);
-    const pool = junk.length ? junk : buds;
-    return pool[randInt(pool.length)];
+    if (bricks.length) return bricks[randInt(bricks.length)];
+    if (fruits.length) {
+      const junk = fruits.filter(([r, c]) => sameColorNeighbors(r, c) === 0);
+      const pool = junk.length ? junk : fruits;
+      return pool[randInt(pool.length)];
+    }
+    if (items.length) return items[randInt(items.length)];   // only if nothing else left
+    return null;
   }
 
   function spawnBird(fromR, fromC) {
