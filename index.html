@@ -739,8 +739,7 @@
   let starImg = null;         // loaded star SVG image
   const brickImg = [];        // brickImg[hp] = SVG image (1..3)
   let glow;                    // glow[r][c] = {c: colorIdx, t: 0..1}
-  let special;                 // special[r][c] = null | "bomb" | "lineH" | "lineV" | "star" | "bird" | "combo"
-  let comboParts;              // comboParts[r][c] = ["bomb","lineH",...] when special === "combo"
+  let special;                 // special[r][c] = null | "bomb" | "lineH" | "lineV" | "star"
   let hp;                      // hp[r][c] = brick health (only when grid === BRICK)
   let appear;                  // appear[r][c] = 1..0 pop-in animation for newly spawned cells
 
@@ -774,7 +773,6 @@
     grid = Array.from({length: N}, () => Array(N).fill(-1));
     glow = Array.from({length: N}, () => Array(N).fill(null));
     special = Array.from({length: N}, () => Array(N).fill(null)); // item type per cell
-    comboParts = Array.from({length: N}, () => Array(N).fill(null)); // combo ingredient list
     hp = Array.from({length: N}, () => Array(N).fill(0));         // brick health
     appear = Array.from({length: N}, () => Array(N).fill(0));     // spawn pop-in
   }
@@ -812,36 +810,6 @@
     if (!e.length) return;
     const [r, c] = e[randInt(e.length)];
     grid[r][c] = BRICK; special[r][c] = null; hp[r][c] = level; appear[r][c] = 1;
-  }
-
-  // an item bud's ingredient list ("combo" already holds a list)
-  function partsOf(r, c) {
-    if (special[r][c] === "combo") return (comboParts[r][c] || []).slice();
-    return special[r][c] ? [special[r][c]] : [];
-  }
-  // when an item bud lands next to other item bud(s), fuse them into ONE combo bud
-  // (does NOT fire — the combined super item waits to be triggered). bird included.
-  function tryMergeItem(r, c) {
-    if (!special[r][c]) return;
-    let parts = partsOf(r, c);
-    let merged = false;
-    for (let dr = -1; dr <= 1; dr++)
-      for (let dc = -1; dc <= 1; dc++) {
-        if (dr === 0 && dc === 0) continue;
-        const nr = r + dr, nc = c + dc;
-        if (nr < 0 || nr >= N || nc < 0 || nc >= N) continue;
-        if (special[nr][nc]) {                      // adjacent item -> absorb it
-          parts = parts.concat(partsOf(nr, nc));
-          grid[nr][nc] = -1; special[nr][nc] = null; comboParts[nr][nc] = null;
-          merged = true;
-        }
-      }
-    if (merged) {
-      parts = parts.slice(0, 3);                    // cap combo size
-      special[r][c] = "combo"; comboParts[r][c] = parts;
-      appear[r][c] = 1;
-      document.getElementById("hint").textContent = "✨ 합체! 탭하거나 연쇄로 발동";
-    }
   }
 
   function pickNext() {
@@ -921,7 +889,6 @@
     if (item === "brick") { grid[r][c] = BRICK; special[r][c] = null; hp[r][c] = 3; }
     else if (item === "line") { grid[r][c] = color; special[r][c] = randInt(2) ? "lineH" : "lineV"; }
     else { grid[r][c] = color; special[r][c] = item; }   // bird / bomb / star
-    if (item !== "brick") tryMergeItem(r, c);             // fuse with adjacent item -> combo
     appear[r][c] = 1; dirty = true; updateHUD();          // NO touchCount / spawn / pickNext / game-over
   }
   document.querySelectorAll(".dock-btn").forEach(b => b.addEventListener("click", () => {
@@ -997,10 +964,8 @@
         const { r, c, mode } = it;
         const cellColor = grid[r][c];
         const sp = special[r][c];
-        // a combo bud detonates ALL its stored parts at once; a normal item is a single part
-        const parts = sp === "combo" ? (comboParts[r][c] || []) : (sp ? [sp] : []);
         const vis = cellColor < 0 ? it.color : cellColor;
-        grid[r][c] = -1; special[r][c] = null; comboParts[r][c] = null;   // clears immediately
+        grid[r][c] = -1; special[r][c] = null;   // logic clears immediately (game state stays correct)
         popped++;
         if (mode === "color") chainPopped++;   // items only reward your own matching
         // stagger the VISUAL pop a hair so cells ripple out instead of firing all at once
@@ -1029,24 +994,23 @@
           for (const [nr, nc] of seedsAround(r, c, R, it.color, visited))
             next.push({ r: nr, c: nc, mode: "color", color: it.color });
 
-        // ---- item detonations (each stored part fires; combos fire all parts) ----
-        for (const s of parts) {
-        if (s === "bomb") {                     // 5x5 blast, ignores color walls
+        // ---- item detonations (fire regardless of how this cell was popped) ----
+        if (sp === "bomb") {                     // 5x5 blast, ignores color walls
           flashBox(r, c, BOMB_RADIUS, cellColor);
           const [fx, fy] = cellCenter(r, c);
           flares.push({ cx: fx, cy: fy, kind: cellColor < 0 ? it.color : cellColor, maxR: cell * 2.8, t: 0 });
           addShake(11);
           for (const [nr, nc] of budsAround(r, c, BOMB_RADIUS, visited))
             next.push({ r: nr, c: nc, mode: "blast", color: cellColor });
-        } else if (s === "lineH" || s === "lineV") { // clears whole row / column
-          flashLine(r, c, s);
-          waves.push({ type: s === "lineH" ? "h" : "v",
-                       fixed: s === "lineH" ? r : c, origin: s === "lineH" ? c : r,
+        } else if (sp === "lineH" || sp === "lineV") { // clears whole row / column
+          flashLine(r, c, sp);
+          waves.push({ type: sp === "lineH" ? "h" : "v",
+                       fixed: sp === "lineH" ? r : c, origin: sp === "lineH" ? c : r,
                        color: cellColor < 0 ? it.color : cellColor, t: 0 });
           addShake(8);
-          for (const [nr, nc] of lineCells(r, c, s, visited))
+          for (const [nr, nc] of lineCells(r, c, sp, visited))
             next.push({ r: nr, c: nc, mode: "blast", color: cellColor });
-        } else if (s === "star") {           // COLOR BOMB: connect-the-dots then 팡
+        } else if (sp === "star") {           // COLOR BOMB: connect-the-dots then 팡
           flashBox(r, c, R, cellColor);
           addShake(5);
           const target = mode === "color" ? it.color : mostCommonColor();
@@ -1082,10 +1046,9 @@
           // small local splash so the star itself pops immediately
           for (const [nr, nc] of budsAround(r, c, R, visited))
             next.push({ r: nr, c: nc, mode: "blast", color: grid[nr][nc] });
-        } else if (s === "bird") {
+        } else if (sp === "bird") {
           spawnBird(r, c);          // bird flies off from here to a target
         }
-        }  // end for parts
       }
       frontier = next;
       setTimeout(step, WAVE_STEP_MS);
@@ -1242,7 +1205,6 @@
           itemMsg = "🐦 참새! 탭하거나 주변 폭발로 발동 — 방해물로 날아가요";
         }
         if (itemMsg) { burst(r0, c0, color); document.getElementById("hint").textContent = itemMsg; }
-        tryMergeItem(r0, c0);            // fuse with an adjacent item into a combo (no fire)
       } else {
         streak = 0;                      // miss -> placed ball stays as junk, streak resets
       }
@@ -1492,7 +1454,7 @@
     let live = particles.length || birds.length || flares.length || waves.length || links.length
              || shake > 0.3 || flash > 0.01;
     if (!live) for (let r = 0; r < N && !live; r++) for (let c = 0; c < N; c++)
-      if (glow[r][c] || appear[r][c] > 0 || special[r][c] === "bomb" || special[r][c] === "combo") { live = true; break; }
+      if (glow[r][c] || appear[r][c] > 0 || special[r][c] === "bomb") { live = true; break; }
     if (!dirty && !live) { requestAnimationFrame(draw); return; }
     frame++;   // advance idle-animation clock only while actually drawing
 
@@ -1559,17 +1521,6 @@
         if (v !== -1) {
           const cx = x + cell/2, cy = y + cell/2, rad = cell*0.34 * apScale;
           const sp = special[r][c];
-          if (sp === "combo") {          // fused super item: fruit + pulsing ring + sparkle
-            const ph = frame * 0.2 + (r * 7 + c * 13), pulse = 0.5 + 0.5 * Math.sin(ph);
-            fruitVisual(v, cx, cy, cell * apScale);
-            ctx.save();
-            ctx.strokeStyle = "#ffd000"; ctx.lineWidth = cell * (0.05 + 0.02 * pulse);
-            ctx.globalAlpha = 0.6 + 0.4 * pulse;
-            ctx.beginPath(); ctx.arc(cx, cy, rad * 0.78, 0, PI2); ctx.stroke();
-            ctx.restore();
-            drawStar(cx + rad * 0.55, cy - rad * 0.55, cell * (0.1 + 0.03 * pulse), "#fff");
-            continue;
-          }
           if (sp === "bird") {           // bird item = just a bird, no fruit under it
             const S = cell * apScale;
             if (birdReady()) ctx.drawImage(birdImg, cx - S/2, cy - S/2, S, S);
