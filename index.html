@@ -1717,13 +1717,17 @@
       }
       ctx.restore();
       if (f.t >= 1) {
-        if (grid[f.tr][f.tc] !== -1) {           // eat the target fruit
-          const col = grid[f.tr][f.tc];
-          grid[f.tr][f.tc] = -1; special[f.tr][f.tc] = null;
-          burst(f.tr, f.tc, col);
-          score += BIRD_SCORE; dirty = true;
-          if (score > best) { best = score; localStorage.setItem("bloom_best", best); }
-          updateHUD();
+        if (grid[f.tr][f.tc] !== -1) {
+          if (special[f.tr][f.tc] && !busy) {    // landed on an item -> detonate it
+            tapItem(f.tr, f.tc);
+          } else {                                // plain fruit / brick -> eat it
+            const col = grid[f.tr][f.tc];
+            grid[f.tr][f.tc] = -1; special[f.tr][f.tc] = null;
+            burst(f.tr, f.tc, col);
+            score += BIRD_SCORE; dirty = true;
+            if (score > best) { best = score; localStorage.setItem("bloom_best", best); }
+            updateHUD();
+          }
         }
         birds.splice(i, 1);
       }
