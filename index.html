@@ -64,6 +64,8 @@
     background: #1e2130; color: #fff; border-radius: 10px; box-shadow: none;
   }
   .dock-btn.sel { background: linear-gradient(90deg,#ffc93c,#43d17a); color: #12131a; transform: scale(1.05); }
+  #art-toggle { margin: 0 0 0 auto; padding: 6px 10px; font-size: 12px; font-weight: 800;
+    background: #1e2130; color: var(--muted); border-radius: 10px; box-shadow: none; }
   #overlay {
     position: fixed; inset: 0; background: rgba(10,11,18,.82); backdrop-filter: blur(6px);
     display: flex; flex-direction: column; align-items: center; justify-content: center;
@@ -121,6 +123,7 @@
     <button class="dock-btn" data-item="bomb">💣</button>
     <button class="dock-btn" data-item="star">🌟</button>
     <button class="dock-btn" data-item="brick">🧱</button>
+    <button id="art-toggle">🎨 플랫</button>
   </div>
 
   <div id="overlay">
@@ -453,7 +456,50 @@
   </g>
 </svg>`;
   // PEACH_SVG is benched (not in the active 7) — see chat: peach's pink clashes with cherry's red
-  const FRUIT_SVG = [CHERRY_SVG, ORANGE_SVG, KIWI_SVG, LEMON_SVG, GRAPE_SVG, PEAR_SVG, BANANA_SVG];  // index = color slot
+  const JUICY_FRUIT = [CHERRY_SVG, ORANGE_SVG, KIWI_SVG, LEMON_SVG, GRAPE_SVG, PEAR_SVG, BANANA_SVG]; // 2.5D set
+
+  // flat-ish alternative set (bold silhouette + single soft highlight, minimal detail)
+  const FLAT_FRUIT = [
+`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" width="100%" height="100%">
+<path d="M40 48 Q48 28 61 24" fill="none" stroke="#5a8f2e" stroke-width="3.4" stroke-linecap="round"/>
+<path d="M63 50 Q58 30 61 24" fill="none" stroke="#5a8f2e" stroke-width="3.4" stroke-linecap="round"/>
+<path d="M61 24 Q76 15 87 23 Q76 33 61 24 Z" fill="#6cc24a"/>
+<circle cx="39" cy="64" r="18" fill="#ff5a7a"/><circle cx="64" cy="66" r="18" fill="#ff466a"/>
+<circle cx="33" cy="58" r="4.5" fill="#fff" opacity="0.5"/><circle cx="58" cy="60" r="4.5" fill="#fff" opacity="0.5"/>
+</svg>`,
+`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" width="100%" height="100%">
+<path d="M50 28 Q62 15 76 18 Q67 31 50 30 Z" fill="#6cc24a"/>
+<circle cx="50" cy="56" r="30" fill="#fb8500"/>
+<ellipse cx="39" cy="45" rx="9" ry="6" fill="#fff" opacity="0.4"/>
+</svg>`,
+`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" width="100%" height="100%">
+<circle cx="50" cy="55" r="30" fill="#7c5a34"/><circle cx="50" cy="55" r="26.5" fill="#5aa02f"/><circle cx="50" cy="55" r="8.5" fill="#eef7cf"/>
+<g fill="#20301a"><circle cx="50" cy="34" r="1.7"/><circle cx="65" cy="41" r="1.7"/><circle cx="70" cy="55" r="1.7"/><circle cx="65" cy="69" r="1.7"/><circle cx="50" cy="76" r="1.7"/><circle cx="35" cy="69" r="1.7"/><circle cx="30" cy="55" r="1.7"/><circle cx="35" cy="41" r="1.7"/></g>
+<ellipse cx="40" cy="46" rx="7" ry="4" fill="#fff" opacity="0.3"/>
+</svg>`,
+`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" width="100%" height="100%">
+<g transform="translate(50,53) rotate(-18)"><ellipse cx="0" cy="0" rx="33" ry="22" fill="#ffd21e"/>
+<circle cx="-33" cy="0" r="3.4" fill="#f2b600"/><circle cx="33" cy="0" r="3.4" fill="#f2b600"/>
+<ellipse cx="-9" cy="-8" rx="10" ry="5" fill="#fff" opacity="0.42"/></g>
+</svg>`,
+`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" width="100%" height="100%">
+<path d="M50 28 Q40 18 29 22 Q37 31 50 32 Z" fill="#6cc24a"/>
+<g fill="#a66cff"><circle cx="38" cy="42" r="12"/><circle cx="62" cy="42" r="12"/><circle cx="50" cy="40" r="12.5"/><circle cx="44" cy="58" r="12.5"/><circle cx="57" cy="58" r="12.5"/><circle cx="50" cy="74" r="11.5"/></g>
+<g fill="#fff" opacity="0.45"><circle cx="35" cy="38" r="3"/><circle cx="47" cy="36" r="3"/><circle cx="41" cy="54" r="3"/></g>
+</svg>`,
+`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" width="100%" height="100%">
+<path d="M46 30 C 40 42, 32 48, 32 62 C 32 76, 41 85, 50 85 C 59 85, 68 76, 68 62 C 68 48, 60 42, 54 30 C 52 26, 48 26, 46 30 Z" fill="#c4d8be"/>
+<path d="M50 30 Q49 22 54 18" fill="none" stroke="#7a5a34" stroke-width="3" stroke-linecap="round"/>
+<path d="M52 22 Q64 16 74 20 Q66 28 52 24 Z" fill="#6cc24a"/>
+<ellipse cx="41" cy="60" rx="6" ry="12" fill="#fff" opacity="0.4"/>
+</svg>`,
+`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" width="100%" height="100%">
+<path d="M31 24 C 19 46, 24 76, 54 82 C 46 79, 38 68, 36 52 C 34 40, 31 30, 31 24 Z" fill="#00b4d8"/>
+<path d="M31 24 C 22 44, 26 72, 52 80" fill="none" stroke="#7ee0f2" stroke-width="2.4" stroke-linecap="round" opacity="0.7"/>
+<circle cx="31" cy="23" r="3" fill="#7a5a34"/>
+</svg>`
+  ];
+  let FRUIT_SVG = JUICY_FRUIT;   // active set (toggled by the 🎨 button)
 
   // ---- item art (SVG). the bird (참새) faces left by default ----
   const SPARROW_SVG = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" width="100%" height="100%">
@@ -848,6 +894,12 @@
     document.querySelectorAll(".dock-btn").forEach(x => x.classList.toggle("sel", x.dataset.item === selectedItem));
     document.getElementById("hint").textContent = selectedItem ? "테스트: 빈 칸을 탭해 설치" : "";
   }));
+  let flatArt = false;
+  document.getElementById("art-toggle").addEventListener("click", () => {
+    flatArt = !flatArt;
+    setFruitSet(flatArt ? FLAT_FRUIT : JUICY_FRUIT);
+    document.getElementById("art-toggle").textContent = flatArt ? "🎨 2.5D" : "🎨 플랫";
+  });
 
   // ---- the bloom burst ----
   // Rule 1: placing on empty bursts a (2R+1)x(2R+1) box around itself; same-color
@@ -1263,7 +1315,8 @@
   function svgDataURL(svg) {
     return "data:image/svg+xml," + encodeURIComponent(svg.replace('width="100%" height="100%"', 'width="256" height="256"'));
   }
-  function loadFruitArt() {
+  function loadFruits() {   // (re)load the active fruit set into sprite cache
+    fruitImg.length = 0; fruitSprite = [];
     for (let i = 0; i < FRUIT_SVG.length; i++) {
       if (!FRUIT_SVG[i]) continue;
       const img = new Image();
@@ -1271,6 +1324,11 @@
       img.src = svgDataURL(FRUIT_SVG[i]);
       fruitImg[i] = img;
     }
+    dirty = true;
+  }
+  function setFruitSet(arr) { FRUIT_SVG = arr; loadFruits(); }
+  function loadFruitArt() {
+    loadFruits();
     birdImg = new Image();
     birdImg.onload = () => { dirty = true; };
     birdImg.src = svgDataURL(SPARROW_SVG);
