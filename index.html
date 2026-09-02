@@ -889,14 +889,14 @@
     let frontier = initialFrontier;
     let popped = 0;          // total pops (for score)
     let chainPopped = 0;     // only your own color-chain pops (for item generation)
-    const hitBricks = new Set();   // bricks adjacent to a pop -> chip 1 HP
+    const hitBricks = new Map();   // brick key -> number of adjacent pops (1 HP each)
     function step() {
       if (!frontier.length) {
         let broke = 0;
-        hitBricks.forEach(key => {
+        hitBricks.forEach((dmg, key) => {
           const br = (key / N) | 0, bc = key % N;
           if (grid[br][bc] !== BRICK) return;   // already destroyed by a blast
-          hp[br][bc]--;
+          hp[br][bc] -= dmg;                    // one HP per adjacent pop
           glow[br][bc] = { c: 0, t: 0.9 };
           if (hp[br][bc] <= 0) { grid[br][bc] = -1; special[br][bc] = null; burst(br, bc, "#9aa0b5"); broke++; }
         });
@@ -928,7 +928,7 @@
             if (dr === 0 && dc === 0) continue;
             const nr = r + dr, nc = c + dc;
             if (nr < 0 || nr >= N || nc < 0 || nc >= N) continue;
-            if (grid[nr][nc] === BRICK) hitBricks.add(nr * N + nc);
+            if (grid[nr][nc] === BRICK) { const k = nr * N + nc; hitBricks.set(k, (hitBricks.get(k) || 0) + 1); }
             else if (special[nr][nc] && !visited[nr][nc]) {   // adjacent item -> detonate it
               visited[nr][nc] = true;
               next.push({ r: nr, c: nc, mode: "blast", color: grid[nr][nc] });
@@ -974,7 +974,7 @@
                     for (let dc = -1; dc <= 1; dc++) {
                       const br = rr + dr, bc = cc + dc;
                       if (br >= 0 && br < N && bc >= 0 && bc < N && grid[br][bc] === BRICK)
-                        hitBricks.add(br * N + bc);
+                        { const k = br * N + bc; hitBricks.set(k, (hitBricks.get(k) || 0) + 1); }
                     }
                 }
           // order nearest-neighbor from the star origin = a one-stroke path
