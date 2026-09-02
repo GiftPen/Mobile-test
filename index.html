@@ -1317,31 +1317,38 @@
   function svgDataURL(svg) {
     return "data:image/svg+xml," + encodeURIComponent(svg.replace('width="100%" height="100%"', 'width="256" height="256"'));
   }
-  // try a PNG path first; on 404/error fall back to the inline SVG string
-  function loadArtImg(pngPath, svg, onReady) {
+  // try assets_new/<file> first, then assets/<file>, then the inline SVG fallback
+  function loadArtImg(file, svg, onReady) {
     const img = new Image();
+    let stage = 0;
+    const tryNext = () => {
+      stage++;
+      if (stage === 1) img.src = "assets_new/" + file;
+      else if (stage === 2) img.src = "assets/" + file;
+      else { img.onerror = null; img.src = svgDataURL(svg); }
+    };
     img.onload = onReady;
-    img.onerror = () => { img.onerror = null; img.src = svgDataURL(svg); };
-    img.src = pngPath;
+    img.onerror = tryNext;
+    tryNext();
     return img;
   }
   function loadFruits() {   // (re)load the active fruit set into sprite cache
     fruitImg.length = 0; fruitSprite = [];
     for (let i = 0; i < FRUIT_SVG.length; i++) {
       if (!FRUIT_SVG[i]) continue;
-      fruitImg[i] = loadArtImg(`assets/fruit${i}.png`, FRUIT_SVG[i], () => { buildFruitSprite(i); dirty = true; });
+      fruitImg[i] = loadArtImg(`fruit${i}.png`, FRUIT_SVG[i], () => { buildFruitSprite(i); dirty = true; });
     }
     dirty = true;
   }
   function setFruitSet(arr) { FRUIT_SVG = arr; loadFruits(); }
   function loadFruitArt() {
     loadFruits();
-    birdImg = loadArtImg("assets/bird.png", SPARROW_SVG, () => { dirty = true; });
-    bombImg = loadArtImg("assets/bomb.png", BOMB_SVG, () => { dirty = true; });
-    lineImg = loadArtImg("assets/line.png", LINE_SVG, () => { dirty = true; });
-    starImg = loadArtImg("assets/star.png", STAR_SVG, () => { dirty = true; });
+    birdImg = loadArtImg("bird.png", SPARROW_SVG, () => { dirty = true; });
+    bombImg = loadArtImg("bomb.png", BOMB_SVG, () => { dirty = true; });
+    lineImg = loadArtImg("line.png", LINE_SVG, () => { dirty = true; });
+    starImg = loadArtImg("star.png", STAR_SVG, () => { dirty = true; });
     [[1, BRICK1_SVG], [2, BRICK2_SVG], [3, BRICK3_SVG]].forEach(([hpv, svg]) => {
-      brickImg[hpv] = loadArtImg(`assets/brick${hpv}.png`, svg, () => { dirty = true; });
+      brickImg[hpv] = loadArtImg(`brick${hpv}.png`, svg, () => { dirty = true; });
     });
   }
   const birdReady = () => birdImg && birdImg.complete && birdImg.naturalWidth;
