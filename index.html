@@ -1052,7 +1052,10 @@
   }
 
   function spawnBird(fromR, fromC) {
-    const t = chooseBirdTarget(null);
+    // exclude cells already targeted by in-flight birds so multiple birds pick different targets
+    const exclude = {};
+    for (const f of birds) exclude[f.tr * N + f.tc] = true;
+    const t = chooseBirdTarget(exclude);
     if (!t) return false;
     birds.push({ sr: fromR, sc: fromC, tr: t[0], tc: t[1], t: 0, curve: Math.random() < 0.5 ? -1 : 1 });
     return true;
