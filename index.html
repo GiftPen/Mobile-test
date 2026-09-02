@@ -969,6 +969,13 @@
                   visited[rr][cc] = true;
                   grid[rr][cc] = -1; special[rr][cc] = null; popped++;
                   tCells.push([rr, cc]);
+                  // chip bricks adjacent to each star-cleared cell (was missing)
+                  for (let dr = -1; dr <= 1; dr++)
+                    for (let dc = -1; dc <= 1; dc++) {
+                      const br = rr + dr, bc = cc + dc;
+                      if (br >= 0 && br < N && bc >= 0 && bc < N && grid[br][bc] === BRICK)
+                        hitBricks.add(br * N + bc);
+                    }
                 }
           // order nearest-neighbor from the star origin = a one-stroke path
           const path = [[r, c]];
