@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
-<title>Bloom — 번짐</title>
+<title>Fruit Star</title>
 <style>
   :root {
     --bg: #0f1018;
@@ -67,15 +67,13 @@
   #art-toggle { margin: 0 0 0 auto; padding: 6px 10px; font-size: 12px; font-weight: 800;
     background: #1e2130; color: var(--muted); border-radius: 10px; box-shadow: none; }
   #overlay {
-    position: fixed; inset: 0; background: rgba(10,11,18,.82); backdrop-filter: blur(6px);
+    position: fixed; inset: 0;
+    background: radial-gradient(120% 90% at 50% 0%, #1a1d2e 0%, #0f1018 62%);
     display: flex; flex-direction: column; align-items: center; justify-content: center;
-    gap: 14px; text-align: center; padding: 24px; z-index: 10;
+    gap: 14px; text-align: center; padding: 24px; z-index: 10; overflow: hidden;
   }
   #overlay.hidden { display: none; }
-  #overlay h1 { font-size: 44px; margin: 0; font-weight: 900; letter-spacing: -1px;
-    background: linear-gradient(90deg,#ff5a7a,#ffc93c,#43d17a,#4d8bff);
-    -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent; }
-  #overlay p { margin: 0; color: var(--muted); max-width: 300px; line-height: 1.5; font-size: 14px; }
+  #menu.hidden, #gameover.hidden { display: none; }
   #overlay .big { font-size: 20px; color: var(--text); font-weight: 700; }
   button {
     margin-top: 8px; padding: 14px 34px; font-size: 17px; font-weight: 800;
@@ -84,6 +82,42 @@
     box-shadow: 0 8px 24px rgba(67,209,122,.35);
   }
   button:active { transform: scale(.97); }
+
+  /* ---- main menu ---- */
+  #menu { position: relative; width: 100%; max-width: 380px; display: flex; flex-direction: column; align-items: center; }
+  .deco { position: fixed; inset: 0; pointer-events: none; }
+  .deco .d { position: absolute; width: 92px; height: 92px; filter: drop-shadow(0 6px 10px rgba(0,0,0,.45)); }
+  .d-kiwi   { top: 8%;  left: -3%;  transform: rotate(-12deg); width: 100px; height: 100px; }
+  .d-lemon  { top: 5%;  right: -3%; transform: rotate(14deg); width: 108px; height: 108px; }
+  .d-cherry { top: 33%; left: -5%;  transform: rotate(-8deg); }
+  .d-orange { top: 29%; right: -5%; transform: rotate(10deg); }
+  .d-grape  { top: 44%; right: -2%; transform: rotate(-6deg); }
+  .d-peach  { bottom: 4%; left: -4%; transform: rotate(8deg); }
+  .d-banana { bottom: 2%; right: -3%; transform: rotate(-20deg); }
+  .title { line-height: .92; }
+  .title .t1, .title .t2 { font-size: 58px; font-weight: 900; text-shadow: 0 4px 0 rgba(0,0,0,.35); }
+  .title .t1 { letter-spacing: 2px; }
+  .title .t2 { letter-spacing: 5px; color: #ffd23e; }
+  .tagline { color: var(--muted); font-size: 14px; margin: 16px 0 34px; }
+  .mode-btn { width: 100%; max-width: 320px; margin-top: 14px; padding: 18px; font-size: 20px; font-weight: 800;
+    border: none; border-radius: 18px; color: #fff; cursor: pointer; }
+  .mode-btn.arcade { background: #e5484d; box-shadow: 0 6px 0 #a3282c; }
+  .mode-btn.challenge { background: #7c5cff; box-shadow: 0 6px 0 #503aa8; opacity: .82; }
+  .mode-btn:active { transform: translateY(3px); box-shadow: none; }
+  .menu-icons { display: flex; gap: 34px; margin-top: 42px; }
+  .icon-btn { background: none; box-shadow: none; margin: 0; padding: 0; display: flex; flex-direction: column;
+    align-items: center; gap: 6px; color: var(--muted); }
+  .icon-btn .ic { width: 56px; height: 56px; border-radius: 50%; background: #1e2130; font-size: 24px;
+    display: flex; align-items: center; justify-content: center; }
+  .icon-btn .lb { font-size: 12px; }
+  #menu-msg { min-height: 18px; margin-top: 16px; color: #ffd23e; font-size: 13px; font-weight: 700; }
+  .ver { position: fixed; bottom: 14px; left: 0; right: 0; color: #555; font-size: 12px; }
+  /* ---- game over ---- */
+  #gameover { display: flex; flex-direction: column; align-items: center; gap: 12px; }
+  .go-title { font-size: 40px; margin: 0; font-weight: 900;
+    background: linear-gradient(90deg,#ff5a7a,#ffc93c,#43d17a,#4d8bff);
+    -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent; }
+  .ghost-btn { background: #1e2130 !important; color: var(--text) !important; box-shadow: none !important; }
 </style>
 </head>
 <body>
@@ -127,14 +161,36 @@
   </div>
 
   <div id="overlay">
-    <h1>Bloom</h1>
-    <p><b>빈 칸</b>에 다음 색을 놓으면 <b>주변 3×3</b>이 터집니다.<br/>
-       같은 색이 맞붙어 있으면 <b>연쇄</b>로 우르르! 다른 색은 벽이에요.<br/>
-       연속으로 성공할수록 점수 <b>배수</b>가 올라갑니다. 헛방이면 리셋!<br/>
-       터뜨린 개수로 아이템: <b>4</b>🐦 · <b>5</b>↔️ · <b>6</b>💣 · <b>7</b>🌟<br/>
-       아이템 봉오리는 <b>탭</b>하거나 <b>주변이 터지면</b> 발동!</p>
-    <div class="big" id="ov-msg"></div>
-    <button id="start-btn">시작하기</button>
+    <div id="menu">
+      <div class="deco">
+        <img class="d d-kiwi"   src="assets_new/fruit2.png" onerror="this.onerror=null;this.src='assets/fruit2.png'" alt="">
+        <img class="d d-lemon"  src="assets_new/fruit3.png" onerror="this.onerror=null;this.src='assets/fruit3.png'" alt="">
+        <img class="d d-cherry" src="assets_new/fruit0.png" onerror="this.onerror=null;this.src='assets/fruit0.png'" alt="">
+        <img class="d d-orange" src="assets_new/fruit1.png" onerror="this.onerror=null;this.src='assets/fruit1.png'" alt="">
+        <img class="d d-grape"  src="assets_new/fruit4.png" onerror="this.onerror=null;this.src='assets/fruit4.png'" alt="">
+        <img class="d d-peach"  src="assets_new/fruit5.png" onerror="this.onerror=null;this.src='assets/fruit5.png'" alt="">
+        <img class="d d-banana" src="assets_new/fruit6.png" onerror="this.onerror=null;this.src='assets/fruit6.png'" alt="">
+      </div>
+      <div class="title">
+        <div class="t1"><span style="color:#ff5a7a">F</span><span style="color:#f45b00">R</span><span style="color:#43d17a">U</span><span style="color:#ffc93c">I</span><span style="color:#4d8bff">T</span></div>
+        <div class="t2">STAR</div>
+      </div>
+      <p class="tagline">톡! 터트리는 상쾌한 과일 퍼즐</p>
+      <button id="btn-arcade" class="mode-btn arcade">아케이드 모드</button>
+      <button id="btn-challenge" class="mode-btn challenge">🔒 챌린지 모드</button>
+      <div class="menu-icons">
+        <button class="icon-btn" id="btn-settings"><span class="ic">⚙️</span><span class="lb">설정</span></button>
+        <button class="icon-btn" id="btn-ranking"><span class="ic">🏆</span><span class="lb">랭킹</span></button>
+      </div>
+      <div id="menu-msg"></div>
+      <div class="ver">v0.2.0</div>
+    </div>
+    <div id="gameover" class="hidden">
+      <h1 class="go-title">게임 오버</h1>
+      <div class="big" id="ov-msg"></div>
+      <button id="start-btn">다시 하기</button>
+      <button id="btn-menu" class="ghost-btn">메인으로</button>
+    </div>
   </div>
 
 <script>
@@ -1238,14 +1294,16 @@
 
   function gameOver() {
     running = false; busy = false;
-    const ov = document.getElementById("overlay");
-    document.getElementById("ov-msg").innerHTML =
-      `점수 <b>${score}</b> · 최고 <b>${best}</b>`;
-    document.querySelector("#overlay h1").textContent = "게임 오버";
-    document.querySelector("#overlay p").innerHTML =
-      "판이 가득 찼어요! 색을 잘 배치해 봉오리를 더 많이 터뜨려 보세요.";
-    document.getElementById("start-btn").textContent = "다시 하기";
-    ov.classList.remove("hidden");
+    document.getElementById("ov-msg").innerHTML = `점수 <b>${score}</b> · 최고 <b>${best}</b>`;
+    document.getElementById("menu").classList.add("hidden");     // show the game-over view
+    document.getElementById("gameover").classList.remove("hidden");
+    document.getElementById("overlay").classList.remove("hidden");
+  }
+  function showMenu() {
+    document.getElementById("gameover").classList.add("hidden");
+    document.getElementById("menu").classList.remove("hidden");
+    document.getElementById("overlay").classList.remove("hidden");
+    document.getElementById("menu-msg").textContent = "";
   }
 
   // ---- juice: particles + combo popup ----
@@ -1749,12 +1807,18 @@
   }
 
   // ---- boot ----
-  document.getElementById("start-btn").addEventListener("click", () => {
-    document.querySelector("#overlay h1").textContent = "Bloom";
-    document.querySelector("#overlay p").innerHTML =
-      "<b>빈 칸</b>에 다음 색을 놓으면 <b>주변 3×3</b>이 터집니다.<br/>같은 색 <b>연쇄</b> + 연속 <b>배수</b>! 아이템: 4🐦 · 5↔️ · 6💣 · 7🌟";
-    start();
-  });
+  document.getElementById("btn-arcade").addEventListener("click", start);     // arcade = the game
+  document.getElementById("start-btn").addEventListener("click", start);      // game-over retry
+  document.getElementById("btn-menu").addEventListener("click", showMenu);    // game-over -> main
+  let msgTimer = null;
+  function menuMsg(txt) {
+    const el = document.getElementById("menu-msg");
+    el.textContent = txt;
+    clearTimeout(msgTimer); msgTimer = setTimeout(() => { el.textContent = ""; }, 2200);
+  }
+  document.getElementById("btn-challenge").addEventListener("click", () => menuMsg("🔒 챌린지 모드는 곧 출시됩니다!"));
+  document.getElementById("btn-settings").addEventListener("click", () => menuMsg("⚙️ 설정은 준비 중이에요"));
+  document.getElementById("btn-ranking").addEventListener("click", () => menuMsg("🏆 랭킹은 준비 중이에요"));
 
   layout();
   emptyGrid();      // init grid/glow so the render loop is safe before "시작하기"
