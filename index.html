@@ -105,7 +105,7 @@
   #menu > .mode-btn, #menu > .menu-icons, #menu > #menu-msg, #menu > .ver { position: relative; z-index: 2; }
   .rr { position: relative; }
   /* star sitting INSIDE the R's counter (the empty loop/hole), not above the letter */
-  .rr .d-star { position: absolute; top: 9px; left: 5px; width: 27px; height: 27px; transform: rotate(15deg); z-index: 3;
+  .rr .d-star { position: absolute; top: 9px; left: 6px; width: 27px; height: 27px; transform: rotate(15deg); z-index: 3;
     pointer-events: none; filter: drop-shadow(0 2px 3px rgba(0,0,0,.5)); }
   .title { position: relative; z-index: 2; line-height: .92; }
   .title .t1, .title .t2 { font-size: 58px; font-weight: 700; text-shadow: 0 4px 0 rgba(0,0,0,.4); }
@@ -236,8 +236,8 @@
   // one staged difficulty step per MILESTONE_STEP points, cycling:
   //   brick(+HP) -> +1 color -> +1 spawn -> brick(+HP) -> ...
   const MILESTONE_STEP = 2000; // TEST value; raise (e.g. 8000) for release
-  const WAVE_STEP_MS = 100;    // time between chain steps (rings) — slower, weightier cascade
-  const POP_STAGGER_MS = 42;   // extra micro-delay per cell within a ring (ripple feel)
+  const WAVE_STEP_MS = 83;     // time between chain steps (rings) — weighty but ~20% snappier
+  const POP_STAGGER_MS = 35;   // extra micro-delay per cell within a ring (ripple feel)
   const PI2 = Math.PI * 2;
   const SHAKE_MAX = 16;        // screen-shake cap (px)
   const BURST_RADIUS = 1;      // 1 = 3x3 burst (Chebyshev). items can raise this later
@@ -1558,7 +1558,7 @@
           ctx.fillStyle = COLORS[gl.c];
           roundRect(x + g, y + g, cell - g*2, cell - g*2, cell*0.22); ctx.fill();
           ctx.restore();
-          gl.t -= 0.04;
+          gl.t -= 0.048;
           if (gl.t <= 0) glow[r][c] = null;
         }
 
@@ -1567,7 +1567,7 @@
         if (appear[r][c] > 0) {
           const a = appear[r][c];
           apScale = 1 - a * a * 0.85;                  // eased grow from ~0.15 to 1
-          appear[r][c] = Math.max(0, a - 0.06);
+          appear[r][c] = Math.max(0, a - 0.072);
         }
 
         // brick (wall) — art swaps by HP: 3 full, 2 damaged, 1 nearly broken
@@ -1654,7 +1654,7 @@
     for (let i = particles.length - 1; i >= 0; i--) {
       const p = particles[i];
       if (p.type === "ring") {
-        p.rad += cell * 0.05; p.life -= 0.04;
+        p.rad += cell * 0.06; p.life -= 0.048;
         if (p.life <= 0) { particles.splice(i,1); continue; }
         ctx.save();
         ctx.globalAlpha = Math.max(0, p.life) * 0.6;
@@ -1663,7 +1663,7 @@
         ctx.restore();
         continue;
       }
-      p.x += p.vx; p.y += p.vy; p.vy += 0.10; p.vx *= 0.99; p.life -= 0.022;
+      p.x += p.vx; p.y += p.vy; p.vy += 0.12; p.vx *= 0.99; p.life -= 0.026;
       if (p.life <= 0) { particles.splice(i,1); continue; }
       ctx.save();
       ctx.globalAlpha = Math.max(0, p.life);
@@ -1674,7 +1674,7 @@
 
     // line-clear waves — a ripple rolls out from the item along the row/col
     for (let i = waves.length - 1; i >= 0; i--) {
-      const w = waves[i]; w.t += 0.016;            // slower roll
+      const w = waves[i]; w.t += 0.019;            // roll
       if (w.t >= 1) { waves.splice(i, 1); continue; }
       const front = w.t * (N + 3);                 // wave front distance from origin
       ctx.save();
@@ -1697,7 +1697,7 @@
 
     // item flares — fruit silhouette pops to full fast, HOLDS, then fades; ring expands out
     for (let i = flares.length - 1; i >= 0; i--) {
-      const fl = flares[i]; fl.t += 0.016;
+      const fl = flares[i]; fl.t += 0.019;
       if (fl.t >= 1) { flares.splice(i, 1); continue; }
       const grow = Math.min(1, fl.t * 1.6);            // swell more gradually (full by ~62%), then burst
       const fruitR = fl.maxR * 0.6 * grow * (2 - grow);
@@ -1717,7 +1717,7 @@
     // star constellation — one-stroke path links same-color fruits, then 팡
     for (let i = links.length - 1; i >= 0; i--) {
       const L = links[i];
-      L.prog += 0.16;                                  // nodes traversed per frame — slower, more graceful link
+      L.prog += 0.19;                                  // nodes traversed per frame — graceful link, ~20% snappier
       const nodes = L.nodes, maxIdx = nodes.length - 1;
       const p = Math.min(L.prog, maxIdx);              // continuous position along path
       // pop fruits as the stroke reaches each node (juice)
@@ -1757,7 +1757,7 @@
     // birds (참새) swooping along a curved path to their target fruit
     for (let i = birds.length - 1; i >= 0; i--) {
       const f = birds[i];
-      f.t += 0.016;   // slower, more graceful swoop
+      f.t += 0.019;   // graceful swoop, ~20% snappier
       const tt = Math.min(1, f.t);
       const [sx, sy] = cellCenter(f.sr, f.sc);
       const [tx, ty] = cellCenter(f.tr, f.tc);
@@ -1811,7 +1811,7 @@
       ctx.fillStyle = "#fff";
       roundRect(0, 0, boardPx, boardPx, 18); ctx.fill();
       ctx.restore();
-      flash *= 0.88;
+      flash *= 0.855;
     } else flash = 0;
 
     ctx.restore();   // end screen-shake transform
