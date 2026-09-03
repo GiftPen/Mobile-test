@@ -84,22 +84,25 @@
   button:active { transform: scale(.97); }
 
   /* ---- main menu ---- */
-  #menu { position: relative; width: 100%; max-width: 380px; display: flex; flex-direction: column; align-items: center; }
-  .deco { position: fixed; inset: 0; pointer-events: none; }
-  .deco .d { position: absolute; width: 92px; height: 92px; filter: drop-shadow(0 6px 10px rgba(0,0,0,.45)); }
-  .d-kiwi   { top: 8%;  left: -3%;  transform: rotate(-12deg); width: 100px; height: 100px; }
-  .d-lemon  { top: 5%;  right: -3%; transform: rotate(14deg); width: 108px; height: 108px; }
-  .d-cherry { top: 33%; left: -5%;  transform: rotate(-8deg); }
-  .d-orange { top: 29%; right: -5%; transform: rotate(10deg); }
-  .d-grape  { top: 44%; right: -2%; transform: rotate(-6deg); }
-  .d-peach  { bottom: 4%; left: -4%; transform: rotate(8deg); }
-  .d-banana { bottom: 2%; right: -3%; transform: rotate(-20deg); }
-  .title { line-height: .92; }
-  .title .t1, .title .t2 { font-size: 58px; font-weight: 900; text-shadow: 0 4px 0 rgba(0,0,0,.35); }
+  #menu { position: relative; width: 100%; max-width: 400px; display: flex; flex-direction: column; align-items: center; }
+  #hero { position: relative; width: 100%; height: 46vh; min-height: 300px; max-height: 430px;
+    display: flex; flex-direction: column; align-items: center; justify-content: center; }
+  .burst { position: absolute; left: 4%; top: 3%; width: 92%; height: 94%; z-index: 0;
+    filter: drop-shadow(0 12px 26px rgba(0,0,0,.45)); }
+  #hero .d { position: absolute; z-index: 1; width: 86px; height: 86px; filter: drop-shadow(0 6px 10px rgba(0,0,0,.45)); }
+  .d-kiwi   { top: 4%;  left: 0%;   transform: rotate(-12deg); width: 92px; height: 92px; }
+  .d-lemon  { top: 1%;  right: 0%;  transform: rotate(14deg); width: 100px; height: 100px; }
+  .d-cherry { top: 40%; left: -8%;  transform: rotate(-8deg); }
+  .d-orange { top: 34%; right: -8%; transform: rotate(10deg); }
+  .d-grape  { top: 58%; right: -4%; transform: rotate(-6deg); }
+  .d-peach  { bottom: 0%; left: -4%; transform: rotate(8deg); }
+  .d-banana { bottom: -2%; right: -2%; transform: rotate(-20deg); }
+  .d-star   { top: 20%; right: 20%; width: 44px; height: 44px; transform: rotate(16deg); z-index: 2; }
+  .title { position: relative; z-index: 2; line-height: .92; }
+  .title .t1, .title .t2 { font-size: 58px; font-weight: 900; text-shadow: 0 4px 0 rgba(0,0,0,.4); }
   .title .t1 { letter-spacing: 2px; }
   .title .t2 { letter-spacing: 5px; color: #ffffff; }
-  .d-star { top: 15%; right: 24%; width: 46px; height: 46px; transform: rotate(16deg); }
-  .tagline { color: var(--muted); font-size: 14px; margin: 16px 0 34px; }
+  .tagline { position: relative; z-index: 2; color: var(--muted); font-size: 14px; margin: 16px 0 0; }
   .mode-btn { width: 100%; max-width: 320px; margin-top: 14px; padding: 18px; font-size: 20px; font-weight: 800;
     border: none; border-radius: 18px; color: #fff; cursor: pointer; }
   .mode-btn.arcade { background: #e5484d; box-shadow: 0 6px 0 #a3282c; }
@@ -178,7 +181,10 @@
 
   <div id="overlay">
     <div id="menu">
-      <div class="deco">
+      <div id="hero">
+        <svg class="burst" viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true">
+          <polygon points="50.0,0.0 57.6,16.9 71.7,5.0 71.2,23.4 89.1,18.8 80.6,35.2 98.7,38.9 84.0,50.0 98.7,61.1 80.6,64.8 89.1,81.2 71.2,76.6 71.7,95.0 57.6,83.1 50.0,100.0 42.4,83.1 28.3,95.0 28.8,76.6 10.9,81.2 19.4,64.8 1.3,61.1 16.0,50.0 1.3,38.9 19.4,35.2 10.9,18.8 28.8,23.4 28.3,5.0 42.4,16.9" fill="#242838"/>
+        </svg>
         <img class="d d-kiwi"   src="assets_new/fruit2.png" onerror="this.onerror=null;this.src='assets/fruit2.png'" alt="">
         <img class="d d-lemon"  src="assets_new/fruit3.png" onerror="this.onerror=null;this.src='assets/fruit3.png'" alt="">
         <img class="d d-cherry" src="assets_new/fruit0.png" onerror="this.onerror=null;this.src='assets/fruit0.png'" alt="">
@@ -186,13 +192,13 @@
         <img class="d d-grape"  src="assets_new/fruit4.png" onerror="this.onerror=null;this.src='assets/fruit4.png'" alt="">
         <img class="d d-peach"  src="assets_new/fruit5.png" onerror="this.onerror=null;this.src='assets/fruit5.png'" alt="">
         <img class="d d-banana" src="assets_new/fruit6.png" onerror="this.onerror=null;this.src='assets/fruit6.png'" alt="">
-        <img class="d d-star" src="assets_new/star.png" onerror="this.onerror=null;this.src='assets/star.png'" alt="">
+        <img class="d d-star"   src="assets_new/star.png"   onerror="this.onerror=null;this.src='assets/star.png'" alt="">
+        <div class="title">
+          <div class="t1"><span style="color:#ff5a7a">F</span><span style="color:#f45b00">R</span><span style="color:#43d17a">U</span><span style="color:#ffc93c">I</span><span style="color:#4d8bff">T</span></div>
+          <div class="t2">STAR</div>
+        </div>
+        <p class="tagline">톡! 터트리는 상쾌한 과일 퍼즐</p>
       </div>
-      <div class="title">
-        <div class="t1"><span style="color:#ff5a7a">F</span><span style="color:#f45b00">R</span><span style="color:#43d17a">U</span><span style="color:#ffc93c">I</span><span style="color:#4d8bff">T</span></div>
-        <div class="t2">STAR</div>
-      </div>
-      <p class="tagline">톡! 터트리는 상쾌한 과일 퍼즐</p>
       <button id="btn-arcade" class="mode-btn arcade">아케이드 모드</button>
       <button id="btn-challenge" class="mode-btn challenge">🔒 챌린지 모드</button>
       <div class="menu-icons">
