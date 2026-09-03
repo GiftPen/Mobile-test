@@ -62,16 +62,19 @@
   }
   #hint { color: var(--muted); font-size: 13px; margin-top: 10px; height: 16px; }
   #dock {
-    display: flex; align-items: center; gap: 6px; margin-top: 10px;
-    padding: 6px 10px; background: var(--panel); border-radius: 14px;
+    display: flex; align-items: center; flex-wrap: wrap; justify-content: center;
+    gap: 6px; margin-top: 10px; max-width: 520px;
+    padding: 8px 10px; background: var(--panel); border-radius: 14px;
   }
-  .dock-label { font-size: 11px; color: var(--muted); margin-right: 2px; }
+  .dock-label { font-size: 11px; color: var(--muted); margin-right: 2px; width: 100%; text-align: center; }
   .dock-btn {
-    margin: 0; padding: 6px 10px; font-size: 20px; line-height: 1;
+    margin: 0; padding: 5px 9px; font-size: 20px; line-height: 1;
     background: #1e2130; color: #fff; border-radius: 10px; box-shadow: none;
   }
-  .dock-btn.sel { background: linear-gradient(90deg,#ffc93c,#43d17a); color: #12131a; transform: scale(1.05); }
-  #art-toggle { margin: 0 0 0 auto; padding: 6px 10px; font-size: 12px; font-weight: 800;
+  .dock-btn.fruit { padding: 4px; }
+  .dock-btn.fruit img { width: 26px; height: 26px; display: block; }
+  .dock-btn.sel { background: linear-gradient(90deg,#ffc93c,#43d17a); color: #12131a; transform: scale(1.08); }
+  #art-toggle { padding: 6px 10px; font-size: 12px; font-weight: 800;
     background: #1e2130; color: var(--muted); border-radius: 10px; box-shadow: none; }
   #overlay {
     position: fixed; inset: 0;
@@ -173,6 +176,13 @@
 
   <div id="dock">
     <span class="dock-label">테스트</span>
+    <button class="dock-btn fruit" data-item="fruit0"><img src="assets_new/fruit0.png" onerror="this.onerror=null;this.src='assets/fruit0.png'" alt="체리"></button>
+    <button class="dock-btn fruit" data-item="fruit1"><img src="assets_new/fruit1.png" onerror="this.onerror=null;this.src='assets/fruit1.png'" alt="오렌지"></button>
+    <button class="dock-btn fruit" data-item="fruit2"><img src="assets_new/fruit2.png" onerror="this.onerror=null;this.src='assets/fruit2.png'" alt="키위"></button>
+    <button class="dock-btn fruit" data-item="fruit3"><img src="assets_new/fruit3.png" onerror="this.onerror=null;this.src='assets/fruit3.png'" alt="레몬"></button>
+    <button class="dock-btn fruit" data-item="fruit4"><img src="assets_new/fruit4.png" onerror="this.onerror=null;this.src='assets/fruit4.png'" alt="포도"></button>
+    <button class="dock-btn fruit" data-item="fruit5"><img src="assets_new/fruit5.png" onerror="this.onerror=null;this.src='assets/fruit5.png'" alt="복숭아"></button>
+    <button class="dock-btn fruit" data-item="fruit6"><img src="assets_new/fruit6.png" onerror="this.onerror=null;this.src='assets/fruit6.png'" alt="바나나"></button>
     <button class="dock-btn" data-item="bird">🐦</button>
     <button class="dock-btn" data-item="line">↔️</button>
     <button class="dock-btn" data-item="bomb">💣</button>
@@ -964,6 +974,9 @@
     const color = randInt(activeColors());
     if (item === "brick") { grid[r][c] = BRICK; special[r][c] = null; hp[r][c] = 3; }
     else if (item === "line") { grid[r][c] = color; special[r][c] = randInt(2) ? "lineH" : "lineV"; }
+    else if (item.startsWith("fruit")) {                  // plain fruit of a chosen color slot
+      grid[r][c] = parseInt(item.slice(5), 10); special[r][c] = null;
+    }
     else { grid[r][c] = color; special[r][c] = item; }   // bird / bomb / star
     appear[r][c] = 1; dirty = true; updateHUD();          // NO touchCount / spawn / pickNext / game-over
   }
