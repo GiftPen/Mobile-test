@@ -12,6 +12,10 @@
     --text: #e8eaf2;
     --muted: #8b90a6;
   }
+  @font-face { font-family: 'Maplestory'; font-weight: 700; font-style: normal; font-display: swap;
+    src: url('https://cdn.jsdelivr.net/gh/fonts-archive/Maplestory/Maplestory-Bold.woff2') format('woff2'); }
+  @font-face { font-family: 'Maplestory'; font-weight: 400; font-style: normal; font-display: swap;
+    src: url('https://cdn.jsdelivr.net/gh/fonts-archive/Maplestory/Maplestory-Light.woff2') format('woff2'); }
   * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
   html, body {
     margin: 0; height: 100%;
@@ -71,6 +75,7 @@
     background: radial-gradient(120% 90% at 50% 0%, #1a1d2e 0%, #0f1018 62%);
     display: flex; flex-direction: column; align-items: center; justify-content: center;
     gap: 14px; text-align: center; padding: 24px; z-index: 10; overflow: hidden;
+    font-family: 'Maplestory', -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
   }
   #overlay.hidden { display: none; }
   #menu.hidden, #gameover.hidden { display: none; }
@@ -97,7 +102,7 @@
   .rr .d-star { position: absolute; top: -2px; left: 11px; width: 24px; height: 24px; transform: rotate(14deg); z-index: 3;
     pointer-events: none; filter: drop-shadow(0 2px 3px rgba(0,0,0,.5)); }
   .title { position: relative; z-index: 2; line-height: .92; }
-  .title .t1, .title .t2 { font-size: 58px; font-weight: 900; text-shadow: 0 4px 0 rgba(0,0,0,.4); }
+  .title .t1, .title .t2 { font-size: 58px; font-weight: 700; text-shadow: 0 4px 0 rgba(0,0,0,.4); }
   .title .t1 { letter-spacing: 2px; }
   .title .t2 { letter-spacing: 5px; color: #ffffff; }
   .tagline { position: relative; z-index: 2; color: var(--muted); font-size: 14px; margin: 16px 0 0; }
@@ -1844,7 +1849,8 @@
   function mfxInit(f) {
     const slots = mfxLoadedSlots();
     f.slot = slots.length ? slots[(slots.length * Math.random()) | 0] : ((Math.random() * COLORS.length) | 0);
-    f.size = 42 + Math.random() * 52;                 // 42–94 px
+    // wider size spread: mostly mid, but some very small & some big (bias with squared random)
+    f.size = 26 + Math.pow(Math.random(), 1.7) * 118;  // ~26–144 px, more small ones
     f.x = Math.random() * mfxW;                        // anywhere on screen
     f.y = Math.random() * mfxH;
     const ang = Math.random() * PI2, spd = 1.7 + Math.random() * 2.1;   // faster: 1.7–3.8 px/frame
