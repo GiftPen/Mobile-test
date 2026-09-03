@@ -90,13 +90,20 @@
   .burst { position: absolute; left: 4%; top: 3%; width: 92%; height: 94%; z-index: 0;
     filter: drop-shadow(0 12px 26px rgba(0,0,0,.45)); }
   #hero .d { position: absolute; z-index: 1; width: 86px; height: 86px; filter: drop-shadow(0 6px 10px rgba(0,0,0,.45)); }
-  .d-kiwi   { top: 4%;  left: 0%;   transform: rotate(-12deg); width: 92px; height: 92px; }
-  .d-lemon  { top: 1%;  right: 0%;  transform: rotate(14deg); width: 100px; height: 100px; }
-  .d-cherry { top: 40%; left: -8%;  transform: rotate(-8deg); }
-  .d-orange { top: 34%; right: -8%; transform: rotate(10deg); }
-  .d-grape  { top: 58%; right: -4%; transform: rotate(-6deg); }
-  .d-peach  { bottom: 0%; left: -4%; transform: rotate(8deg); }
-  .d-banana { bottom: -2%; right: -2%; transform: rotate(-20deg); }
+  @keyframes fruitDrift {
+    0%   { transform: translate(-16px,-24px) rotate(-8deg); opacity: 0; }
+    16%  { opacity: .95; }
+    72%  { opacity: .95; }
+    100% { transform: translate(84px,126px) rotate(16deg); opacity: 0; }
+  }
+  #hero .d:not(.d-star) { animation: fruitDrift 9s ease-in-out infinite; }
+  .d-kiwi   { top: 4%;  left: 0%;   width: 92px; height: 92px; animation-duration: 8.5s;  animation-delay: -1s; }
+  .d-lemon  { top: 1%;  right: 0%;  width: 100px; height: 100px; animation-duration: 10s;  animation-delay: -3s; }
+  .d-cherry { top: 40%; left: -8%;  animation-duration: 9s;    animation-delay: -5s; }
+  .d-orange { top: 34%; right: -8%; animation-duration: 11s;   animation-delay: -2s; }
+  .d-grape  { top: 58%; right: -4%; animation-duration: 8s;    animation-delay: -6.5s; }
+  .d-peach  { bottom: 0%; left: -4%; animation-duration: 10.5s; animation-delay: -4s; }
+  .d-banana { bottom: -2%; right: -2%; animation-duration: 9.5s; animation-delay: -7.5s; }
   .d-star   { top: 20%; right: 20%; width: 44px; height: 44px; transform: rotate(16deg); z-index: 2; }
   .title { position: relative; z-index: 2; line-height: .92; }
   .title .t1, .title .t2 { font-size: 58px; font-weight: 900; text-shadow: 0 4px 0 rgba(0,0,0,.4); }
