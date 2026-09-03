@@ -1066,7 +1066,7 @@
         if (sp === "bomb") {                     // 5x5 blast, ignores color walls
           flashBox(r, c, BOMB_RADIUS, cellColor);
           const [fx, fy] = cellCenter(r, c);
-          flares.push({ cx: fx, cy: fy, kind: cellColor < 0 ? it.color : cellColor, maxR: cell * 2.8, t: 0 });
+          flares.push({ cx: fx, cy: fy, kind: cellColor < 0 ? it.color : cellColor, maxR: cell * 1.7, t: 0 });  // grow to ~3x3
           addShake(11);
           for (const [nr, nc] of budsAround(r, c, BOMB_RADIUS, visited))
             next.push({ r: nr, c: nc, mode: "blast", color: cellColor });
