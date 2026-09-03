@@ -1035,7 +1035,11 @@
         const vis = cellColor < 0 ? it.color : cellColor;
         grid[r][c] = -1; special[r][c] = null;   // logic clears immediately (game state stays correct)
         popped++;
-        if (mode === "color") chainPopped++;   // items only reward your own matching
+        // item reward = size of YOUR placed color group. Count color-flood pops AND any
+        // same-color cell a bomb/line blast consumed mid-chain (incl. a same-color bomb itself),
+        // so overlapping items no longer rob the count. (Star's board-wide sweep bypasses this
+        // loop entirely -> still uncounted, preserving the anti-snowball rule.)
+        if (mode === "color" || (placement && cellColor === color)) chainPopped++;
         // stagger the VISUAL pop a hair so cells ripple out instead of firing all at once
         setTimeout(() => {
           burst(r, c, vis);
