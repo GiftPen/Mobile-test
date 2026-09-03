@@ -97,7 +97,8 @@
   .title { line-height: .92; }
   .title .t1, .title .t2 { font-size: 58px; font-weight: 900; text-shadow: 0 4px 0 rgba(0,0,0,.35); }
   .title .t1 { letter-spacing: 2px; }
-  .title .t2 { letter-spacing: 5px; color: #ffd23e; }
+  .title .t2 { letter-spacing: 5px; color: #ffffff; }
+  .d-star { top: 15%; right: 24%; width: 46px; height: 46px; transform: rotate(16deg); }
   .tagline { color: var(--muted); font-size: 14px; margin: 16px 0 34px; }
   .mode-btn { width: 100%; max-width: 320px; margin-top: 14px; padding: 18px; font-size: 20px; font-weight: 800;
     border: none; border-radius: 18px; color: #fff; cursor: pointer; }
@@ -118,9 +119,24 @@
     background: linear-gradient(90deg,#ff5a7a,#ffc93c,#43d17a,#4d8bff);
     -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent; }
   .ghost-btn { background: #1e2130 !important; color: var(--text) !important; box-shadow: none !important; }
+  /* ---- in-game pause ---- */
+  #pause-btn { position: fixed; top: 12px; left: 12px; z-index: 8; width: 42px; height: 42px;
+    margin: 0; padding: 0; border-radius: 12px; background: #1e2130; color: var(--text);
+    font-size: 18px; box-shadow: none; }
+  #pause { position: fixed; inset: 0; z-index: 11; background: rgba(10,11,18,.85); backdrop-filter: blur(6px);
+    display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 14px; }
+  #pause.hidden { display: none; }
+  #pause h2 { color: var(--text); font-size: 30px; margin: 0 0 6px; font-weight: 900; }
+  #pause button { width: 220px; }
 </style>
 </head>
 <body>
+  <button id="pause-btn" aria-label="일시정지">⏸</button>
+  <div id="pause" class="hidden">
+    <h2>일시정지</h2>
+    <button id="btn-resume">계속하기</button>
+    <button id="btn-tomain" class="ghost-btn">메인으로</button>
+  </div>
   <div id="top">
     <div class="score-box">
       <span class="score-label">점수</span>
@@ -170,6 +186,7 @@
         <img class="d d-grape"  src="assets_new/fruit4.png" onerror="this.onerror=null;this.src='assets/fruit4.png'" alt="">
         <img class="d d-peach"  src="assets_new/fruit5.png" onerror="this.onerror=null;this.src='assets/fruit5.png'" alt="">
         <img class="d d-banana" src="assets_new/fruit6.png" onerror="this.onerror=null;this.src='assets/fruit6.png'" alt="">
+        <img class="d d-star" src="assets_new/star.png" onerror="this.onerror=null;this.src='assets/star.png'" alt="">
       </div>
       <div class="title">
         <div class="t1"><span style="color:#ff5a7a">F</span><span style="color:#f45b00">R</span><span style="color:#43d17a">U</span><span style="color:#ffc93c">I</span><span style="color:#4d8bff">T</span></div>
@@ -778,6 +795,7 @@
   let touchCount;              // total taps this game
   let running = false;
   let busy = false;            // wave animating -> block input
+  let paused = false;          // pause overlay open -> block input
   let particles = [];
   let birds = [];             // {sr,sc,tr,tc,t} bird flies to a junk fruit and eats it
   let flares = [];            // {cx,cy,kind,maxR,t} item explosion: growing fruit silhouette
@@ -925,7 +943,7 @@
 
   canvas.addEventListener("pointerdown", (ev) => {
     ev.preventDefault();
-    if (!running || busy) return;
+    if (!running || busy || paused) return;
     const rc = cellFromEvent(ev);
     if (!rc) return;
     const [r, c] = rc;
@@ -1819,6 +1837,22 @@
   document.getElementById("btn-challenge").addEventListener("click", () => menuMsg("🔒 챌린지 모드는 곧 출시됩니다!"));
   document.getElementById("btn-settings").addEventListener("click", () => menuMsg("⚙️ 설정은 준비 중이에요"));
   document.getElementById("btn-ranking").addEventListener("click", () => menuMsg("🏆 랭킹은 준비 중이에요"));
+
+  // in-game pause / back to main
+  document.getElementById("pause-btn").addEventListener("click", () => {
+    if (!running) return;
+    paused = true;
+    document.getElementById("pause").classList.remove("hidden");
+  });
+  document.getElementById("btn-resume").addEventListener("click", () => {
+    paused = false;
+    document.getElementById("pause").classList.add("hidden");
+  });
+  document.getElementById("btn-tomain").addEventListener("click", () => {
+    paused = false; running = false;
+    document.getElementById("pause").classList.add("hidden");
+    showMenu();
+  });
 
   layout();
   emptyGrid();      // init grid/glow so the render loop is safe before "시작하기"
