@@ -233,11 +233,11 @@
   const SHAKE_MAX = 16;        // screen-shake cap (px)
   const BURST_RADIUS = 1;      // 1 = 3x3 burst (Chebyshev). items can raise this later
   const MAX_MULT = 5;          // streak multiplier cap
-  const BIRD_THRESHOLD = 4;    // pop this many (but < line) -> a bird
-  const LINE_THRESHOLD = 5;    // -> a line bud (clears a row/col)
-  const BOMB_THRESHOLD = 6;    // -> a bomb bud (5x5 blast)
+  const BIRD_THRESHOLD = 4;    // group size 4      -> a bird
+  const LINE_THRESHOLD = 5;    // group size 5–6    -> a line bud (clears a row/col)
+  const BOMB_THRESHOLD = 7;    // group size 7–9    -> a bomb bud (5x5 blast)
   const BOMB_RADIUS = 2;       // bomb blast = 5x5 (Chebyshev 2)
-  const STAR_THRESHOLD = 7;    // -> a star bud (color bomb + constellation)
+  const STAR_THRESHOLD = 10;   // group size 10+    -> a star bud (color bomb + constellation)
   const BIRD_SCORE = 20;       // score for each fruit a bird eats
   const BRICK = -2;            // grid value for a brick (wall; only items can clear it)
   const BRICK_EVERY = 5;       // one brick spawns every N touches once unlocked
