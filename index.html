@@ -35,9 +35,10 @@
   .score-val { font-size: 34px; font-weight: 700; line-height: 1; }
   .best-line { font-size: 12px; color: var(--muted); margin-top: 4px; letter-spacing: .5px; }
   .best-line b { color: var(--text); font-weight: 700; }
-  #next-wrap { flex: 0 0 auto; display: flex; align-items: center; justify-content: center;
-    padding: 5px; background: var(--cell); border-radius: 16px; }
-  #next-dot { width: 52px; height: 52px; display: block; }
+  #next-wrap { flex: 0 0 auto; display: flex; align-items: center; justify-content: center; gap: 3px;
+    padding: 5px 7px; background: var(--cell); border-radius: 16px; overflow: hidden; }
+  #np-now  { width: 50px; height: 50px; display: block; }
+  #np-next { width: 32px; height: 32px; display: block; opacity: .72; }
   #stats {
     width: 100%; max-width: 520px; padding: 4px 18px 0;
     display: flex; align-items: center; gap: 8px;
@@ -154,7 +155,8 @@
       <span class="best-line">최고 <b id="best">0</b></span>
     </div>
     <div id="next-wrap">
-      <canvas id="next-dot" width="128" height="128"></canvas>
+      <canvas id="np-now"  width="128" height="128"></canvas>
+      <canvas id="np-next" width="128" height="128"></canvas>
     </div>
   </div>
 
@@ -754,7 +756,8 @@
 
   // ---- state ----
   let grid;                    // grid[r][c] = colorIndex | -1 (empty) | BRICK
-  let nextColor;
+  let nextColor;       // the piece you'll place now (queue front)
+  let nextColor2;      // the lookahead piece shown after it
   let score, best, streak;     // streak = consecutive successful taps
   let touchCount;              // total taps this game
   let running = false;
@@ -851,34 +854,51 @@
   }
 
   function pickNext() {
-    nextColor = randInt(activeColors());
-    drawNextPreview();
+    if (nextColor2 == null) {                    // fresh game: fill both queue slots
+      nextColor = randInt(activeColors());
+      nextColor2 = randInt(activeColors());
+      drawNextPreview(false);
+    } else {                                     // advance: the lookahead becomes the placeable
+      nextColor = nextColor2;
+      nextColor2 = randInt(activeColors());
+      drawNextPreview(true);                      // slide/push motion
+    }
   }
 
-  function drawNextPreview() {
-    if (nextColor == null) return;
-    const cv = document.getElementById("next-dot");
+  // render one queued fruit (color bubble + ring + sprite) into a preview canvas
+  function drawPreviewInto(cv, colorIdx) {
     const g = cv.getContext("2d");
     const w = cv.width, h = cv.height, cx = w / 2, cy = h / 2;
     g.clearRect(0, 0, w, h);
-    const col = COLORS[nextColor] || "#fff";
-    // soft color bubble so the next fruit reads clearly against the dark HUD
+    if (colorIdx == null) return;
+    const col = COLORS[colorIdx] || "#fff";
     const grd = g.createRadialGradient(cx, cy, w * 0.06, cx, cy, w * 0.5);
     grd.addColorStop(0, col + "66");
     grd.addColorStop(1, col + "12");
     g.fillStyle = grd;
     g.beginPath(); g.arc(cx, cy, w * 0.48, 0, PI2); g.fill();
-    // colored ring
     g.strokeStyle = col + "cc"; g.lineWidth = w * 0.045;
     g.beginPath(); g.arc(cx, cy, w * 0.455, 0, PI2); g.stroke();
-    // the fruit, big and centered
-    const sp = fruitSprite[nextColor];
+    const sp = fruitSprite[colorIdx];
     if (sp) {
       const s = w * 0.74;
       g.drawImage(sp, cx - s / 2, cy - s / 2, s, s);
-    } else {                                   // fallback: solid dot
+    } else {
       g.fillStyle = col;
       g.beginPath(); g.arc(cx, cy, w * 0.3, 0, PI2); g.fill();
+    }
+  }
+  function drawNextPreview(animatePush) {
+    if (nextColor == null) return;
+    const now = document.getElementById("np-now");
+    const nxt = document.getElementById("np-next");
+    drawPreviewInto(now, nextColor);
+    drawPreviewInto(nxt, nextColor2);
+    if (animatePush && now.animate) {   // "push": next slides up into the now-slot, a fresh one fades in behind
+      now.animate([{ transform: "translateX(16px) scale(.62)", opacity: .25 }, { transform: "none", opacity: 1 }],
+        { duration: 280, easing: "cubic-bezier(.2,.85,.25,1)" });
+      nxt.animate([{ transform: "translateX(12px)", opacity: 0 }, { opacity: .72, transform: "none" }],
+        { duration: 300, easing: "cubic-bezier(.2,.85,.25,1)" });
     }
   }
 
@@ -886,6 +906,7 @@
   function start() {
     emptyGrid();
     score = 0; streak = 0; touchCount = 0; particles = []; birds = []; flares = []; waves = []; links = []; shake = 0; flash = 0; dirty = true;
+    nextColor = null; nextColor2 = null;   // clear queue so pickNext refills both slots
     spawnBuds(START_BUDS);
     pickNext();
     updateHUD();
