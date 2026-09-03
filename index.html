@@ -35,9 +35,9 @@
   .score-val { font-size: 34px; font-weight: 700; line-height: 1; }
   .best-line { font-size: 12px; color: var(--muted); margin-top: 4px; letter-spacing: .5px; }
   .best-line b { color: var(--text); font-weight: 700; }
-  #next-wrap { flex: 0 0 auto; display: flex; flex-direction: column; align-items: center; gap: 3px;
-    padding: 6px 8px 7px; background: var(--cell); border-radius: 16px; }
-  #next-dot { width: 52px; height: 52px; }
+  #next-wrap { flex: 0 0 auto; display: flex; align-items: center; justify-content: center;
+    padding: 5px; background: var(--cell); border-radius: 16px; }
+  #next-dot { width: 52px; height: 52px; display: block; }
   #stats {
     width: 100%; max-width: 520px; padding: 4px 18px 0;
     display: flex; align-items: center; gap: 8px;
@@ -154,7 +154,6 @@
       <span class="best-line">최고 <b id="best">0</b></span>
     </div>
     <div id="next-wrap">
-      <span class="score-label">다음</span>
       <canvas id="next-dot" width="128" height="128"></canvas>
     </div>
   </div>
