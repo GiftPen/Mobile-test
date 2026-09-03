@@ -172,7 +172,7 @@
     <canvas id="game"></canvas>
     <div id="combo"></div>
   </div>
-  <div id="hint">빈 칸을 탭해 색을 퍼뜨리세요</div>
+  <div id="hint">빈 칸을 탭해 과일을 놓으세요</div>
 
   <div id="dock">
     <span class="dock-label">테스트</span>
@@ -201,7 +201,7 @@
           <div class="t1"><span style="color:#ff5a7a">F</span><span style="color:#f45b00">R</span><span style="color:#43d17a">U</span><span style="color:#ffc93c">I</span><span style="color:#4d8bff">T</span></div>
           <div class="t2">STA<span class="rr">R<img class="d-star" src="assets_new/star.png" onerror="this.onerror=null;this.src='assets/star.png'" alt=""></span></div>
         </div>
-        <p class="tagline">톡! 터트리는 상쾌한 과일 퍼즐</p>
+        <p class="tagline">톡! 터뜨리는 상쾌한 과일 퍼즐</p>
       </div>
       <button id="btn-arcade" class="mode-btn arcade">아케이드 모드</button>
       <button id="btn-challenge" class="mode-btn challenge">🔒 챌린지 모드</button>
@@ -913,7 +913,7 @@
     running = true; busy = false;
     mfxStop();
     document.getElementById("overlay").classList.add("hidden");
-    document.getElementById("hint").textContent = "같은 색 봉오리 옆(3×3)에 놓아 터뜨리세요";
+    document.getElementById("hint").textContent = "같은 색 과일 옆(3×3)에 놓아 터뜨리세요";
   }
 
   function updateHUD() {
@@ -1270,7 +1270,7 @@
           itemMsg = "↔️ 라인! 탭하거나 주변 폭발로 발동 — 한 줄 청소";
         } else if (chainCount >= BIRD_THRESHOLD) {
           grid[r0][c0] = color; special[r0][c0] = "bird";
-          itemMsg = "🐦 참새! 탭하거나 주변 폭발로 발동 — 방해물로 날아가요";
+          itemMsg = "🐦 참새! 탭하거나 주변 폭발로 발동 — 벽돌·걸리는 과일을 쪼아 없애요";
         }
         if (itemMsg) { burst(r0, c0, color); document.getElementById("hint").textContent = itemMsg; }
       } else {
