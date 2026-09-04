@@ -255,7 +255,11 @@
   const PI2 = Math.PI * 2;
   const SHAKE_MAX = 16;        // screen-shake cap (px)
   const BURST_RADIUS = 1;      // 1 = 3x3 burst (Chebyshev). items can raise this later
-  const MAX_MULT = 5;          // streak multiplier cap
+  // streak multiplier: +0.2 per consecutive success, capped at ×2.0 (1.2/1.4/1.6/1.8/2.0)
+  // Star Rush: relics can raise STREAK_STEP and/or STREAK_CAP.
+  let STREAK_STEP = 0.2;
+  let STREAK_CAP  = 2.0;
+  function streakMult() { return Math.min(1 + streak * STREAK_STEP, STREAK_CAP); }
   const BIRD_THRESHOLD = 4;    // group size 4      -> a bird
   const LINE_THRESHOLD = 5;    // group size 5–6    -> a line bud (clears a row/col)
   const BOMB_THRESHOLD = 7;    // group size 7–9    -> a bomb bud (5x5 blast)
@@ -1271,7 +1275,7 @@
         streak++;
         const cleared = popped + 1;          // include the ball you placed
         const chainCount = chainPopped + 1;  // your color group size, inclusive
-        const mult = Math.max(1, Math.min(streak, MAX_MULT));   // integer streak multiplier ×1..×5
+        const mult = streakMult();
         // per-fruit points (placed ball + all popped) × gentle chain-size bonus × streak
         const groupPts = (pointsPopped || 0) + (FRUIT_POINTS[color] || 1);
         const chainBonus = 1 + (cleared - 1) * 0.15;
@@ -1303,7 +1307,7 @@
       if (grid[r0][c0] !== -1) appear[r0][c0] = 1;  // placed ball (junk/item) pops in too
     } else if (popped > 0) {
       // manual item tap: score the clears, no new item, keep the queued color
-      const mult = Math.max(1, Math.min(streak, MAX_MULT));   // integer streak multiplier ×1..×5
+      const mult = streakMult();
       const chainBonus = 1 + (popped - 1) * 0.15;
       const gained = Math.round((pointsPopped || 0) * chainBonus * mult);
       score += gained;
@@ -1386,9 +1390,9 @@
   // persistent streak badge near the score; pulses on gain, hides at ×1
   function updateStreakBadge() {
     const b = document.getElementById("streak-badge");
-    const mult = Math.max(1, Math.min(streak, MAX_MULT));
+    const mult = streakMult();
     if (mult > 1) {
-      b.textContent = `🔥 ×${mult}`;
+      b.textContent = `🔥 ×${mult.toFixed(1)}`;
       b.classList.add("on");
       b.animate([{transform:"scale(1.35)"},{transform:"scale(1)"}], {duration:180, easing:"ease-out"});
     } else {
