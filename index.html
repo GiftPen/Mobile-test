@@ -261,7 +261,7 @@
   // one staged difficulty step per MILESTONE_STEP points, cycling:
   //   brick(+HP) -> +1 color -> +1 spawn -> brick(+HP) -> ...
   const MILESTONE_STEP = 100;  // TEST value (now); SHIP = 500 points per difficulty step
-  const MAX_LEVEL = 10;        // difficulty shown as Lv.1 .. Lv.10 (MAX)
+  let MAX_LEVEL = 10;          // auto-computed at boot from where every difficulty knob caps
   const FILL_SEGS = 16;        // segments in the board-fill / danger gauge
   const WAVE_STEP_MS = 87;     // time between chain steps (rings)
   const POP_STAGGER_MS = 37;   // extra micro-delay per cell within a ring (ripple feel)
@@ -852,9 +852,18 @@
   // staged difficulty: milestone m unlocks, in order, brick / color / spawn (cycling)
   function milestone() { return Math.floor(score / MILESTONE_STEP); }
   function level() { return Math.min(MAX_LEVEL, milestone() + 1); }   // Lv.1 at score 0
-  function brickHpLevel() { return Math.min(3, Math.floor((milestone() + 2) / 3)); } // 0 = none, else 1..3
-  function activeColors() { return Math.min(MAX_COLORS, BASE_COLORS + Math.floor((milestone() + 1) / 3)); }
-  function spawnCount() { return Math.min(SPAWN_MAX, SPAWN_BASE + Math.floor(milestone() / 3)); }
+  // difficulty knobs (accept an explicit milestone m; default = current)
+  function brickHpLevel(m = milestone()) { return Math.min(3, Math.floor((m + 2) / 3)); } // 0 = none, else 1..3
+  function activeColors(m = milestone()) { return Math.min(MAX_COLORS, BASE_COLORS + Math.floor((m + 1) / 3)); }
+  function spawnCount(m = milestone()) { return Math.min(SPAWN_MAX, SPAWN_BASE + Math.floor(m / 3)); }
+  // max meaningful level = milestone where every knob first reaches its cap (+1)
+  function computeMaxLevel() {
+    for (let m = 0; m < 200; m++)
+      if (activeColors(m) === MAX_COLORS && spawnCount(m) === SPAWN_MAX && brickHpLevel(m) === 3)
+        return m + 1;
+    return 10;
+  }
+  MAX_LEVEL = computeMaxLevel();
   function addShake(a) { shake = Math.min(SHAKE_MAX, shake + a); }
 
   function emptyCells() {
