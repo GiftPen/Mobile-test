@@ -228,6 +228,9 @@
   const N = 8;                 // grid size
   // full palette (7). Only the first activeColors() are in play, growing with score.
   const COLORS = ["#ff5a7a", "#f45b00", "#43d17a", "#ffc93c", "#a66cff", "#ffab8f", "#00b4d8"];
+  // per-fruit base points (shared with Star Rush). slot order: 0체리 1오렌지 2키위 3레몬 4포도 5복숭아 6바나나
+  // cherry/lemon=1, orange/kiwi=2, grape/peach=3, banana=5
+  const FRUIT_POINTS = [1, 2, 2, 1, 3, 3, 5];
   const BASE_COLORS = 4;       // colors in play at score 0
   const MAX_COLORS = 7;        // cap
   const START_BUDS = 10;
@@ -247,7 +250,7 @@
   const BOMB_THRESHOLD = 7;    // group size 7–9    -> a bomb bud (5x5 blast)
   const BOMB_RADIUS = 2;       // bomb blast = 5x5 (Chebyshev 2)
   const STAR_THRESHOLD = 10;   // group size 10+    -> a star bud (color bomb + constellation)
-  const BIRD_SCORE = 20;       // score for each fruit a bird eats
+  const BIRD_SCORE = 2;        // score per fruit a bird eats (small-scale scoring)
   const BRICK = -2;            // grid value for a brick (wall; only items can clear it)
   const BRICK_EVERY = 5;       // one brick spawns every N touches once unlocked
 
@@ -806,9 +809,9 @@
   window.addEventListener("resize", () => { layout(); if (mfxRAF) mfxResize(); });
 
   // ---- helpers ----
-  const best0 = () => { best = +(localStorage.getItem("bloom_best") || 0); };
+  const best0 = () => { best = +(localStorage.getItem("fruitstar_best_v2") || 0); };
   best0();
-  best = +(localStorage.getItem("bloom_best") || 0);
+  best = +(localStorage.getItem("fruitstar_best_v2") || 0);
 
   function emptyGrid() {
     grid = Array.from({length: N}, () => Array(N).fill(-1));
@@ -1010,6 +1013,7 @@
     let frontier = initialFrontier;
     let popped = 0;          // total pops (for score)
     let chainPopped = 0;     // only your own color-chain pops (for item generation)
+    let pointsPopped = 0;    // sum of FRUIT_POINTS of every popped fruit (for scoring)
     const hitBricks = new Map();   // brick key -> number of adjacent pops (1 HP each)
     function step() {
       if (!frontier.length) {
@@ -1021,8 +1025,8 @@
           glow[br][bc] = { c: 0, t: 0.9 };
           if (hp[br][bc] <= 0) { grid[br][bc] = -1; special[br][bc] = null; burst(br, bc, "#9aa0b5"); broke++; }
         });
-        if (broke) score += broke * 15;
-        finishBurst(r0, c0, color, popped, chainPopped, placement);
+        if (broke) score += broke * 3;
+        finishBurst(r0, c0, color, popped, chainPopped, placement, pointsPopped);
         return;
       }
       const next = [];
@@ -1034,6 +1038,7 @@
         const vis = cellColor < 0 ? it.color : cellColor;
         grid[r][c] = -1; special[r][c] = null;   // logic clears immediately (game state stays correct)
         popped++;
+        if (cellColor >= 0) pointsPopped += FRUIT_POINTS[cellColor] || 1;
         // item reward = size of YOUR placed color group. Count color-flood pops AND any
         // same-color cell a bomb/line blast consumed mid-chain (incl. a same-color bomb itself),
         // so overlapping items no longer rob the count. (Star's board-wide sweep bypasses this
@@ -1093,6 +1098,7 @@
                 if (!visited[rr][cc] && grid[rr][cc] === target) {
                   visited[rr][cc] = true;
                   grid[rr][cc] = -1; special[rr][cc] = null; popped++;
+                  pointsPopped += FRUIT_POINTS[target] || 1;
                   tCells.push([rr, cc]);
                   // chip bricks adjacent to each star-cleared cell (was missing)
                   for (let dr = -1; dr <= 1; dr++)
@@ -1245,7 +1251,7 @@
       }
   }
 
-  function finishBurst(r0, c0, color, popped, chainPopped, placement) {
+  function finishBurst(r0, c0, color, popped, chainPopped, placement, pointsPopped) {
     if (placement) {
       if (popped > 0) {
         grid[r0][c0] = -1;               // success -> placed ball consumed cleanly
@@ -1254,7 +1260,10 @@
         const cleared = popped + 1;          // include the ball you placed
         const chainCount = chainPopped + 1;  // your color group size, inclusive
         const mult = Math.min(1 + (streak - 1) * 0.5, MAX_MULT);
-        const gained = Math.round((cleared * 10 + (cleared - 1) * (cleared - 1) * 5) * mult);
+        // per-fruit points (placed ball + all popped) × gentle chain-size bonus × streak
+        const groupPts = (pointsPopped || 0) + (FRUIT_POINTS[color] || 1);
+        const chainBonus = 1 + (cleared - 1) * 0.15;
+        const gained = Math.round(groupPts * chainBonus * mult);
         score += gained;
         showCombo(cleared, gained, mult);
         addShake(Math.min(12, cleared * 0.7));
@@ -1283,7 +1292,8 @@
     } else if (popped > 0) {
       // manual item tap: score the clears, no new item, keep the queued color
       const mult = Math.min(1 + (streak - 1) * 0.5, MAX_MULT);
-      const gained = Math.round((popped * 10 + (popped - 1) * (popped - 1) * 5) * mult);
+      const chainBonus = 1 + (popped - 1) * 0.15;
+      const gained = Math.round((pointsPopped || 0) * chainBonus * mult);
       score += gained;
       showCombo(popped, gained, mult);
       addShake(Math.min(12, popped * 0.7));
@@ -1297,7 +1307,7 @@
       if (bLvl >= 1 && touchCount % BRICK_EVERY === 0) spawnBrick(bLvl);
       pickNext();
     }
-    if (score > best) { best = score; localStorage.setItem("bloom_best", best); }
+    if (score > best) { best = score; localStorage.setItem("fruitstar_best_v2", best); }
     updateHUD();
     dirty = true;
 
@@ -1802,7 +1812,7 @@
             grid[f.tr][f.tc] = -1; special[f.tr][f.tc] = null;
             burst(f.tr, f.tc, col);
             score += BIRD_SCORE; dirty = true;
-            if (score > best) { best = score; localStorage.setItem("bloom_best", best); }
+            if (score > best) { best = score; localStorage.setItem("fruitstar_best_v2", best); }
             updateHUD();
           }
         }
