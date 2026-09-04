@@ -50,13 +50,24 @@
     font-size: 12px; color: var(--muted); white-space: nowrap;
   }
   .chip b { color: var(--text); font-weight: 800; }
+  .chip.lvl { color: var(--text); font-weight: 800; background: #232744; }
+  .chip.lvl .lvmax { color: #ffd23e; margin-left: 4px; font-size: 10px; letter-spacing: 1px; }
+  .chip.lvl .lvmax.hidden { display: none; }
   #danger-label { margin-left: auto; font-size: 12px; font-weight: 800; color: #ff5a5f; }
-  #dangerbar {
-    width: 100%; max-width: 520px; padding: 0; height: 8px; margin: 6px auto 0;
-    background: #1e2130; border-radius: 999px; overflow: hidden;
+  #danger-label.hidden { display: none; }
+  /* segmented board-fill / danger gauge (merges 남은블록 + 위기) */
+  #fillgauge {
+    width: 100%; max-width: 520px; height: 18px; margin: 6px auto 0;
+    display: flex; gap: 2px; padding: 3px; background: #14151d; border-radius: 8px;
   }
-  #dangerfill { height: 100%; width: 0%; background: #43d17a;
-    border-radius: 999px; transition: width .25s, background .25s; }
+  #fillgauge .seg {
+    flex: 1; border-radius: 3px; background: #24273a;
+    transition: background .15s ease, box-shadow .15s ease;
+  }
+  #fillgauge .seg.on { box-shadow: inset 0 0 3px rgba(255,255,255,.35); }
+  @keyframes segShake { 0%,100%{transform:translateY(0)} 25%{transform:translateY(-2.5px)} 75%{transform:translateY(2.5px)} }
+  #fillgauge.danger { box-shadow: 0 0 0 1px rgba(255,70,70,.55); }
+  #fillgauge.danger .seg.frontier { animation: segShake .28s ease-in-out infinite; }
   #stage-wrap { position: relative; margin-top: 8px; }
   canvas { display: block; border-radius: 18px; touch-action: none; }
   .gain-pop {
@@ -173,12 +184,12 @@
   </div>
 
   <div id="stats">
-    <span class="chip">👆 <b id="st-touch">0</b></span>
-    <span class="chip">⬜ <b id="st-empty">64</b></span>
-    <span class="chip">➕ <b id="st-spawn">2</b></span>
-    <span id="danger-label"></span>
+    <span class="chip lvl">Lv.<b id="st-level">1</b><span id="st-max" class="lvmax hidden">MAX</span></span>
+    <span class="chip">👆 터치 <b id="st-touch">0</b></span>
+    <span class="chip">➕ 블록 <b id="st-spawn">1</b></span>
+    <span id="danger-label" class="hidden">⚠️ 위험!</span>
   </div>
-  <div id="dangerbar"><div id="dangerfill"></div></div>
+  <div id="fillgauge" aria-label="판 채움/위험도"></div>
 
   <div id="stage-wrap">
     <canvas id="game"></canvas>
@@ -249,7 +260,9 @@
   const SPAWN_MAX = 4;         // cap
   // one staged difficulty step per MILESTONE_STEP points, cycling:
   //   brick(+HP) -> +1 color -> +1 spawn -> brick(+HP) -> ...
-  const MILESTONE_STEP = 2000; // TEST value; raise (e.g. 8000) for release
+  const MILESTONE_STEP = 100;  // TEST value (now); SHIP = 500 points per difficulty step
+  const MAX_LEVEL = 10;        // difficulty shown as Lv.1 .. Lv.10 (MAX)
+  const FILL_SEGS = 16;        // segments in the board-fill / danger gauge
   const WAVE_STEP_MS = 87;     // time between chain steps (rings)
   const POP_STAGGER_MS = 37;   // extra micro-delay per cell within a ring (ripple feel)
   const PI2 = Math.PI * 2;
@@ -838,6 +851,7 @@
   function randInt(n) { return Math.floor(Math.random() * n); }
   // staged difficulty: milestone m unlocks, in order, brick / color / spawn (cycling)
   function milestone() { return Math.floor(score / MILESTONE_STEP); }
+  function level() { return Math.min(MAX_LEVEL, milestone() + 1); }   // Lv.1 at score 0
   function brickHpLevel() { return Math.min(3, Math.floor((milestone() + 2) / 3)); } // 0 = none, else 1..3
   function activeColors() { return Math.min(MAX_COLORS, BASE_COLORS + Math.floor((milestone() + 1) / 3)); }
   function spawnCount() { return Math.min(SPAWN_MAX, SPAWN_BASE + Math.floor(milestone() / 3)); }
@@ -934,18 +948,44 @@
     document.getElementById("hint").textContent = "같은 색 과일 옆(3×3)에 놓아 터뜨리세요";
   }
 
+  // build the segmented gauge once
+  let gaugeSegs = [];
+  function buildGauge() {
+    const g = document.getElementById("fillgauge");
+    if (gaugeSegs.length) return;
+    for (let i = 0; i < FILL_SEGS; i++) {
+      const s = document.createElement("div");
+      s.className = "seg";
+      g.appendChild(s); gaugeSegs.push(s);
+    }
+  }
+  function segColor(i) {                 // left=blue(safe) -> right=red(danger)
+    const hue = 220 - (i / (FILL_SEGS - 1)) * 230;   // 220(blue) .. -10(red)
+    return `hsl(${(hue + 360) % 360} 85% 58%)`;
+  }
   function updateHUD() {
     document.getElementById("score").textContent = score;
     document.getElementById("best").textContent = best;
     updateStreakBadge();
+    const lv = level();
+    document.getElementById("st-level").textContent = lv;
+    document.getElementById("st-max").classList.toggle("hidden", lv < MAX_LEVEL);
     document.getElementById("st-touch").textContent = touchCount;
-    document.getElementById("st-empty").textContent = emptyCells().length;
     document.getElementById("st-spawn").textContent = spawnCount();
+
+    // segmented board-fill / danger gauge
+    buildGauge();
     const ratio = filledCount() / (N * N);          // fill vs the whole board
-    const fill = document.getElementById("dangerfill");
-    fill.style.width = (ratio * 100).toFixed(0) + "%";
-    fill.style.background = ratio < 0.7 ? "#43d17a" : ratio < 0.88 ? "#ffc93c" : "#ff5a5f";
-    document.getElementById("danger-label").textContent = ratio >= 0.88 ? "⚠️ 아웃 위험!" : "";
+    const lit = Math.round(ratio * FILL_SEGS);
+    for (let i = 0; i < FILL_SEGS; i++) {
+      const on = i < lit;
+      gaugeSegs[i].classList.toggle("on", on);
+      gaugeSegs[i].classList.toggle("frontier", on && i === lit - 1);
+      gaugeSegs[i].style.background = on ? segColor(i) : "";
+    }
+    const danger = ratio >= 0.85;
+    document.getElementById("fillgauge").classList.toggle("danger", danger);
+    document.getElementById("danger-label").classList.toggle("hidden", !danger);
   }
 
   // ---- input ----
