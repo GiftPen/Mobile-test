@@ -62,12 +62,15 @@
     font-size: 22px; font-weight: 900; pointer-events: none; z-index: 5; white-space: nowrap;
     text-shadow: 0 2px 6px rgba(0,0,0,.7), 0 0 2px rgba(0,0,0,.5);
   }
+  /* fixed height reserved always -> toggling never reflows the board (no up/down jump) */
   #streak-badge {
-    display: inline-block; margin-top: 5px; padding: 1px 9px; border-radius: 999px;
-    font-size: 12px; font-weight: 800; color: #ffcaa0;
+    display: inline-flex; align-items: center; justify-content: center;
+    min-height: 22px; margin-top: 5px; font-size: 12px; font-weight: 800;
+  }
+  #streak-badge.on {
+    padding: 1px 9px; border-radius: 999px; color: #ffcaa0;
     background: rgba(255,120,40,.16); border: 1px solid rgba(255,140,60,.5);
   }
-  #streak-badge.hidden { display: none; }
   #hint { color: var(--muted); font-size: 13px; margin-top: 10px; height: 16px; }
   #dock {
     display: flex; align-items: center; flex-wrap: wrap; justify-content: center;
@@ -159,7 +162,7 @@
     <div class="score-box center">
       <span class="score-val" id="score">0</span>
       <span class="best-line">최고 <b id="best">0</b></span>
-      <span id="streak-badge" class="hidden"></span>
+      <span id="streak-badge"></span>
     </div>
     <div id="next-wrap">
       <canvas id="np-now"  width="128" height="128"></canvas>
@@ -1384,10 +1387,11 @@
     const mult = Math.max(1, Math.min(streak, MAX_MULT));
     if (mult > 1) {
       b.textContent = `🔥 ×${mult}`;
-      if (b.classList.contains("hidden")) b.classList.remove("hidden");
+      b.classList.add("on");
       b.animate([{transform:"scale(1.35)"},{transform:"scale(1)"}], {duration:180, easing:"ease-out"});
     } else {
-      b.classList.add("hidden");
+      b.textContent = "";
+      b.classList.remove("on");
     }
   }
 
