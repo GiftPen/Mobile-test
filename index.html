@@ -57,11 +57,17 @@
     border-radius: 999px; transition: width .25s, background .25s; }
   #stage-wrap { position: relative; margin-top: 8px; }
   canvas { display: block; border-radius: 18px; touch-action: none; }
-  #combo {
-    position: absolute; left: 50%; top: 42%; transform: translate(-50%,-50%);
-    font-size: 40px; font-weight: 900; pointer-events: none; opacity: 0;
-    text-shadow: 0 2px 20px rgba(0,0,0,.6);
+  .gain-pop {
+    position: absolute; transform: translate(-50%,-50%);
+    font-size: 22px; font-weight: 900; pointer-events: none; z-index: 5; white-space: nowrap;
+    text-shadow: 0 2px 6px rgba(0,0,0,.7), 0 0 2px rgba(0,0,0,.5);
   }
+  #streak-badge {
+    display: inline-block; margin-top: 5px; padding: 1px 9px; border-radius: 999px;
+    font-size: 12px; font-weight: 800; color: #ffcaa0;
+    background: rgba(255,120,40,.16); border: 1px solid rgba(255,140,60,.5);
+  }
+  #streak-badge.hidden { display: none; }
   #hint { color: var(--muted); font-size: 13px; margin-top: 10px; height: 16px; }
   #dock {
     display: flex; align-items: center; flex-wrap: wrap; justify-content: center;
@@ -153,6 +159,7 @@
     <div class="score-box center">
       <span class="score-val" id="score">0</span>
       <span class="best-line">최고 <b id="best">0</b></span>
+      <span id="streak-badge" class="hidden"></span>
     </div>
     <div id="next-wrap">
       <canvas id="np-now"  width="128" height="128"></canvas>
@@ -170,7 +177,6 @@
 
   <div id="stage-wrap">
     <canvas id="game"></canvas>
-    <div id="combo"></div>
   </div>
   <div id="hint">빈 칸을 탭해 과일을 놓으세요</div>
 
@@ -922,6 +928,7 @@
   function updateHUD() {
     document.getElementById("score").textContent = score;
     document.getElementById("best").textContent = best;
+    updateStreakBadge();
     document.getElementById("st-touch").textContent = touchCount;
     document.getElementById("st-empty").textContent = emptyCells().length;
     document.getElementById("st-spawn").textContent = spawnCount();
@@ -1259,13 +1266,13 @@
         streak++;
         const cleared = popped + 1;          // include the ball you placed
         const chainCount = chainPopped + 1;  // your color group size, inclusive
-        const mult = Math.min(1 + (streak - 1) * 0.5, MAX_MULT);
+        const mult = Math.max(1, Math.min(streak, MAX_MULT));   // integer streak multiplier ×1..×5
         // per-fruit points (placed ball + all popped) × gentle chain-size bonus × streak
         const groupPts = (pointsPopped || 0) + (FRUIT_POINTS[color] || 1);
         const chainBonus = 1 + (cleared - 1) * 0.15;
         const gained = Math.round(groupPts * chainBonus * mult);
         score += gained;
-        showCombo(cleared, gained, mult);
+        showGain(r0, c0, gained, color);
         addShake(Math.min(12, cleared * 0.7));
 
         // reward: item tier from YOUR color group only (chainCount), not item cascades.
@@ -1291,11 +1298,11 @@
       if (grid[r0][c0] !== -1) appear[r0][c0] = 1;  // placed ball (junk/item) pops in too
     } else if (popped > 0) {
       // manual item tap: score the clears, no new item, keep the queued color
-      const mult = Math.min(1 + (streak - 1) * 0.5, MAX_MULT);
+      const mult = Math.max(1, Math.min(streak, MAX_MULT));   // integer streak multiplier ×1..×5
       const chainBonus = 1 + (popped - 1) * 0.15;
       const gained = Math.round((pointsPopped || 0) * chainBonus * mult);
       score += gained;
-      showCombo(popped, gained, mult);
+      showGain(r0, c0, gained, color);
       addShake(Math.min(12, popped * 0.7));
     }
 
@@ -1353,15 +1360,35 @@
     }
   }
 
-  function showCombo(cleared, gained, mult) {
-    const el = document.getElementById("combo");
-    el.textContent = mult > 1 ? `COMBO ×${mult}   +${gained}` : `+${gained}`;
-    el.style.color = "#fff";
-    el.animate(
-      [ {opacity:0, transform:"translate(-50%,-50%) scale(.6)"},
-        {opacity:1, transform:"translate(-50%,-60%) scale(1.15)", offset:.3},
-        {opacity:0, transform:"translate(-50%,-80%) scale(1)"} ],
-      { duration: 900, easing: "ease-out" });
+  // floating "+N" that rises from the cell you acted on (colored by fruit)
+  function showGain(r, c, gained, colorIdx) {
+    if (!gained || gained <= 0) return;
+    const wrap = document.getElementById("stage-wrap");
+    const el = document.createElement("div");
+    el.className = "gain-pop";
+    el.textContent = "+" + gained;
+    el.style.color = (typeof colorIdx === "number" ? COLORS[colorIdx] : colorIdx) || "#fff";
+    el.style.left = (pad + c * cell + cell / 2) + "px";
+    el.style.top  = (pad + r * cell + cell / 2) + "px";
+    wrap.appendChild(el);
+    const a = el.animate(
+      [ {opacity:0, transform:"translate(-50%,-30%) scale(.7)"},
+        {opacity:1, transform:"translate(-50%,-85%) scale(1.1)", offset:.3},
+        {opacity:0, transform:"translate(-50%,-165%) scale(1)"} ],
+      { duration: 820, easing: "cubic-bezier(.2,.8,.2,1)" });
+    a.onfinish = () => el.remove();
+  }
+  // persistent streak badge near the score; pulses on gain, hides at ×1
+  function updateStreakBadge() {
+    const b = document.getElementById("streak-badge");
+    const mult = Math.max(1, Math.min(streak, MAX_MULT));
+    if (mult > 1) {
+      b.textContent = `🔥 ×${mult}`;
+      if (b.classList.contains("hidden")) b.classList.remove("hidden");
+      b.animate([{transform:"scale(1.35)"},{transform:"scale(1)"}], {duration:180, easing:"ease-out"});
+    } else {
+      b.classList.add("hidden");
+    }
   }
 
   // ---- render loop ----
