@@ -996,9 +996,8 @@
     runChain(r0, c0, color, visited, frontier, true);
   }
 
-  // tap an existing item bud to trigger it directly (counts as a turn)
+  // tap an existing item bud to trigger it directly (FREE: no touch count, no spawn — strategic)
   function tapItem(r0, c0) {
-    touchCount++;
     const color = grid[r0][c0];
     const visited = Array.from({length: N}, () => Array(N).fill(false));
     runChain(r0, c0, color, visited, [{ r: r0, c: c0, mode: "blast", color }], false);
@@ -1290,16 +1289,19 @@
       addShake(Math.min(12, popped * 0.7));
     }
 
-    spawnBuds(spawnCount());
-    // staged gimmick: once bricks are unlocked, one spawns every few touches at current HP level
-    const bLvl = brickHpLevel();
-    if (bLvl >= 1 && touchCount % BRICK_EVERY === 0) spawnBrick(bLvl);
-    if (placement) pickNext();           // a tap-trigger keeps the queued next color
+    // only a real PLACEMENT ends a turn (spawn + brick + game-over). A manual item tap is FREE.
+    if (placement) {
+      spawnBuds(spawnCount());
+      // staged gimmick: once bricks are unlocked, one spawns every few touches at current HP level
+      const bLvl = brickHpLevel();
+      if (bLvl >= 1 && touchCount % BRICK_EVERY === 0) spawnBrick(bLvl);
+      pickNext();
+    }
     if (score > best) { best = score; localStorage.setItem("bloom_best", best); }
     updateHUD();
     dirty = true;
 
-    if (emptyCells().length === 0) {
+    if (placement && emptyCells().length === 0) {
       // board is completely full -> let the spawned pieces pop in & be seen, then over
       busy = true;
       setTimeout(gameOver, 750);
