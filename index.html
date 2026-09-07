@@ -891,6 +891,27 @@
     return n - 1;                               // float rounding guard
   }
 
+  // ---- scoring chokepoint ----
+  // Every point earned flows through addScore(), and pop scoring is assembled from the
+  // named terms of the Star Rush formula (doc 3-2). Relics bend a term here instead of
+  // patching scattered `score +=` sites -- which is how a relic quietly misses a path.
+  const CHAIN_STEP = 0.15;                 // chain-size bonus per extra cleared cell
+  let fruitMult = [1, 1, 1, 1, 1, 1, 1];   // per-colour multiplier; all 1.0 today
+  function chainBonus(cleared) { return 1 + Math.max(0, cleared - 1) * CHAIN_STEP; }
+  function fruitScore(colorIdx) {          // one fruit's worth, before chain/streak
+    return (FRUIT_POINTS[colorIdx] || 1) * (fruitMult[colorIdx] || 1);
+  }
+  function addScore(amount) {
+    if (!(amount > 0)) return 0;
+    score += amount;
+    if (score > best) { best = score; localStorage.setItem("fruitstar_best_v2", best); }
+    return amount;
+  }
+  // basePts = summed fruitScore of everything credited; cleared = group size for the bonus
+  function scorePop(basePts, cleared) {
+    return addScore(Math.round(basePts * chainBonus(cleared) * streakMult()));
+  }
+
   function emptyCells() {
     const out = [];
     for (let r = 0; r < ROWS; r++) for (let c = 0; c < COLS; c++)
@@ -1115,7 +1136,7 @@
           glow[br][bc] = { c: 0, t: 0.9 };
           if (hp[br][bc] <= 0) { grid[br][bc] = -1; special[br][bc] = null; burst(br, bc, "#9aa0b5"); broke++; }
         });
-        if (broke) score += broke * 3;
+        if (broke) addScore(broke * 3);
         finishBurst(r0, c0, color, popped, chainPopped, placement, pointsPopped);
         return;
       }
@@ -1128,7 +1149,7 @@
         const vis = cellColor < 0 ? it.color : cellColor;
         grid[r][c] = -1; special[r][c] = null;   // logic clears immediately (game state stays correct)
         popped++;
-        if (cellColor >= 0) pointsPopped += FRUIT_POINTS[cellColor] || 1;
+        if (cellColor >= 0) pointsPopped += fruitScore(cellColor);
         // item reward = size of YOUR placed color group. Count color-flood pops AND any
         // same-color cell a bomb/line blast consumed mid-chain (incl. a same-color bomb itself),
         // so overlapping items no longer rob the count. (Star's board-wide sweep bypasses this
@@ -1188,7 +1209,7 @@
                 if (!visited[rr][cc] && grid[rr][cc] === target) {
                   visited[rr][cc] = true;
                   grid[rr][cc] = -1; special[rr][cc] = null; popped++;
-                  pointsPopped += FRUIT_POINTS[target] || 1;
+                  pointsPopped += fruitScore(target);
                   tCells.push([rr, cc]);
                   // chip bricks adjacent to each star-cleared cell (was missing)
                   for (let dr = -1; dr <= 1; dr++)
@@ -1349,12 +1370,9 @@
         streak++;
         const cleared = popped + 1;          // include the ball you placed
         const chainCount = chainPopped + 1;  // your color group size, inclusive
-        const mult = streakMult();
-        // per-fruit points (placed ball + all popped) × gentle chain-size bonus × streak
-        const groupPts = (pointsPopped || 0) + (FRUIT_POINTS[color] || 1);
-        const chainBonus = 1 + (cleared - 1) * 0.15;
-        const gained = Math.round(groupPts * chainBonus * mult);
-        score += gained;
+        // per-fruit points (placed ball + all popped) × chain-size bonus × streak
+        const groupPts = (pointsPopped || 0) + fruitScore(color);
+        const gained = scorePop(groupPts, cleared);
         showGain(r0, c0, gained, color);
         addShake(Math.min(12, cleared * 0.7));
 
@@ -1381,10 +1399,7 @@
       if (grid[r0][c0] !== -1) appear[r0][c0] = 1;  // placed ball (junk/item) pops in too
     } else if (popped > 0) {
       // manual item tap: score the clears, no new item, keep the queued color
-      const mult = streakMult();
-      const chainBonus = 1 + (popped - 1) * 0.15;
-      const gained = Math.round((pointsPopped || 0) * chainBonus * mult);
-      score += gained;
+      const gained = scorePop(pointsPopped || 0, popped);
       showGain(r0, c0, gained, color);
       addShake(Math.min(12, popped * 0.7));
     }
@@ -1397,7 +1412,6 @@
       if (bLvl >= 1 && touchCount % BRICK_EVERY === 0) spawnBrick(bLvl);
       pickNext();
     }
-    if (score > best) { best = score; localStorage.setItem("fruitstar_best_v2", best); }
     updateHUD();
     dirty = true;
 
@@ -1923,8 +1937,7 @@
             const col = grid[f.tr][f.tc];
             grid[f.tr][f.tc] = -1; special[f.tr][f.tc] = null;
             burst(f.tr, f.tc, col);
-            score += BIRD_SCORE; dirty = true;
-            if (score > best) { best = score; localStorage.setItem("fruitstar_best_v2", best); }
+            addScore(BIRD_SCORE); dirty = true;
             updateHUD();
           }
         }
@@ -2036,6 +2049,18 @@
     if (mfxRAF) { cancelAnimationFrame(mfxRAF); mfxRAF = 0; }
     mctx.clearRect(0, 0, mfxW, mfxH);
   }
+
+  // ---- test hook ----
+  // ?test=1 exposes the pure rule helpers so headless checks can assert the formulas
+  // directly. End-to-end replay can't verify them: draw() consumes Math.random() for
+  // screen-shake every frame, so a seeded run desyncs with frame timing.
+  if (location.search.includes("test=1"))
+    window.__fs = {
+      scorePop, fruitScore, chainBonus, streakMult, pickColor, addScore,
+      colorWeight, fruitMult, FRUIT_POINTS, COLS, get ROWS() { return ROWS; },
+      get score() { return score; }, set score(v) { score = v; },
+      get streak() { return streak; }, set streak(v) { streak = v; },
+    };
 
   // ---- boot ----
   document.getElementById("btn-arcade").addEventListener("click", start);     // arcade = the game
