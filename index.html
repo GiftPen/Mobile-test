@@ -60,8 +60,10 @@
   /* ---- Star Rush contract band ----
      The run total is not what you play against turn to turn -- the quota and the touches
      left are, so they are the only "big" tier and get a full-width row of their own. In
-     #top's centre column they collided with the next-piece preview under about 400px. */
-  #rush { width: 100%; max-width: 520px; padding: 2px 18px 0; }
+     #top's centre column they collided with the next-piece preview under about 400px.
+     No progress bar: "0/40" already says it, and a second bar right above the board-fill
+     gauge just read as two similar bars meaning different things. */
+  #rush { width: 100%; max-width: 520px; padding: 2px 18px 2px; }
   #rush.hidden { display: none; }
   .rb-row { display: flex; align-items: flex-end; gap: 12px; flex-wrap: wrap; }
   .rb-cell { display: flex; flex-direction: column; align-items: center; }
@@ -74,11 +76,6 @@
   #rb-touch-cell.low  .rb-val, #rb-touch-cell.low  .rb-lab { color: #ff5a5f; }
   #danger-label2 { font-size: 12px; font-weight: 800; color: #ff5a5f; }
   #danger-label2.hidden { display: none; }
-  .rb-track { width: 100%; height: 8px; margin-top: 7px; border-radius: 999px;
-    background: #1b1e2c; overflow: hidden; }
-  .rb-fill { height: 100%; width: 0%; border-radius: 999px;
-    background: linear-gradient(90deg,#4d8bff,#43d17a); transition: width .18s ease; }
-  .rb-fill.met { background: linear-gradient(90deg,#ffc93c,#43d17a); }
   #danger-label { margin-left: auto; font-size: 12px; font-weight: 800; color: #ff5a5f; }
   #danger-label.hidden { display: none; }
   /* segmented board-fill / danger gauge (merges 남은블록 + 위기) */
@@ -236,7 +233,6 @@
         <span id="danger-label2" class="hidden">⚠️</span>
       </div>
     </div>
-    <div class="rb-track"><div class="rb-fill" id="rb-fill"></div></div>
   </div>
   <div id="fillgauge" aria-label="판 채움/위험도"></div>
 
@@ -1186,9 +1182,6 @@
       document.getElementById("rb-touch").textContent = touchesLeft;
       document.getElementById("rb-score").textContent = score;
       document.getElementById("rb-best").textContent = best;
-      const fill = document.getElementById("rb-fill");
-      fill.style.width = Math.min(100, (stageScore / q) * 100) + "%";
-      fill.classList.toggle("met", stageScore >= q);
       const tc = document.getElementById("rb-touch-cell");
       tc.classList.toggle("warn", touchesLeft <= 5 && touchesLeft > 3);
       tc.classList.toggle("low", touchesLeft <= 3);
