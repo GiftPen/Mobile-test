@@ -872,6 +872,20 @@
   MAX_LEVEL = computeMaxLevel();
   function addShake(a) { shake = Math.min(SHAKE_MAX, shake + a); }
 
+  // ---- spawn-colour chokepoint (Star Rush relics bend these; all-1 == uniform, i.e. today) ----
+  // every place a fruit colour is rolled goes through pickColor(), so a relic only has to
+  // touch colorWeight[] for board spawns AND the next-queue to follow.
+  let colorWeight = [1, 1, 1, 1, 1, 1, 1];
+  function pickColor() {
+    const n = activeColors();
+    let total = 0;
+    for (let i = 0; i < n; i++) total += colorWeight[i];
+    if (!(total > 0)) return randInt(n);        // every active colour sealed -> uniform fallback
+    let t = Math.random() * total;
+    for (let i = 0; i < n; i++) { t -= colorWeight[i]; if (t < 0) return i; }
+    return n - 1;                               // float rounding guard
+  }
+
   function emptyCells() {
     const out = [];
     for (let r = 0; r < N; r++) for (let c = 0; c < N; c++)
@@ -889,7 +903,7 @@
       const e = emptyCells();
       if (!e.length) return;
       const [r, c] = e[randInt(e.length)];
-      grid[r][c] = randInt(activeColors()); appear[r][c] = 1;
+      grid[r][c] = pickColor(); appear[r][c] = 1;
     }
   }
 
@@ -902,12 +916,12 @@
 
   function pickNext() {
     if (nextColor2 == null) {                    // fresh game: fill both queue slots
-      nextColor = randInt(activeColors());
-      nextColor2 = randInt(activeColors());
+      nextColor = pickColor();
+      nextColor2 = pickColor();
       drawNextPreview(false);
     } else {                                     // advance: the lookahead becomes the placeable
       nextColor = nextColor2;
-      nextColor2 = randInt(activeColors());
+      nextColor2 = pickColor();
       drawNextPreview(true);                      // slide/push motion
     }
   }
@@ -1031,7 +1045,7 @@
   // ---- test item dock: place items freely without spending a turn ----
   let selectedItem = null;
   function placeTestItem(r, c, item) {
-    const color = randInt(activeColors());
+    const color = pickColor();
     if (item === "brick") { grid[r][c] = BRICK; special[r][c] = null; hp[r][c] = 3; }
     else if (item === "line") { grid[r][c] = color; special[r][c] = randInt(2) ? "lineH" : "lineV"; }
     else if (item.startsWith("fruit")) {                  // plain fruit of a chosen color slot
