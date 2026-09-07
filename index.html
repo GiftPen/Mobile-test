@@ -126,11 +126,9 @@
   #menufx { position: fixed; inset: 0; z-index: 1; pointer-events: none; }
   #menu > .mode-btn, #menu > .menu-icons, #menu > #menu-msg, #menu > .ver { position: relative; z-index: 2; }
   .rr { position: relative; }
-  /* star sits to the R's right and is sandwiched under the .t2-over copy, so its left points
-     are cut off by the R's bowl -- reads as one leg tucked into the letter. the counter (hole)
-     is only ~15x12px, far too small to hold a legible star, hence the outside placement. */
-  .rr .d-star { position: absolute; top: 15px; left: 24px; width: 28px; height: 28px; transform: rotate(-14deg); z-index: 3;
-    pointer-events: none; filter: drop-shadow(0 -2px 3px rgba(0,0,0,.5)); }
+  /* star sitting INSIDE the R's counter (the empty loop/hole), not above the letter */
+  .rr .d-star { position: absolute; top: 9px; left: 6px; width: 27px; height: 27px; transform: rotate(15deg); z-index: 3;
+    pointer-events: none; filter: drop-shadow(0 2px 3px rgba(0,0,0,.5)); }
   .title { position: relative; z-index: 2; line-height: .92; }
   /* depth: shadow cast upward, glyph face lit from the top.
      drop-shadow, not text-shadow -- text-shadow paints ON a background-clip:text fill
@@ -145,10 +143,6 @@
   .title .t2 { letter-spacing: 5px;
     background: linear-gradient(180deg,#ffffff 0%,#ffffff 46%,#c9cede 100%);
     -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent; }
-  /* the overlay copy sits on the exact same box, so its clipped gradient lines up seamlessly
-     with the one underneath -- no shadow of its own or it would double up. */
-  .t2-stack { position: relative; }
-  .t2-over { position: absolute; left: 0; right: 0; top: 0; filter: none; pointer-events: none; }
   .tagline { position: relative; z-index: 2; color: var(--muted); font-size: 14px; margin: 16px 0 0; }
   .mode-btn { width: 100%; max-width: 320px; margin-top: 14px; padding: 18px; font-size: 20px; font-weight: 800;
     border: none; border-radius: 18px; color: #fff; cursor: pointer; }
@@ -237,12 +231,7 @@
         </svg>
         <div class="title">
           <div class="t1">FRUIT</div>
-          <!-- two identical STAR lines with the star image sandwiched between them, so the R's
-               stroke occludes whichever point of the star crosses it (star tucked INTO the R). -->
-          <div class="t2-stack">
-            <div class="t2">STA<span class="rr">R<img class="d-star" src="assets_new/star.png" onerror="this.onerror=null;this.src='assets/star.png'" alt=""></span></div>
-            <div class="t2 t2-over" aria-hidden="true">STA<span class="rr">R</span></div>
-          </div>
+          <div class="t2">STA<span class="rr">R<img class="d-star" src="assets_new/star.png" onerror="this.onerror=null;this.src='assets/star.png'" alt=""></span></div>
         </div>
         <p class="tagline">톡! 터뜨리는 상쾌한 과일 퍼즐</p>
       </div>
