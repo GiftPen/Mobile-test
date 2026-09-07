@@ -130,11 +130,19 @@
   .rr .d-star { position: absolute; top: 9px; left: 6px; width: 27px; height: 27px; transform: rotate(15deg); z-index: 3;
     pointer-events: none; filter: drop-shadow(0 2px 3px rgba(0,0,0,.5)); }
   .title { position: relative; z-index: 2; line-height: .92; }
-  .title .t1, .title .t2 { font-size: 58px; font-weight: 700; text-shadow: 0 4px 0 rgba(0,0,0,.4); }
+  .title .t1, .title .t2 { font-size: 58px; font-weight: 700;
+    filter: drop-shadow(0 5px 7px rgba(0,0,0,.55)); }
+  /* face is lit from above (white->black overlay) so the letters read front-on, not top-down.
+     the old `text-shadow` painted ON the clipped background (transparent fill = no cover),
+     darkening each glyph's own bottom 4px -- hence drop-shadow instead. */
   .title .t1 { letter-spacing: 2px;
-    background: linear-gradient(90deg,#ff5a7a,#f45b00,#ffc93c,#43d17a,#4d8bff,#a66cff);
+    background:
+      linear-gradient(180deg, rgba(255,255,255,.36) 0%, rgba(255,255,255,.05) 40%, rgba(0,0,0,.10) 64%, rgba(0,0,0,.28) 100%),
+      linear-gradient(90deg,#f5325b,#ff8a1f,#ffc93c,#43d17a,#4d8bff,#a66cff);
     -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent; }
-  .title .t2 { letter-spacing: 5px; color: #ffffff; }
+  .title .t2 { letter-spacing: 5px;
+    background: linear-gradient(180deg,#ffffff 0%,#ffffff 46%,#c9cede 100%);
+    -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent; }
   .tagline { position: relative; z-index: 2; color: var(--muted); font-size: 14px; margin: 16px 0 0; }
   .mode-btn { width: 100%; max-width: 320px; margin-top: 14px; padding: 18px; font-size: 20px; font-weight: 800;
     border: none; border-radius: 18px; color: #fff; cursor: pointer; }
