@@ -68,6 +68,37 @@ window.addEventListener('load', () => setTimeout(() => {
   F.mode = 'arcade';
   if (F.activeColors(0) !== 4) modeFails.push({knob:'live colours in arcade', got:F.activeColors(0), want:4});
 
+  // ---- relic hooks ----
+  const relicFails = [];
+  const chk = (c, got, want) => { if (JSON.stringify(got) !== JSON.stringify(want))
+                                    relicFails.push({case:c, got, want}); };
+  F.RELICS.t_double = { modify: { pop: v => v * 2 } };
+  F.RELICS.t_plus10 = { modify: { pop: v => v + 10 } };
+  let seen = null;
+  F.RELICS.t_watch  = { onPop: p => { seen = p; } };
+  let applied = 0;
+  F.RELICS.t_apply  = { apply: () => { applied++; } };
+  F.resetRun(); F.streak = 0;
+
+  F.relics = []; F.score = 0; F.scorePop(10, 1);
+  chk('no relics -> untouched', F.score, 10);
+  F.relics = ['t_double','t_plus10']; F.score = 0; F.scorePop(10, 1);
+  chk('modifiers stack in order', F.score, 30);          // (10 * 2) + 10
+  F.relics = ['t_plus10','t_double']; F.score = 0; F.scorePop(10, 1);
+  chk('order is significant', F.score, 40);              // (10 + 10) * 2
+
+  F.relics = []; seen = null; F.notify('onPop', {x:1});
+  chk('unowned relic stays silent', seen, null);
+  F.relics = ['t_watch']; F.notify('onPop', {x:1});
+  chk('owned relic is notified', seen && seen.x, 1);
+  F.relics = ['t_apply']; applied = 0; F.applyRelics();
+  chk('apply runs once per owned relic', applied, 1);
+  F.relics = ['t_apply','t_apply']; applied = 0; F.applyRelics();
+  chk('apply runs per entry', applied, 2);
+
+  for (const k of ['t_double','t_plus10','t_watch','t_apply']) delete F.RELICS[k];
+  F.relics = []; F.score = 0; F.streak = 0;
+
   // ---- run-state round trip ----
   // This list is the TEST's own idea of what belongs to a run. If serializeRun()
   // forgets a field, restore leaves it at its reset value and the compare fails.
@@ -80,12 +111,13 @@ window.addEventListener('load', () => setTimeout(() => {
   F.special = Array.from({length:10}, (_,r) => Array.from({length:8}, (_,c) => (r+c)%5 ? null : 'bomb'));
   F.hp = Array.from({length:10}, (_,r) => Array(8).fill(r));
   F.nextColor = 5; F.nextColor2 = 2;
+  F.relics = ['relic_a','relic_b'];
   F.score = 1234; F.streak = 3; F.touchCount = 77;
   F.colorWeight = [1,2,3,4,5,6,7];
   F.fruitMult = [1,1.5,2,1,1,1,3];
   const want = {mode:'rush', ROWS:10, grid:F.grid, special:F.special, hp:F.hp, nextColor:5, nextColor2:2,
                 score:1234, streak:3, touchCount:77, colorWeight:[1,2,3,4,5,6,7],
-                fruitMult:[1,1.5,2,1,1,1,3]};
+                fruitMult:[1,1.5,2,1,1,1,3], relics:['relic_a','relic_b']};
   const snap = JSON.parse(JSON.stringify(F.serializeRun()));
 
   F.resetRun();                                   // reset must wipe it all
@@ -97,6 +129,7 @@ window.addEventListener('load', () => setTimeout(() => {
   F.mode = 'arcade';   // mode is chosen by start(), not by resetRun
   if (F.grid.length !== 8) resetLeaks.push('grid.rows');
   if (F.nextColor !== null) resetLeaks.push('nextColor');
+  if (F.relics.length !== 0) resetLeaks.push('relics');
   if (JSON.stringify(F.colorWeight) !== '[1,1,1,1,1,1,1]') resetLeaks.push('colorWeight');
   if (JSON.stringify(F.fruitMult) !== '[1,1,1,1,1,1,1]') resetLeaks.push('fruitMult');
 
@@ -117,7 +150,7 @@ window.addEventListener('load', () => setTimeout(() => {
   F.resetRun();
 
   document.title = 'RESULT ' + JSON.stringify({
-    cases: n, fails, fsFails, hist, runFails, resetLeaks, modeFails,
+    cases: n, fails, fsFails, hist, runFails, resetLeaks, modeFails, relicFails,
     fatal: null
   });
 }, 900));
@@ -135,7 +168,7 @@ if not m:
     print('NO RESULT'); sys.exit(1)
 res = json.loads(m.group(1))
 ok = (not res['fails'] and not res['fsFails'] and res['cases'] > 0
-      and not res['runFails'] and not res['resetLeaks'] and not res['modeFails'])
+      and not res['runFails'] and not res['resetLeaks'] and not res['modeFails'] and not res['relicFails'])
 active = sum(1 for h in res['hist'] if h > 0)
 spread = (max(res['hist']) - min(h for h in res['hist'] if h > 0)) / max(res['hist'])
 print(f"scoring : {res['cases']} cases, {len(res['fails'])} fail")
@@ -143,6 +176,8 @@ print(f"fruit   : {len(res['fsFails'])} fail")
 print(f"pickColor: {active} active colours, max spread {spread:.1%}")
 print(f"modes   : {len(res['modeFails'])} fail")
 if res['modeFails']: print('  ', res['modeFails'][:4])
+print(f"relics  : {len(res['relicFails'])} fail")
+if res['relicFails']: print('  ', res['relicFails'][:4])
 print(f"run state: {len(res['runFails'])} round-trip fail, {len(res['resetLeaks'])} reset leak")
 if res['runFails']: print('  ', res['runFails'][:4])
 if res['resetLeaks']: print('   leaked:', res['resetLeaks'])

@@ -868,18 +868,19 @@
     score = 0; streak = 0; touchCount = 0;
     colorWeight = [1, 1, 1, 1, 1, 1, 1];
     fruitMult   = [1, 1, 1, 1, 1, 1, 1];
+    relics = [];
     layout();                              // ROWS may have changed -> resize the board
   }
   function serializeRun() {
     return { v: RUN_VERSION, mode, rows: ROWS, grid, special, hp,
-             nextColor, nextColor2, score, streak, touchCount, colorWeight, fruitMult };
+             nextColor, nextColor2, score, streak, touchCount, colorWeight, fruitMult, relics };
   }
   function restoreRun(o) {
     if (!o || o.v !== RUN_VERSION) return false;   // unknown/older save -> caller starts fresh
     mode = MODES[o.mode] ? o.mode : "arcade";     // a saved rush run must come back as rush
     ROWS = o.rows;
     ({ grid, special, hp, nextColor, nextColor2, score, streak, touchCount,
-       colorWeight, fruitMult } = o);
+       colorWeight, fruitMult, relics } = o);
     glow = layer(null); appear = layer(0);
     layout(); dirty = true;
     return true;
@@ -940,6 +941,7 @@
   // ---- spawn-colour chokepoint (Star Rush relics bend these; all-1 == uniform, i.e. today) ----
   // every place a fruit colour is rolled goes through pickColor(), so a relic only has to
   // touch colorWeight[] for board spawns AND the next-queue to follow.
+  let relics = [];                         // ids of the relics owned this run
   let colorWeight = [1, 1, 1, 1, 1, 1, 1];
   function pickColor() {
     const n = activeColors();
@@ -969,7 +971,35 @@
   }
   // basePts = summed fruitScore of everything credited; cleared = group size for the bonus
   function scorePop(basePts, cleared) {
-    return addScore(Math.round(basePts * chainBonus(cleared) * streakMult()));
+    const raw = basePts * chainBonus(cleared) * streakMult();
+    return addScore(Math.round(modify("pop", raw, { basePts, cleared })));
+  }
+
+  // ---- relics ----
+  // Two ways a relic acts. notify() fires at a named moment (drop a coin, bump a counter);
+  // modify() folds a value through every owned relic in order, so score/odds bonuses stack
+  // without each one having to know about the others. Passive effects that just set up the
+  // run (spawn weights, fruit multipliers, extra rows) belong in apply(), run once at start.
+  // RELICS is empty until Phase 2 -- with no relics owned, both calls are a no-op.
+  const RELICS = {};                   // id -> { name, icon, desc, apply?, modify?, ...events }
+  function notify(event, payload) {
+    for (const id of relics) {
+      const h = RELICS[id] && RELICS[id][event];
+      if (h) h(payload);
+    }
+  }
+  function modify(key, value, ctx) {
+    for (const id of relics) {
+      const m = RELICS[id] && RELICS[id].modify && RELICS[id].modify[key];
+      if (m) value = m(value, ctx);
+    }
+    return value;
+  }
+  function applyRelics() {             // re-apply every passive effect onto a fresh run
+    for (const id of relics) {
+      const a = RELICS[id] && RELICS[id].apply;
+      if (a) a();
+    }
   }
 
   function emptyCells() {
@@ -990,6 +1020,7 @@
       if (!e.length) return;
       const [r, c] = e[randInt(e.length)];
       grid[r][c] = pickColor(); appear[r][c] = 1;
+      notify("onSpawn", { r, c, color: grid[r][c] });
     }
   }
 
@@ -1054,6 +1085,8 @@
     mode = MODES[next] ? next : "arcade";
     resetRun();
     resetEffects();
+    applyRelics();                     // passives land before the first fruit is dealt
+    notify("onRunStart", { mode });
     spawnBuds(rules().startBuds);
     pickNext();
     updateHUD();
@@ -1433,6 +1466,7 @@
         // per-fruit points (placed ball + all popped) × chain-size bonus × streak
         const groupPts = (pointsPopped || 0) + fruitScore(color);
         const gained = scorePop(groupPts, cleared);
+        notify("onPop", { r: r0, c: c0, color, cleared, chainCount, gained, placement: true });
         showGain(r0, c0, gained, color);
         addShake(Math.min(12, cleared * 0.7));
 
@@ -1460,6 +1494,7 @@
     } else if (popped > 0) {
       // manual item tap: score the clears, no new item, keep the queued color
       const gained = scorePop(pointsPopped || 0, popped);
+      notify("onPop", { r: r0, c: c0, color, cleared: popped, chainCount: popped, gained, placement: false });
       showGain(r0, c0, gained, color);
       addShake(Math.min(12, popped * 0.7));
     }
@@ -1471,6 +1506,7 @@
       const bLvl = brickHpLevel();
       if (bLvl >= 1 && touchCount % BRICK_EVERY === 0) spawnBrick(bLvl);
       pickNext();
+      notify("onTurn", { touchCount, score });
     }
     updateHUD();
     dirty = true;
@@ -2119,6 +2155,8 @@
       scorePop, fruitScore, chainBonus, streakMult, pickColor, addScore,
       resetRun, serializeRun, restoreRun, FRUIT_POINTS, COLS,
       MODES, activeColors, spawnCount, brickHpLevel, computeMaxLevel,
+      RELICS, notify, modify, applyRelics,
+      get relics() { return relics; }, set relics(v) { relics = v; },
       get mode() { return mode; }, set mode(v) { mode = v; },
       get ROWS()        { return ROWS; },        set ROWS(v)        { ROWS = v; },
       get grid()        { return grid; },        set grid(v)        { grid = v; },
