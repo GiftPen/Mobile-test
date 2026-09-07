@@ -42,12 +42,39 @@ window.addEventListener('load', () => setTimeout(() => {
   const hist = new Array(7).fill(0);
   F.score = 0;                       // score 0 -> the 4 starting colours are active
   for (let i = 0; i < 70000; i++) hist[F.pickColor()]++;
+  // ---- mode rules ----
+  // arcade knobs must still match the formulas they were hardcoded as before the table
+  const modeFails = [];
+  const refColors  = m => Math.min(7, 4 + Math.floor((m + 1) / 3));
+  const refSpawns  = m => Math.min(4, 1 + Math.floor(m / 3));
+  const refBrickHp = m => Math.min(3, Math.floor((m + 2) / 3));
+  const A = F.MODES.arcade, R = F.MODES.rush;
+  for (let m = 0; m <= 40; m++) {
+    if (A.colors(m)  !== refColors(m))  modeFails.push({m, knob:'colors',  got:A.colors(m),  want:refColors(m)});
+    if (A.spawns(m)  !== refSpawns(m))  modeFails.push({m, knob:'spawns',  got:A.spawns(m),  want:refSpawns(m)});
+    if (A.brickHp(m) !== refBrickHp(m)) modeFails.push({m, knob:'brickHp', got:A.brickHp(m), want:refBrickHp(m)});
+  }
+  // rush: 7 colours from turn one, flat spawn, no score-driven bricks (design doc 10-4)
+  for (let m = 0; m <= 40; m++) {
+    if (R.colors(m)  !== 7) modeFails.push({m, knob:'rush.colors',  got:R.colors(m),  want:7});
+    if (R.spawns(m)  !== 1) modeFails.push({m, knob:'rush.spawns',  got:R.spawns(m),  want:1});
+    if (R.brickHp(m) !== 0) modeFails.push({m, knob:'rush.brickHp', got:R.brickHp(m), want:0});
+  }
+  if (F.computeMaxLevel() !== 10) modeFails.push({knob:'MAX_LEVEL', got:F.computeMaxLevel(), want:10});
+  // the live knobs must follow the active mode
+  F.mode = 'rush';
+  if (F.activeColors(0) !== 7) modeFails.push({knob:'live colours in rush', got:F.activeColors(0), want:7});
+  if (F.brickHpLevel(9) !== 0) modeFails.push({knob:'live bricks in rush', got:F.brickHpLevel(9), want:0});
+  F.mode = 'arcade';
+  if (F.activeColors(0) !== 4) modeFails.push({knob:'live colours in arcade', got:F.activeColors(0), want:4});
+
   // ---- run-state round trip ----
   // This list is the TEST's own idea of what belongs to a run. If serializeRun()
   // forgets a field, restore leaves it at its reset value and the compare fails.
   const runFails = [];
   const grid10 = () => Array.from({length:10}, (_,r) => Array.from({length:8}, (_,c) => (r*8+c) % 7));
   F.resetRun();
+  F.mode = 'rush';
   F.ROWS = 10;
   F.grid = grid10();
   F.special = Array.from({length:10}, (_,r) => Array.from({length:8}, (_,c) => (r+c)%5 ? null : 'bomb'));
@@ -56,7 +83,7 @@ window.addEventListener('load', () => setTimeout(() => {
   F.score = 1234; F.streak = 3; F.touchCount = 77;
   F.colorWeight = [1,2,3,4,5,6,7];
   F.fruitMult = [1,1.5,2,1,1,1,3];
-  const want = {ROWS:10, grid:F.grid, special:F.special, hp:F.hp, nextColor:5, nextColor2:2,
+  const want = {mode:'rush', ROWS:10, grid:F.grid, special:F.special, hp:F.hp, nextColor:5, nextColor2:2,
                 score:1234, streak:3, touchCount:77, colorWeight:[1,2,3,4,5,6,7],
                 fruitMult:[1,1.5,2,1,1,1,3]};
   const snap = JSON.parse(JSON.stringify(F.serializeRun()));
@@ -67,6 +94,7 @@ window.addEventListener('load', () => setTimeout(() => {
   if (F.streak !== 0) resetLeaks.push('streak');
   if (F.touchCount !== 0) resetLeaks.push('touchCount');
   if (F.ROWS !== 8) resetLeaks.push('ROWS');
+  F.mode = 'arcade';   // mode is chosen by start(), not by resetRun
   if (F.grid.length !== 8) resetLeaks.push('grid.rows');
   if (F.nextColor !== null) resetLeaks.push('nextColor');
   if (JSON.stringify(F.colorWeight) !== '[1,1,1,1,1,1,1]') resetLeaks.push('colorWeight');
@@ -89,7 +117,7 @@ window.addEventListener('load', () => setTimeout(() => {
   F.resetRun();
 
   document.title = 'RESULT ' + JSON.stringify({
-    cases: n, fails, fsFails, hist, runFails, resetLeaks,
+    cases: n, fails, fsFails, hist, runFails, resetLeaks, modeFails,
     fatal: null
   });
 }, 900));
@@ -107,12 +135,14 @@ if not m:
     print('NO RESULT'); sys.exit(1)
 res = json.loads(m.group(1))
 ok = (not res['fails'] and not res['fsFails'] and res['cases'] > 0
-      and not res['runFails'] and not res['resetLeaks'])
+      and not res['runFails'] and not res['resetLeaks'] and not res['modeFails'])
 active = sum(1 for h in res['hist'] if h > 0)
 spread = (max(res['hist']) - min(h for h in res['hist'] if h > 0)) / max(res['hist'])
 print(f"scoring : {res['cases']} cases, {len(res['fails'])} fail")
 print(f"fruit   : {len(res['fsFails'])} fail")
 print(f"pickColor: {active} active colours, max spread {spread:.1%}")
+print(f"modes   : {len(res['modeFails'])} fail")
+if res['modeFails']: print('  ', res['modeFails'][:4])
 print(f"run state: {len(res['runFails'])} round-trip fail, {len(res['resetLeaks'])} reset leak")
 if res['runFails']: print('  ', res['runFails'][:4])
 if res['resetLeaks']: print('   leaked:', res['resetLeaks'])

@@ -871,11 +871,12 @@
     layout();                              // ROWS may have changed -> resize the board
   }
   function serializeRun() {
-    return { v: RUN_VERSION, rows: ROWS, grid, special, hp,
+    return { v: RUN_VERSION, mode, rows: ROWS, grid, special, hp,
              nextColor, nextColor2, score, streak, touchCount, colorWeight, fruitMult };
   }
   function restoreRun(o) {
     if (!o || o.v !== RUN_VERSION) return false;   // unknown/older save -> caller starts fresh
+    mode = MODES[o.mode] ? o.mode : "arcade";     // a saved rush run must come back as rush
     ROWS = o.rows;
     ({ grid, special, hp, nextColor, nextColor2, score, streak, touchCount,
        colorWeight, fruitMult } = o);
@@ -891,14 +892,45 @@
   // staged difficulty: milestone m unlocks, in order, brick / color / spawn (cycling)
   function milestone() { return Math.floor(score / MILESTONE_STEP); }
   function level() { return Math.min(MAX_LEVEL, milestone() + 1); }   // Lv.1 at score 0
+
+  // ---- mode rules ----
+  // The two modes share the whole board mechanic and differ only in the knobs below.
+  // Keeping the differences in one table stops `if (mode === "rush")` from being sprayed
+  // through the engine, which is what makes a second mode expensive to add.
+  //   Arcade: difficulty climbs with your score (colours 4->7, spawns 1->4, bricks unlock).
+  //   Rush:   the board stays flat and difficulty comes from stage quotas and relics,
+  //           with all 7 colours from the first turn (design doc 10-4).
+  const MODES = {
+    arcade: {
+      startBuds: START_BUDS,
+      scaleWithScore: true,                                 // HUD shows a Lv. chip
+      touchBudget: false,                                   // no touch limit; play till the board fills
+      colors:  m => Math.min(MAX_COLORS, BASE_COLORS + Math.floor((m + 1) / 3)),
+      spawns:  m => Math.min(SPAWN_MAX, SPAWN_BASE + Math.floor(m / 3)),
+      brickHp: m => Math.min(3, Math.floor((m + 2) / 3)),   // 0 = none, else 1..3
+    },
+    rush: {
+      startBuds: START_BUDS,
+      scaleWithScore: false,
+      touchBudget: true,                                    // a stage is N touches to hit a quota
+      colors:  () => MAX_COLORS,                            // 7 from the start
+      spawns:  () => SPAWN_BASE,                            // relics raise this, not the score
+      brickHp: () => 0,                                     // bricks arrive via risk relics
+    },
+  };
+  let mode = "arcade";
+  const rules = () => MODES[mode];
+
   // difficulty knobs (accept an explicit milestone m; default = current)
-  function brickHpLevel(m = milestone()) { return Math.min(3, Math.floor((m + 2) / 3)); } // 0 = none, else 1..3
-  function activeColors(m = milestone()) { return Math.min(MAX_COLORS, BASE_COLORS + Math.floor((m + 1) / 3)); }
-  function spawnCount(m = milestone()) { return Math.min(SPAWN_MAX, SPAWN_BASE + Math.floor(m / 3)); }
-  // max meaningful level = milestone where every knob first reaches its cap (+1)
+  function brickHpLevel(m = milestone()) { return rules().brickHp(m); }
+  function activeColors(m = milestone()) { return rules().colors(m); }
+  function spawnCount(m = milestone()) { return rules().spawns(m); }
+  // max meaningful level = milestone where every arcade knob first reaches its cap (+1).
+  // Arcade-only: it drives the Lv. chip, and rush has no score-driven ramp.
   function computeMaxLevel() {
+    const a = MODES.arcade;
     for (let m = 0; m < 200; m++)
-      if (activeColors(m) === MAX_COLORS && spawnCount(m) === SPAWN_MAX && brickHpLevel(m) === 3)
+      if (a.colors(m) === MAX_COLORS && a.spawns(m) === SPAWN_MAX && a.brickHp(m) === 3)
         return m + 1;
     return 10;
   }
@@ -1018,10 +1050,11 @@
   }
 
   // ---- game start ----
-  function start() {
+  function start(next = mode) {
+    mode = MODES[next] ? next : "arcade";
     resetRun();
     resetEffects();
-    spawnBuds(START_BUDS);
+    spawnBuds(rules().startBuds);
     pickNext();
     updateHUD();
     running = true; busy = false;
@@ -2085,6 +2118,8 @@
     window.__fs = {
       scorePop, fruitScore, chainBonus, streakMult, pickColor, addScore,
       resetRun, serializeRun, restoreRun, FRUIT_POINTS, COLS,
+      MODES, activeColors, spawnCount, brickHpLevel, computeMaxLevel,
+      get mode() { return mode; }, set mode(v) { mode = v; },
       get ROWS()        { return ROWS; },        set ROWS(v)        { ROWS = v; },
       get grid()        { return grid; },        set grid(v)        { grid = v; },
       get special()     { return special; },     set special(v)     { special = v; },
@@ -2101,8 +2136,8 @@
     };
 
   // ---- boot ----
-  document.getElementById("btn-arcade").addEventListener("click", start);     // arcade = the game
-  document.getElementById("start-btn").addEventListener("click", start);      // game-over retry
+  document.getElementById("btn-arcade").addEventListener("click", () => start("arcade"));
+  document.getElementById("start-btn").addEventListener("click", () => start());   // retry same mode
   document.getElementById("btn-menu").addEventListener("click", showMenu);    // game-over -> main
   let msgTimer = null;
   function menuMsg(txt) {
