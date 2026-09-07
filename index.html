@@ -852,12 +852,40 @@
   best0();
   best = +(localStorage.getItem("fruitstar_best_v2") || 0);
 
-  function emptyGrid() {
-    grid = Array.from({length: ROWS}, () => Array(COLS).fill(-1));
-    glow = Array.from({length: ROWS}, () => Array(COLS).fill(null));
-    special = Array.from({length: ROWS}, () => Array(COLS).fill(null)); // item type per cell
-    hp = Array.from({length: ROWS}, () => Array(COLS).fill(0));         // brick health
-    appear = Array.from({length: ROWS}, () => Array(COLS).fill(0));     // spawn pop-in
+  // ---- run state ----
+  // One run's worth of state, declared in one place. Everything listed in serializeRun()
+  // is JSON-safe, so a long Star Rush run can survive the phone evicting the tab. Session
+  // flags (running/busy/paused), effect buffers (particles/waves/...) and layout are
+  // deliberately NOT run state -- they are rebuilt, not restored.
+  const RUN_VERSION = 1;
+  const layer = fill => Array.from({ length: ROWS }, () => Array(COLS).fill(fill));
+
+  function resetRun() {
+    ROWS = 8;                              // Star Rush grows this mid-run; runs start at 8
+    grid = layer(-1); special = layer(null); hp = layer(0);
+    glow = layer(null); appear = layer(0); // decay-only display layers
+    nextColor = null; nextColor2 = null;   // null queue -> pickNext refills both slots
+    score = 0; streak = 0; touchCount = 0;
+    colorWeight = [1, 1, 1, 1, 1, 1, 1];
+    fruitMult   = [1, 1, 1, 1, 1, 1, 1];
+    layout();                              // ROWS may have changed -> resize the board
+  }
+  function serializeRun() {
+    return { v: RUN_VERSION, rows: ROWS, grid, special, hp,
+             nextColor, nextColor2, score, streak, touchCount, colorWeight, fruitMult };
+  }
+  function restoreRun(o) {
+    if (!o || o.v !== RUN_VERSION) return false;   // unknown/older save -> caller starts fresh
+    ROWS = o.rows;
+    ({ grid, special, hp, nextColor, nextColor2, score, streak, touchCount,
+       colorWeight, fruitMult } = o);
+    glow = layer(null); appear = layer(0);
+    layout(); dirty = true;
+    return true;
+  }
+  function resetEffects() {
+    particles = []; birds = []; flares = []; waves = []; links = [];
+    shake = 0; flash = 0; dirty = true;
   }
   function randInt(n) { return Math.floor(Math.random() * n); }
   // staged difficulty: milestone m unlocks, in order, brick / color / spawn (cycling)
@@ -991,9 +1019,8 @@
 
   // ---- game start ----
   function start() {
-    emptyGrid();
-    score = 0; streak = 0; touchCount = 0; particles = []; birds = []; flares = []; waves = []; links = []; shake = 0; flash = 0; dirty = true;
-    nextColor = null; nextColor2 = null;   // clear queue so pickNext refills both slots
+    resetRun();
+    resetEffects();
     spawnBuds(START_BUDS);
     pickNext();
     updateHUD();
@@ -2057,9 +2084,20 @@
   if (location.search.includes("test=1"))
     window.__fs = {
       scorePop, fruitScore, chainBonus, streakMult, pickColor, addScore,
-      colorWeight, fruitMult, FRUIT_POINTS, COLS, get ROWS() { return ROWS; },
-      get score() { return score; }, set score(v) { score = v; },
-      get streak() { return streak; }, set streak(v) { streak = v; },
+      resetRun, serializeRun, restoreRun, FRUIT_POINTS, COLS,
+      get ROWS()        { return ROWS; },        set ROWS(v)        { ROWS = v; },
+      get grid()        { return grid; },        set grid(v)        { grid = v; },
+      get special()     { return special; },     set special(v)     { special = v; },
+      get hp()          { return hp; },          set hp(v)          { hp = v; },
+      get glow()        { return glow; },        set glow(v)        { glow = v; },
+      get appear()      { return appear; },      set appear(v)      { appear = v; },
+      get nextColor()   { return nextColor; },   set nextColor(v)   { nextColor = v; },
+      get nextColor2()  { return nextColor2; },  set nextColor2(v)  { nextColor2 = v; },
+      get score()       { return score; },       set score(v)       { score = v; },
+      get streak()      { return streak; },      set streak(v)      { streak = v; },
+      get touchCount()  { return touchCount; },  set touchCount(v)  { touchCount = v; },
+      get colorWeight() { return colorWeight; }, set colorWeight(v) { colorWeight = v; },
+      get fruitMult()   { return fruitMult; },   set fruitMult(v)   { fruitMult = v; },
     };
 
   // ---- boot ----
@@ -2092,8 +2130,7 @@
     showMenu();
   });
 
-  layout();
-  emptyGrid();      // init grid/glow so the render loop is safe before "시작하기"
+  resetRun();       // init the board layers so the render loop is safe before "시작하기"
   loadFruitArt();   // load custom SVG art -> sprite cache
   updateHUD();
   mfxStart();       // menu is visible on boot -> start ambient fruit FX
