@@ -53,6 +53,17 @@
   .chip.lvl { color: var(--text); font-weight: 800; background: #232744; }
   .chip.lvl .lvmax { color: #ffd23e; margin-left: 4px; font-size: 10px; letter-spacing: 1px; }
   .chip.lvl .lvmax.hidden { display: none; }
+  #stats.hidden { display: none; }
+  /* Star Rush contract strip: stage, remaining touches, quota progress */
+  #rush { width: 100%; max-width: 520px; padding: 4px 18px 0; }
+  #rush.hidden { display: none; }
+  #rush .rush-top { display: flex; align-items: center; gap: 8px; }
+  #rs-touch-chip.warn { color: #ff5a5f; background: #2c1c22; }
+  #rs-touch-chip.warn b { color: #ff5a5f; }
+  .rush-track { margin-top: 6px; height: 7px; border-radius: 999px; background: #1b1e2c; overflow: hidden; }
+  .rush-fill { height: 100%; width: 0%; border-radius: 999px;
+    background: linear-gradient(90deg,#4d8bff,#43d17a); transition: width .18s ease; }
+  .rush-fill.met { background: linear-gradient(90deg,#ffc93c,#43d17a); }
   #danger-label { margin-left: auto; font-size: 12px; font-weight: 800; color: #ff5a5f; }
   #danger-label.hidden { display: none; }
   /* segmented board-fill / danger gauge (merges 남은블록 + 위기) */
@@ -143,7 +154,7 @@
   .mode-btn { width: 100%; max-width: 320px; margin-top: 14px; padding: 18px; font-size: 20px; font-weight: 800;
     border: none; border-radius: 18px; color: #fff; cursor: pointer; }
   .mode-btn.arcade { background: #e5484d; box-shadow: 0 6px 0 #a3282c; }
-  .mode-btn.challenge { background: #7c5cff; box-shadow: 0 6px 0 #503aa8; opacity: .82; }
+  .mode-btn.challenge { background: #7c5cff; box-shadow: 0 6px 0 #503aa8; }
   .mode-btn:active { transform: translateY(3px); box-shadow: none; }
   .menu-icons { display: flex; gap: 34px; margin-top: 42px; }
   .icon-btn { background: none; box-shadow: none; margin: 0; padding: 0; display: flex; flex-direction: column;
@@ -195,6 +206,14 @@
     <span class="chip">➕ 매턴 <b id="st-spawn">1</b></span>
     <span id="danger-label" class="hidden">⚠️ 위험!</span>
   </div>
+  <div id="rush" class="hidden">
+    <div class="rush-top">
+      <span class="chip lvl">스테이지 <b id="rs-stage">1</b></span>
+      <span class="chip" id="rs-touch-chip">👆 남은 터치 <b id="rs-touch">15</b></span>
+      <span class="chip">🎯 <b id="rs-quota">0 / 60</b></span>
+    </div>
+    <div class="rush-track"><div class="rush-fill" id="rs-fill"></div></div>
+  </div>
   <div id="fillgauge" aria-label="판 채움/위험도"></div>
 
   <div id="stage-wrap">
@@ -232,7 +251,7 @@
         <p class="tagline">톡! 터뜨리는 상큼한 과일</p>
       </div>
       <button id="btn-arcade" class="mode-btn arcade">아케이드 모드</button>
-      <button id="btn-challenge" class="mode-btn challenge">🔒 챌린지 모드</button>
+      <button id="btn-challenge" class="mode-btn challenge">⭐ 스타 러시</button>
       <div class="menu-icons">
         <button class="icon-btn" id="btn-settings"><span class="ic">⚙️</span><span class="lb">설정</span></button>
         <button class="icon-btn" id="btn-ranking"><span class="ic">🏆</span><span class="lb">랭킹</span></button>
@@ -290,6 +309,11 @@
   const BIRD_SCORE = 2;        // score per fruit a bird eats (small-scale scoring)
   const BRICK = -2;            // grid value for a brick (wall; only items can clear it)
   const BRICK_EVERY = 5;       // one brick spawns every N touches once unlocked
+  // ---- Star Rush stage curve (DRAFT numbers, meant to be tuned by feel) ----
+  const RUSH_TOUCHES   = 15;   // touches granted per stage
+  const RUSH_QUOTA_1   = 60;   // stage 1 target
+  const RUSH_QUOTA_MUL = 1.5;  // each stage's target vs the previous
+  const rushQuota = st => Math.round(RUSH_QUOTA_1 * Math.pow(RUSH_QUOTA_MUL, st - 1));
 
   // ---- optional custom fruit art (SVG string). null = use built-in procedural drawing ----
   const CHERRY_SVG = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" width="100%" height="100%">
@@ -800,6 +824,7 @@
   let nextColor2;      // the lookahead piece shown after it
   let score, best, streak;     // streak = consecutive successful taps
   let touchCount;              // total taps this game
+  let stage, stageScore, touchesLeft;   // Star Rush: current stage, its score, its budget
   let running = false;
   let busy = false;            // wave animating -> block input
   let paused = false;          // pause overlay open -> block input
@@ -848,9 +873,9 @@
   window.addEventListener("resize", () => { layout(); if (mfxRAF) mfxResize(); });
 
   // ---- helpers ----
-  const best0 = () => { best = +(localStorage.getItem("fruitstar_best_v2") || 0); };
-  best0();
-  best = +(localStorage.getItem("fruitstar_best_v2") || 0);
+  // the two modes score on completely different scales, so they keep separate records
+  const BEST_KEYS = { arcade: "fruitstar_best_v2", rush: "fruitstar_rush_best_v1" };
+  const loadBest = () => { best = +(localStorage.getItem(BEST_KEYS[mode]) || 0); };
 
   // ---- run state ----
   // One run's worth of state, declared in one place. Everything listed in serializeRun()
@@ -866,6 +891,7 @@
     glow = layer(null); appear = layer(0); // decay-only display layers
     nextColor = null; nextColor2 = null;   // null queue -> pickNext refills both slots
     score = 0; streak = 0; touchCount = 0;
+    stage = 1; stageScore = 0; touchesLeft = RUSH_TOUCHES;
     colorWeight = [1, 1, 1, 1, 1, 1, 1];
     fruitMult   = [1, 1, 1, 1, 1, 1, 1];
     relics = [];
@@ -873,14 +899,15 @@
   }
   function serializeRun() {
     return { v: RUN_VERSION, mode, rows: ROWS, grid, special, hp,
-             nextColor, nextColor2, score, streak, touchCount, colorWeight, fruitMult, relics };
+             nextColor, nextColor2, score, streak, touchCount,
+             stage, stageScore, touchesLeft, colorWeight, fruitMult, relics };
   }
   function restoreRun(o) {
     if (!o || o.v !== RUN_VERSION) return false;   // unknown/older save -> caller starts fresh
     mode = MODES[o.mode] ? o.mode : "arcade";     // a saved rush run must come back as rush
     ROWS = o.rows;
     ({ grid, special, hp, nextColor, nextColor2, score, streak, touchCount,
-       colorWeight, fruitMult, relics } = o);
+       stage, stageScore, touchesLeft, colorWeight, fruitMult, relics } = o);
     glow = layer(null); appear = layer(0);
     layout(); dirty = true;
     return true;
@@ -914,6 +941,8 @@
       startBuds: START_BUDS,
       scaleWithScore: false,
       touchBudget: true,                                    // a stage is N touches to hit a quota
+      quota: rushQuota,
+      touches: RUSH_TOUCHES,
       colors:  () => MAX_COLORS,                            // 7 from the start
       spawns:  () => SPAWN_BASE,                            // relics raise this, not the score
       brickHp: () => 0,                                     // bricks arrive via risk relics
@@ -966,7 +995,8 @@
   function addScore(amount) {
     if (!(amount > 0)) return 0;
     score += amount;
-    if (score > best) { best = score; localStorage.setItem("fruitstar_best_v2", best); }
+    stageScore += amount;        // quota progress; reset at each stage, unlike `score`
+    if (score > best) { best = score; localStorage.setItem(BEST_KEYS[mode], best); }
     return amount;
   }
   // basePts = summed fruitScore of everything credited; cleared = group size for the bonus
@@ -1083,6 +1113,7 @@
   // ---- game start ----
   function start(next = mode) {
     mode = MODES[next] ? next : "arcade";
+    loadBest();
     resetRun();
     resetEffects();
     applyRelics();                     // passives land before the first fruit is dealt
@@ -1093,7 +1124,9 @@
     running = true; busy = false;
     mfxStop();
     document.getElementById("overlay").classList.add("hidden");
-    document.getElementById("hint").textContent = "같은 색 과일 옆(3×3)에 놓아 터뜨리세요";
+    document.getElementById("hint").textContent = rules().touchBudget
+      ? `스테이지 1 — 목표 ${rules().quota(1)}점 · 터치 ${touchesLeft}회`
+      : "같은 색 과일 옆(3×3)에 놓아 터뜨리세요";
   }
 
   // build the segmented gauge once
@@ -1115,6 +1148,22 @@
     document.getElementById("score").textContent = score;
     document.getElementById("best").textContent = best;
     updateStreakBadge();
+
+    // the two modes want different chips: arcade shows the difficulty ramp, rush shows
+    // the stage contract. Swap the whole strip rather than relabelling shared chips.
+    const rush = rules().touchBudget;
+    document.getElementById("stats").classList.toggle("hidden", rush);
+    document.getElementById("rush").classList.toggle("hidden", !rush);
+    if (rush) {
+      const q = rules().quota(stage);
+      document.getElementById("rs-stage").textContent = stage;
+      document.getElementById("rs-touch").textContent = touchesLeft;
+      document.getElementById("rs-quota").textContent = `${Math.min(stageScore, q)} / ${q}`;
+      const fill = document.getElementById("rs-fill");
+      fill.style.width = Math.min(100, (stageScore / q) * 100) + "%";
+      fill.classList.toggle("met", stageScore >= q);
+      document.getElementById("rs-touch-chip").classList.toggle("warn", touchesLeft <= 3);
+    }
     const lv = level();
     document.getElementById("st-level").textContent = lv;
     document.getElementById("st-max").classList.toggle("hidden", lv < MAX_LEVEL);
@@ -1507,22 +1556,50 @@
       if (bLvl >= 1 && touchCount % BRICK_EVERY === 0) spawnBrick(bLvl);
       pickNext();
       notify("onTurn", { touchCount, score });
+      if (rules().touchBudget) touchesLeft--;
     }
     updateHUD();
     dirty = true;
 
-    if (placement && emptyCells().length === 0) {
+    // Star Rush ends a turn three ways. Clearing the quota is checked first, so meeting it
+    // on the turn that also fills the board counts as a clear rather than a death.
+    const budget = placement && rules().touchBudget;
+    if (budget && stageScore >= rules().quota(stage)) {
+      busy = true;
+      setTimeout(stageClear, 520);
+    } else if (placement && emptyCells().length === 0) {
       // board is completely full -> let the spawned pieces pop in & be seen, then over
       busy = true;
-      setTimeout(gameOver, 750);
+      setTimeout(() => gameOver("board"), 750);
+    } else if (budget && touchesLeft <= 0) {
+      busy = true;
+      setTimeout(() => gameOver("touches"), 750);
     } else {
       busy = false;
     }
   }
 
-  function gameOver() {
+  // ---- Star Rush: quota met -> next stage ----
+  // The board deliberately carries over. Touch pressure plus a filling board is the
+  // dual tension the design leans on (doc 8); a fresh board would remove half of it.
+  function stageClear() {
+    stage++;
+    stageScore = 0;
+    touchesLeft = rules().touches;
+    flash = Math.max(flash, 0.5); addShake(7);
+    document.getElementById("hint").textContent =
+      `스테이지 ${stage} — 목표 ${rules().quota(stage)}점 · 터치 ${touchesLeft}회`;
+    updateHUD();
+    busy = false; dirty = true;
+  }
+
+  function gameOver(reason) {
     running = false; busy = false;
-    document.getElementById("ov-msg").innerHTML = `점수 <b>${score}</b> · 최고 <b>${best}</b>`;
+    const why = reason === "touches" ? "터치 소진" : reason === "board" ? "판이 가득 참" : "";
+    document.getElementById("ov-msg").innerHTML = rules().touchBudget
+      ? `스테이지 <b>${stage}</b> 도달 · 점수 <b>${score}</b> · 최고 <b>${best}</b>` +
+        (why ? `<br><span style="font-size:14px;opacity:.7">${why}</span>` : "")
+      : `점수 <b>${score}</b> · 최고 <b>${best}</b>`;
     document.getElementById("menu").classList.add("hidden");     // show the game-over view
     document.getElementById("gameover").classList.remove("hidden");
     document.getElementById("overlay").classList.remove("hidden");
@@ -2169,6 +2246,10 @@
       get score()       { return score; },       set score(v)       { score = v; },
       get streak()      { return streak; },      set streak(v)      { streak = v; },
       get touchCount()  { return touchCount; },  set touchCount(v)  { touchCount = v; },
+      get stage()       { return stage; },       set stage(v)       { stage = v; },
+      get stageScore()  { return stageScore; },  set stageScore(v)  { stageScore = v; },
+      get touchesLeft() { return touchesLeft; }, set touchesLeft(v) { touchesLeft = v; },
+      rushQuota, RUSH_TOUCHES, rules,
       get colorWeight() { return colorWeight; }, set colorWeight(v) { colorWeight = v; },
       get fruitMult()   { return fruitMult; },   set fruitMult(v)   { fruitMult = v; },
     };
@@ -2183,7 +2264,7 @@
     el.textContent = txt;
     clearTimeout(msgTimer); msgTimer = setTimeout(() => { el.textContent = ""; }, 2200);
   }
-  document.getElementById("btn-challenge").addEventListener("click", () => menuMsg("🔒 챌린지 모드는 곧 출시됩니다!"));
+  document.getElementById("btn-challenge").addEventListener("click", () => start("rush"));
   document.getElementById("btn-settings").addEventListener("click", () => menuMsg("⚙️ 설정은 준비 중이에요"));
   document.getElementById("btn-ranking").addEventListener("click", () => menuMsg("🏆 랭킹은 준비 중이에요"));
 
@@ -2203,6 +2284,7 @@
     showMenu();
   });
 
+  loadBest();
   resetRun();       // init the board layers so the render loop is safe before "시작하기"
   loadFruitArt();   // load custom SVG art -> sprite cache
   updateHUD();

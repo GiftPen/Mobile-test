@@ -61,6 +61,12 @@ window.addEventListener('load', () => setTimeout(() => {
     if (R.brickHp(m) !== 0) modeFails.push({m, knob:'rush.brickHp', got:R.brickHp(m), want:0});
   }
   if (F.computeMaxLevel() !== 10) modeFails.push({knob:'MAX_LEVEL', got:F.computeMaxLevel(), want:10});
+  // stage quota curve: 60 x 1.5^(n-1), rounded
+  [[1,60],[2,90],[3,135],[4,203],[5,304]].forEach(([st,want]) => {
+    if (F.rushQuota(st) !== want) modeFails.push({knob:'quota s'+st, got:F.rushQuota(st), want});
+  });
+  if (F.MODES.rush.touches !== 15) modeFails.push({knob:'rush touches', got:F.MODES.rush.touches, want:15});
+  if (F.MODES.arcade.touchBudget !== false) modeFails.push({knob:'arcade has no budget', got:true, want:false});
   // the live knobs must follow the active mode
   F.mode = 'rush';
   if (F.activeColors(0) !== 7) modeFails.push({knob:'live colours in rush', got:F.activeColors(0), want:7});
@@ -112,12 +118,14 @@ window.addEventListener('load', () => setTimeout(() => {
   F.hp = Array.from({length:10}, (_,r) => Array(8).fill(r));
   F.nextColor = 5; F.nextColor2 = 2;
   F.relics = ['relic_a','relic_b'];
+  F.stage = 4; F.stageScore = 42; F.touchesLeft = 9;
   F.score = 1234; F.streak = 3; F.touchCount = 77;
   F.colorWeight = [1,2,3,4,5,6,7];
   F.fruitMult = [1,1.5,2,1,1,1,3];
   const want = {mode:'rush', ROWS:10, grid:F.grid, special:F.special, hp:F.hp, nextColor:5, nextColor2:2,
                 score:1234, streak:3, touchCount:77, colorWeight:[1,2,3,4,5,6,7],
-                fruitMult:[1,1.5,2,1,1,1,3], relics:['relic_a','relic_b']};
+                fruitMult:[1,1.5,2,1,1,1,3], relics:['relic_a','relic_b'],
+                stage:4, stageScore:42, touchesLeft:9};
   const snap = JSON.parse(JSON.stringify(F.serializeRun()));
 
   F.resetRun();                                   // reset must wipe it all
@@ -130,6 +138,9 @@ window.addEventListener('load', () => setTimeout(() => {
   if (F.grid.length !== 8) resetLeaks.push('grid.rows');
   if (F.nextColor !== null) resetLeaks.push('nextColor');
   if (F.relics.length !== 0) resetLeaks.push('relics');
+  if (F.stage !== 1) resetLeaks.push('stage');
+  if (F.stageScore !== 0) resetLeaks.push('stageScore');
+  if (F.touchesLeft !== F.RUSH_TOUCHES) resetLeaks.push('touchesLeft');
   if (JSON.stringify(F.colorWeight) !== '[1,1,1,1,1,1,1]') resetLeaks.push('colorWeight');
   if (JSON.stringify(F.fruitMult) !== '[1,1,1,1,1,1,1]') resetLeaks.push('fruitMult');
 
