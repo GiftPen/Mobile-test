@@ -71,6 +71,8 @@ window.addEventListener('load', () => setTimeout(() => {
     if (F.rushQuota(st) <= F.rushQuota(st-1))
       modeFails.push({knob:'quota rises s'+st, got:F.rushQuota(st), want:'> '+F.rushQuota(st-1)});
   }
+  if (F.MODES.rush.startBuds !== F.RUSH_BUDS)
+    modeFails.push({knob:'rush startBuds', got:F.MODES.rush.startBuds, want:F.RUSH_BUDS});
   if (F.MODES.rush.touches !== F.RUSH_TOUCHES) modeFails.push({knob:'rush touches', got:F.MODES.rush.touches, want:F.RUSH_TOUCHES});
   if (F.MODES.arcade.touchBudget !== false) modeFails.push({knob:'arcade has no budget', got:true, want:false});
   // the live knobs must follow the active mode

@@ -331,8 +331,10 @@
   const BRICK_EVERY = 5;       // one brick spawns every N touches once unlocked
   // ---- Star Rush stage curve (DRAFT numbers, meant to be tuned by feel) ----
   const RUSH_TOUCHES   = 15;   // touches granted per stage
-  const RUSH_SPAWNS    = 3;    // fruits added per turn (leaves room for a "+1 spawn" relic)
-  const RUSH_QUOTA_1   = 80;   // stage 1 target
+  const RUSH_SPAWNS    = 2;    // per turn. base 2 -> relic +1 -> trait +1 tops out at 4
+  const RUSH_BUDS      = 18;   // opening board. a one-off injection, NOT a substitute for
+                               // spawns/turn: it gets consumed and the board drains again
+  const RUSH_QUOTA_1   = 70;   // stage 1 target
   const RUSH_QUOTA_MUL = 1.5;  // each stage's target vs the previous
   const rushQuota = st => Math.round(RUSH_QUOTA_1 * Math.pow(RUSH_QUOTA_MUL, st - 1));
 
@@ -959,7 +961,7 @@
       brickHp: m => Math.min(3, Math.floor((m + 2) / 3)),   // 0 = none, else 1..3
     },
     rush: {
-      startBuds: START_BUDS,
+      startBuds: RUSH_BUDS,
       scaleWithScore: false,
       touchBudget: true,                                    // a stage is N touches to hit a quota
       quota: rushQuota,
@@ -2279,7 +2281,7 @@
       get stage()       { return stage; },       set stage(v)       { stage = v; },
       get stageScore()  { return stageScore; },  set stageScore(v)  { stageScore = v; },
       get touchesLeft() { return touchesLeft; }, set touchesLeft(v) { touchesLeft = v; },
-      rushQuota, RUSH_TOUCHES, RUSH_SPAWNS, RUSH_QUOTA_1, RUSH_QUOTA_MUL, rules,
+      rushQuota, RUSH_TOUCHES, RUSH_SPAWNS, RUSH_BUDS, RUSH_QUOTA_1, RUSH_QUOTA_MUL, rules,
       get colorWeight() { return colorWeight; }, set colorWeight(v) { colorWeight = v; },
       get fruitMult()   { return fruitMult; },   set fruitMult(v)   { fruitMult = v; },
     };
