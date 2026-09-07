@@ -57,7 +57,7 @@ window.addEventListener('load', () => setTimeout(() => {
   // rush: 7 colours from turn one, flat spawn, no score-driven bricks (design doc 10-4)
   for (let m = 0; m <= 40; m++) {
     if (R.colors(m)  !== 7) modeFails.push({m, knob:'rush.colors',  got:R.colors(m),  want:7});
-    if (R.spawns(m)  !== 1) modeFails.push({m, knob:'rush.spawns',  got:R.spawns(m),  want:1});
+    if (R.spawns(m)  !== F.RUSH_SPAWNS) modeFails.push({m, knob:'rush.spawns', got:R.spawns(m), want:F.RUSH_SPAWNS});
     if (R.brickHp(m) !== 0) modeFails.push({m, knob:'rush.brickHp', got:R.brickHp(m), want:0});
   }
   if (F.computeMaxLevel() !== 10) modeFails.push({knob:'MAX_LEVEL', got:F.computeMaxLevel(), want:10});

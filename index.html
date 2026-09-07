@@ -331,7 +331,8 @@
   const BRICK_EVERY = 5;       // one brick spawns every N touches once unlocked
   // ---- Star Rush stage curve (DRAFT numbers, meant to be tuned by feel) ----
   const RUSH_TOUCHES   = 15;   // touches granted per stage
-  const RUSH_QUOTA_1   = 40;   // stage 1 target
+  const RUSH_SPAWNS    = 3;    // fruits added per turn (leaves room for a "+1 spawn" relic)
+  const RUSH_QUOTA_1   = 80;   // stage 1 target
   const RUSH_QUOTA_MUL = 1.5;  // each stage's target vs the previous
   const rushQuota = st => Math.round(RUSH_QUOTA_1 * Math.pow(RUSH_QUOTA_MUL, st - 1));
 
@@ -964,7 +965,7 @@
       quota: rushQuota,
       touches: RUSH_TOUCHES,
       colors:  () => MAX_COLORS,                            // 7 from the start
-      spawns:  () => SPAWN_BASE,                            // relics raise this, not the score
+      spawns:  () => RUSH_SPAWNS,                           // relics raise this, not the score
       brickHp: () => 0,                                     // bricks arrive via risk relics
     },
   };
@@ -2278,7 +2279,7 @@
       get stage()       { return stage; },       set stage(v)       { stage = v; },
       get stageScore()  { return stageScore; },  set stageScore(v)  { stageScore = v; },
       get touchesLeft() { return touchesLeft; }, set touchesLeft(v) { touchesLeft = v; },
-      rushQuota, RUSH_TOUCHES, RUSH_QUOTA_1, RUSH_QUOTA_MUL, rules,
+      rushQuota, RUSH_TOUCHES, RUSH_SPAWNS, RUSH_QUOTA_1, RUSH_QUOTA_MUL, rules,
       get colorWeight() { return colorWeight; }, set colorWeight(v) { colorWeight = v; },
       get fruitMult()   { return fruitMult; },   set fruitMult(v)   { fruitMult = v; },
     };
