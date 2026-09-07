@@ -31,8 +31,11 @@
        the preview grows (future "예지" relic can add more preview slots) */
     display: grid; grid-template-columns: 1fr auto 1fr; align-items: center; gap: 12px;
   }
-  .score-box { display: flex; flex-direction: column; }
-  .score-box.center { justify-self: center; align-items: center; text-align: center; }
+  /* exactly one of .score-box / .rush-box is in the #top grid at a time -- display:none
+     keeps the hidden one out of the flow, or it would claim a column and wrap the preview */
+  .score-box, .rush-box { display: flex; flex-direction: column; }
+  .score-box.hidden, .rush-box.hidden { display: none; }
+  .score-box.center, .rush-box.center { justify-self: center; align-items: center; text-align: center; }
   .score-label { font-size: 11px; color: var(--muted); letter-spacing: 1px; text-transform: uppercase; }
   .score-val { font-size: 34px; font-weight: 700; line-height: 1; }
   .best-line { font-size: 12px; color: var(--muted); margin-top: 4px; letter-spacing: .5px; }
@@ -54,16 +57,28 @@
   .chip.lvl .lvmax { color: #ffd23e; margin-left: 4px; font-size: 10px; letter-spacing: 1px; }
   .chip.lvl .lvmax.hidden { display: none; }
   #stats.hidden { display: none; }
-  /* Star Rush contract strip: stage, remaining touches, quota progress */
-  #rush { width: 100%; max-width: 520px; padding: 4px 18px 0; }
+  /* ---- Star Rush contract band ----
+     The run total is not what you play against turn to turn -- the quota and the touches
+     left are, so they are the only "big" tier and get a full-width row of their own. In
+     #top's centre column they collided with the next-piece preview under about 400px. */
+  #rush { width: 100%; max-width: 520px; padding: 2px 18px 0; }
   #rush.hidden { display: none; }
-  #rush .rush-top { display: flex; align-items: center; gap: 8px; }
-  #rs-touch-chip.warn { color: #ff5a5f; background: #2c1c22; }
-  #rs-touch-chip.warn b { color: #ff5a5f; }
-  .rush-track { margin-top: 6px; height: 7px; border-radius: 999px; background: #1b1e2c; overflow: hidden; }
-  .rush-fill { height: 100%; width: 0%; border-radius: 999px;
+  .rb-row { display: flex; align-items: flex-end; gap: 12px; flex-wrap: wrap; }
+  .rb-cell { display: flex; flex-direction: column; align-items: center; }
+  .rb-val { font-size: clamp(21px, 6.4vw, 28px); font-weight: 800; line-height: 1;
+    letter-spacing: -.5px; white-space: nowrap; }
+  .rb-lab { font-size: 10px; color: var(--muted); letter-spacing: 1px; margin-top: 3px; white-space: nowrap; }
+  .rb-div { width: 1px; align-self: stretch; margin: 3px 0 6px; background: #2b3048; }
+  .rb-chips { margin-left: auto; display: flex; align-items: center; gap: 6px; }
+  #rb-touch-cell.warn .rb-val, #rb-touch-cell.warn .rb-lab { color: #ffab3d; }
+  #rb-touch-cell.low  .rb-val, #rb-touch-cell.low  .rb-lab { color: #ff5a5f; }
+  #danger-label2 { font-size: 12px; font-weight: 800; color: #ff5a5f; }
+  #danger-label2.hidden { display: none; }
+  .rb-track { width: 100%; height: 8px; margin-top: 7px; border-radius: 999px;
+    background: #1b1e2c; overflow: hidden; }
+  .rb-fill { height: 100%; width: 0%; border-radius: 999px;
     background: linear-gradient(90deg,#4d8bff,#43d17a); transition: width .18s ease; }
-  .rush-fill.met { background: linear-gradient(90deg,#ffc93c,#43d17a); }
+  .rb-fill.met { background: linear-gradient(90deg,#ffc93c,#43d17a); }
   #danger-label { margin-left: auto; font-size: 12px; font-weight: 800; color: #ff5a5f; }
   #danger-label.hidden { display: none; }
   /* segmented board-fill / danger gauge (merges 남은블록 + 위기) */
@@ -189,10 +204,14 @@
   </div>
   <div id="top">
     <button id="pause-btn" aria-label="일시정지">⏸</button>
-    <div class="score-box center">
+    <div class="score-box center" id="arcade-box">
       <span class="score-val" id="score">0</span>
       <span class="best-line">최고 <b id="best">0</b></span>
       <span id="streak-badge"></span>
+    </div>
+    <div class="rush-box center hidden" id="rush-box">
+      <span class="best-line">점수 <b id="rb-score">0</b> · 최고 <b id="rb-best">0</b></span>
+      <span id="streak-badge2"></span>
     </div>
     <div id="next-wrap">
       <canvas id="np-now"  width="128" height="128"></canvas>
@@ -207,12 +226,17 @@
     <span id="danger-label" class="hidden">⚠️ 위험!</span>
   </div>
   <div id="rush" class="hidden">
-    <div class="rush-top">
-      <span class="chip lvl">스테이지 <b id="rs-stage">1</b></span>
-      <span class="chip" id="rs-touch-chip">👆 남은 터치 <b id="rs-touch">15</b></span>
-      <span class="chip">🎯 <b id="rs-quota">0 / 60</b></span>
+    <div class="rb-row">
+      <div class="rb-cell"><span class="rb-val" id="rb-quota">0/40</span><span class="rb-lab">목표</span></div>
+      <div class="rb-div"></div>
+      <div class="rb-cell" id="rb-touch-cell"><span class="rb-val" id="rb-touch">15</span><span class="rb-lab">남은 터치</span></div>
+      <div class="rb-chips">
+        <span class="chip lvl">스테이지 <b id="rs-stage">1</b></span>
+        <span class="chip">➕ 매턴 <b id="rs-spawn">1</b></span>
+        <span id="danger-label2" class="hidden">⚠️</span>
+      </div>
     </div>
-    <div class="rush-track"><div class="rush-fill" id="rs-fill"></div></div>
+    <div class="rb-track"><div class="rb-fill" id="rb-fill"></div></div>
   </div>
   <div id="fillgauge" aria-label="판 채움/위험도"></div>
 
@@ -311,7 +335,7 @@
   const BRICK_EVERY = 5;       // one brick spawns every N touches once unlocked
   // ---- Star Rush stage curve (DRAFT numbers, meant to be tuned by feel) ----
   const RUSH_TOUCHES   = 15;   // touches granted per stage
-  const RUSH_QUOTA_1   = 60;   // stage 1 target
+  const RUSH_QUOTA_1   = 40;   // stage 1 target
   const RUSH_QUOTA_MUL = 1.5;  // each stage's target vs the previous
   const rushQuota = st => Math.round(RUSH_QUOTA_1 * Math.pow(RUSH_QUOTA_MUL, st - 1));
 
@@ -1149,20 +1173,27 @@
     document.getElementById("best").textContent = best;
     updateStreakBadge();
 
-    // the two modes want different chips: arcade shows the difficulty ramp, rush shows
-    // the stage contract. Swap the whole strip rather than relabelling shared chips.
+    // arcade shows the difficulty ramp; rush shows the stage contract. Swap whole blocks
+    // rather than relabelling shared ones -- the two modes want different hierarchies.
     const rush = rules().touchBudget;
     document.getElementById("stats").classList.toggle("hidden", rush);
     document.getElementById("rush").classList.toggle("hidden", !rush);
+    document.getElementById("arcade-box").classList.toggle("hidden", rush);
+    document.getElementById("rush-box").classList.toggle("hidden", !rush);
     if (rush) {
       const q = rules().quota(stage);
-      document.getElementById("rs-stage").textContent = stage;
-      document.getElementById("rs-touch").textContent = touchesLeft;
-      document.getElementById("rs-quota").textContent = `${Math.min(stageScore, q)} / ${q}`;
-      const fill = document.getElementById("rs-fill");
+      document.getElementById("rb-quota").textContent = `${Math.min(stageScore, q)}/${q}`;
+      document.getElementById("rb-touch").textContent = touchesLeft;
+      document.getElementById("rb-score").textContent = score;
+      document.getElementById("rb-best").textContent = best;
+      const fill = document.getElementById("rb-fill");
       fill.style.width = Math.min(100, (stageScore / q) * 100) + "%";
       fill.classList.toggle("met", stageScore >= q);
-      document.getElementById("rs-touch-chip").classList.toggle("warn", touchesLeft <= 3);
+      const tc = document.getElementById("rb-touch-cell");
+      tc.classList.toggle("warn", touchesLeft <= 5 && touchesLeft > 3);
+      tc.classList.toggle("low", touchesLeft <= 3);
+      document.getElementById("rs-stage").textContent = stage;
+      document.getElementById("rs-spawn").textContent = spawnCount();
     }
     const lv = level();
     document.getElementById("st-level").textContent = lv;
@@ -1182,7 +1213,8 @@
     }
     const danger = ratio >= 0.85;
     document.getElementById("fillgauge").classList.toggle("danger", danger);
-    document.getElementById("danger-label").classList.toggle("hidden", !danger);
+    document.getElementById("danger-label").classList.toggle("hidden", !danger || rush);
+    document.getElementById("danger-label2").classList.toggle("hidden", !danger || !rush);
   }
 
   // ---- input ----
@@ -1650,15 +1682,19 @@
   }
   // persistent streak badge near the score; pulses on gain, hides at ×1
   function updateStreakBadge() {
-    const b = document.getElementById("streak-badge");
     const mult = streakMult();
-    if (mult > 1) {
-      b.textContent = `🔥 ×${mult.toFixed(1)}`;
-      b.classList.add("on");
-      b.animate([{transform:"scale(1.35)"},{transform:"scale(1)"}], {duration:180, easing:"ease-out"});
-    } else {
-      b.textContent = "";
-      b.classList.remove("on");
+    // one badge per top-bar variant; whichever box is visible shows it
+    for (const id of ["streak-badge", "streak-badge2"]) {
+      const b = document.getElementById(id);
+      if (!b) continue;
+      if (mult > 1) {
+        b.textContent = `🔥 ×${mult.toFixed(1)}`;
+        b.classList.add("on");
+        b.animate([{transform:"scale(1.35)"},{transform:"scale(1)"}], {duration:180, easing:"ease-out"});
+      } else {
+        b.textContent = "";
+        b.classList.remove("on");
+      }
     }
   }
 
@@ -2249,7 +2285,7 @@
       get stage()       { return stage; },       set stage(v)       { stage = v; },
       get stageScore()  { return stageScore; },  set stageScore(v)  { stageScore = v; },
       get touchesLeft() { return touchesLeft; }, set touchesLeft(v) { touchesLeft = v; },
-      rushQuota, RUSH_TOUCHES, rules,
+      rushQuota, RUSH_TOUCHES, RUSH_QUOTA_1, RUSH_QUOTA_MUL, rules,
       get colorWeight() { return colorWeight; }, set colorWeight(v) { colorWeight = v; },
       get fruitMult()   { return fruitMult; },   set fruitMult(v)   { fruitMult = v; },
     };

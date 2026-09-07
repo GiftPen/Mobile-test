@@ -61,11 +61,17 @@ window.addEventListener('load', () => setTimeout(() => {
     if (R.brickHp(m) !== 0) modeFails.push({m, knob:'rush.brickHp', got:R.brickHp(m), want:0});
   }
   if (F.computeMaxLevel() !== 10) modeFails.push({knob:'MAX_LEVEL', got:F.computeMaxLevel(), want:10});
-  // stage quota curve: 60 x 1.5^(n-1), rounded
-  [[1,60],[2,90],[3,135],[4,203],[5,304]].forEach(([st,want]) => {
+  // Verify the SHAPE of the quota curve, not the tuning: these numbers are meant to be
+  // changed by feel, and a test that pins them just has to be edited every time.
+  if (F.rushQuota(1) !== F.RUSH_QUOTA_1)
+    modeFails.push({knob:'quota starts at RUSH_QUOTA_1', got:F.rushQuota(1), want:F.RUSH_QUOTA_1});
+  for (let st = 2; st <= 8; st++) {
+    const want = Math.round(F.RUSH_QUOTA_1 * Math.pow(F.RUSH_QUOTA_MUL, st - 1));
     if (F.rushQuota(st) !== want) modeFails.push({knob:'quota s'+st, got:F.rushQuota(st), want});
-  });
-  if (F.MODES.rush.touches !== 15) modeFails.push({knob:'rush touches', got:F.MODES.rush.touches, want:15});
+    if (F.rushQuota(st) <= F.rushQuota(st-1))
+      modeFails.push({knob:'quota rises s'+st, got:F.rushQuota(st), want:'> '+F.rushQuota(st-1)});
+  }
+  if (F.MODES.rush.touches !== F.RUSH_TOUCHES) modeFails.push({knob:'rush touches', got:F.MODES.rush.touches, want:F.RUSH_TOUCHES});
   if (F.MODES.arcade.touchBudget !== false) modeFails.push({knob:'arcade has no budget', got:true, want:false});
   // the live knobs must follow the active mode
   F.mode = 'rush';
