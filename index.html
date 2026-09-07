@@ -253,7 +253,10 @@
   "use strict";
 
   // ---- config ----
-  const N = 8;                 // grid size
+  // board dims. Arcade stays 8x8; Star Rush keeps COLS=8 (cell size / readability fixed)
+  // and grows ROWS 8 -> 12 via the "개간" relic. Engine must read COLS/ROWS, never a square N.
+  const COLS = 8;
+  let ROWS = 8;
   // full palette (7). Only the first activeColors() are in play, growing with score.
   const COLORS = ["#ff5a7a", "#f45b00", "#43d17a", "#ffc93c", "#a66cff", "#ffab8f", "#00b4d8"];
   // per-fruit base points (shared with Star Rush). slot order: 0체리 1오렌지 2키위 3레몬 4포도 5복숭아 6바나나
@@ -824,20 +827,22 @@
   // ---- canvas / layout ----
   const canvas = document.getElementById("game");
   const ctx = canvas.getContext("2d");
-  let cell, pad, dpr, boardPx;
+  let cell, pad, dpr, boardPx, boardH;
 
   function layout() {
-    const maxW = Math.min(window.innerWidth - 24, 520, window.innerHeight - 220);
+    // the height budget must shrink as ROWS grows or an 8x12 board runs off the screen
+    const maxW = Math.min(window.innerWidth - 24, 520, (window.innerHeight - 220) * COLS / ROWS);
     boardPx = Math.max(260, maxW);
     dpr = Math.min(3, window.devicePixelRatio || 1);  // sharper board on hi-DPI phones (idle-skip keeps heat down)
     dirty = true;
-    canvas.style.width = boardPx + "px";
-    canvas.style.height = boardPx + "px";
-    canvas.width = boardPx * dpr;
-    canvas.height = boardPx * dpr;
-    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
     pad = boardPx * 0.02;
-    cell = (boardPx - pad * 2) / N;
+    cell = (boardPx - pad * 2) / COLS;      // cell size comes from the width alone
+    boardH = cell * ROWS + pad * 2;         // height follows the row count
+    canvas.style.width = boardPx + "px";
+    canvas.style.height = boardH + "px";
+    canvas.width = boardPx * dpr;
+    canvas.height = boardH * dpr;
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
     rebuildSprites();   // re-cache art at the new cell size
   }
   window.addEventListener("resize", () => { layout(); if (mfxRAF) mfxResize(); });
@@ -848,11 +853,11 @@
   best = +(localStorage.getItem("fruitstar_best_v2") || 0);
 
   function emptyGrid() {
-    grid = Array.from({length: N}, () => Array(N).fill(-1));
-    glow = Array.from({length: N}, () => Array(N).fill(null));
-    special = Array.from({length: N}, () => Array(N).fill(null)); // item type per cell
-    hp = Array.from({length: N}, () => Array(N).fill(0));         // brick health
-    appear = Array.from({length: N}, () => Array(N).fill(0));     // spawn pop-in
+    grid = Array.from({length: ROWS}, () => Array(COLS).fill(-1));
+    glow = Array.from({length: ROWS}, () => Array(COLS).fill(null));
+    special = Array.from({length: ROWS}, () => Array(COLS).fill(null)); // item type per cell
+    hp = Array.from({length: ROWS}, () => Array(COLS).fill(0));         // brick health
+    appear = Array.from({length: ROWS}, () => Array(COLS).fill(0));     // spawn pop-in
   }
   function randInt(n) { return Math.floor(Math.random() * n); }
   // staged difficulty: milestone m unlocks, in order, brick / color / spawn (cycling)
@@ -888,13 +893,13 @@
 
   function emptyCells() {
     const out = [];
-    for (let r = 0; r < N; r++) for (let c = 0; c < N; c++)
+    for (let r = 0; r < ROWS; r++) for (let c = 0; c < COLS; c++)
       if (grid[r][c] === -1) out.push([r, c]);
     return out;
   }
   function filledCount() {
     let n = 0;
-    for (let r = 0; r < N; r++) for (let c = 0; c < N; c++) if (grid[r][c] !== -1) n++;
+    for (let r = 0; r < ROWS; r++) for (let c = 0; c < COLS; c++) if (grid[r][c] !== -1) n++;
     return n;
   }
 
@@ -1004,7 +1009,7 @@
 
     // segmented board-fill / danger gauge
     buildGauge();
-    const ratio = filledCount() / (N * N);          // fill vs the whole board
+    const ratio = filledCount() / (ROWS * COLS);          // fill vs the whole board
     const lit = Math.round(ratio * FILL_SEGS);
     for (let i = 0; i < FILL_SEGS; i++) {
       const on = i < lit;
@@ -1023,7 +1028,7 @@
     const x = (ev.clientX - rect.left - pad) / cell;
     const y = (ev.clientY - rect.top - pad) / cell;
     const c = Math.floor(x), r = Math.floor(y);
-    if (r < 0 || r >= N || c < 0 || c >= N) return null;
+    if (r < 0 || r >= ROWS || c < 0 || c >= COLS) return null;
     return [r, c];
   }
 
@@ -1068,7 +1073,7 @@
     grid[r0][c0] = color;            // the placed ball (removed later if it clears)
     special[r0][c0] = null;
     const R = BURST_RADIUS;
-    const visited = Array.from({length: N}, () => Array(N).fill(false));
+    const visited = Array.from({length: ROWS}, () => Array(COLS).fill(false));
     visited[r0][c0] = true;
     // frontier items {r,c,mode,color}: "color" = same-color flood, "blast" = item-cleared
     const frontier = seedsAround(r0, c0, R, color, visited).map(([r, c]) => ({ r, c, mode: "color", color }));
@@ -1077,7 +1082,7 @@
       for (let dc = -R; dc <= R; dc++) {
         if (dr === 0 && dc === 0) continue;
         const nr = r0 + dr, nc = c0 + dc;
-        if (nr < 0 || nr >= N || nc < 0 || nc >= N || visited[nr][nc]) continue;
+        if (nr < 0 || nr >= ROWS || nc < 0 || nc >= COLS || visited[nr][nc]) continue;
         if (special[nr][nc]) { visited[nr][nc] = true; frontier.push({ r: nr, c: nc, mode: "blast", color: grid[nr][nc] }); }
       }
     flashBox(r0, c0, R, color);
@@ -1087,7 +1092,7 @@
   // tap an existing item bud to trigger it directly (FREE: no touch count, no spawn — strategic)
   function tapItem(r0, c0) {
     const color = grid[r0][c0];
-    const visited = Array.from({length: N}, () => Array(N).fill(false));
+    const visited = Array.from({length: ROWS}, () => Array(COLS).fill(false));
     runChain(r0, c0, color, visited, [{ r: r0, c: c0, mode: "blast", color }], false);
   }
 
@@ -1104,7 +1109,7 @@
       if (!frontier.length) {
         let broke = 0;
         hitBricks.forEach((dmg, key) => {
-          const br = (key / N) | 0, bc = key % N;
+          const br = (key / COLS) | 0, bc = key % COLS;
           if (grid[br][bc] !== BRICK) return;   // already destroyed by a blast
           hp[br][bc] -= dmg;                    // one HP per adjacent pop
           glow[br][bc] = { c: 0, t: 0.9 };
@@ -1142,8 +1147,8 @@
           for (let dc = -1; dc <= 1; dc++) {
             if (dr === 0 && dc === 0) continue;
             const nr = r + dr, nc = c + dc;
-            if (nr < 0 || nr >= N || nc < 0 || nc >= N) continue;
-            if (grid[nr][nc] === BRICK) { const k = nr * N + nc; hitBricks.set(k, (hitBricks.get(k) || 0) + 1); }
+            if (nr < 0 || nr >= ROWS || nc < 0 || nc >= COLS) continue;
+            if (grid[nr][nc] === BRICK) { const k = nr * COLS + nc; hitBricks.set(k, (hitBricks.get(k) || 0) + 1); }
             else if (special[nr][nc] && !visited[nr][nc]) {   // adjacent item -> detonate it
               visited[nr][nc] = true;
               next.push({ r: nr, c: nc, mode: "blast", color: grid[nr][nc] });
@@ -1178,8 +1183,8 @@
           // collect same-color cells, clear them NOW (logic) but hold them as ghosts (visual)
           const tCells = [];
           if (target >= 0)
-            for (let rr = 0; rr < N; rr++)
-              for (let cc = 0; cc < N; cc++)
+            for (let rr = 0; rr < ROWS; rr++)
+              for (let cc = 0; cc < COLS; cc++)
                 if (!visited[rr][cc] && grid[rr][cc] === target) {
                   visited[rr][cc] = true;
                   grid[rr][cc] = -1; special[rr][cc] = null; popped++;
@@ -1189,8 +1194,8 @@
                   for (let dr = -1; dr <= 1; dr++)
                     for (let dc = -1; dc <= 1; dc++) {
                       const br = rr + dr, bc = cc + dc;
-                      if (br >= 0 && br < N && bc >= 0 && bc < N && grid[br][bc] === BRICK)
-                        { const k = br * N + bc; hitBricks.set(k, (hitBricks.get(k) || 0) + 1); }
+                      if (br >= 0 && br < ROWS && bc >= 0 && bc < COLS && grid[br][bc] === BRICK)
+                        { const k = br * COLS + bc; hitBricks.set(k, (hitBricks.get(k) || 0) + 1); }
                     }
                 }
           // order nearest-neighbor from the star origin = a one-stroke path
@@ -1225,7 +1230,7 @@
       for (let dc = -R; dc <= R; dc++) {
         if (dr === 0 && dc === 0) continue;
         const nr = r + dr, nc = c + dc;
-        if (nr < 0 || nr >= N || nc < 0 || nc >= N || visited[nr][nc]) continue;
+        if (nr < 0 || nr >= ROWS || nc < 0 || nc >= COLS || visited[nr][nc]) continue;
         if (grid[nr][nc] === color && special[nr][nc] === null) {
           visited[nr][nc] = true; out.push([nr, nc]);
         }
@@ -1241,7 +1246,7 @@
       for (let dc = -R; dc <= R; dc++) {
         if (dr === 0 && dc === 0) continue;
         const nr = r + dr, nc = c + dc;
-        if (nr < 0 || nr >= N || nc < 0 || nc >= N || visited[nr][nc]) continue;
+        if (nr < 0 || nr >= ROWS || nc < 0 || nc >= COLS || visited[nr][nc]) continue;
         if (grid[nr][nc] !== -1) { visited[nr][nc] = true; out.push([nr, nc]); }
       }
     }
@@ -1252,12 +1257,12 @@
   function lineCells(r, c, type, visited) {
     const out = [];
     if (type === "lineH") {
-      for (let cc = 0; cc < N; cc++) {
+      for (let cc = 0; cc < COLS; cc++) {
         if (cc === c || visited[r][cc]) continue;
         if (grid[r][cc] !== -1) { visited[r][cc] = true; out.push([r, cc]); }
       }
     } else {
-      for (let rr = 0; rr < N; rr++) {
+      for (let rr = 0; rr < ROWS; rr++) {
         if (rr === r || visited[rr][c]) continue;
         if (grid[rr][c] !== -1) { visited[rr][c] = true; out.push([rr, c]); }
       }
@@ -1267,16 +1272,16 @@
 
   function flashLine(r, c, type) {
     if (type === "lineH") {
-      for (let cc = 0; cc < N; cc++) if (grid[r][cc] === -1) glow[r][cc] = { c: 3, t: 0.8 };
+      for (let cc = 0; cc < COLS; cc++) if (grid[r][cc] === -1) glow[r][cc] = { c: 3, t: 0.8 };
     } else {
-      for (let rr = 0; rr < N; rr++) if (grid[rr][c] === -1) glow[rr][c] = { c: 3, t: 0.8 };
+      for (let rr = 0; rr < ROWS; rr++) if (grid[rr][c] === -1) glow[rr][c] = { c: 3, t: 0.8 };
     }
   }
 
   // most abundant color currently on the board (-1 if empty)
   function mostCommonColor() {
     const cnt = new Array(COLORS.length).fill(0);
-    for (let r = 0; r < N; r++) for (let c = 0; c < N; c++)
+    for (let r = 0; r < ROWS; r++) for (let c = 0; c < COLS; c++)
       if (grid[r][c] >= 0) cnt[grid[r][c]]++;
     let bi = -1, bv = 0;
     for (let k = 0; k < cnt.length; k++) if (cnt[k] > bv) { bv = cnt[k]; bi = k; }
@@ -1292,7 +1297,7 @@
       for (let dc = -1; dc <= 1; dc++) {
         if (dr === 0 && dc === 0) continue;
         const nr = r + dr, nc = c + dc;
-        if (nr >= 0 && nr < N && nc >= 0 && nc < N && grid[nr][nc] === col) n++;
+        if (nr >= 0 && nr < ROWS && nc >= 0 && nc < COLS && grid[nr][nc] === col) n++;
       }
     return n;
   }
@@ -1301,8 +1306,8 @@
   function chooseBirdTarget(exclude) {
     // priority: bricks -> plain fruits (junk first) -> items (last resort)
     const bricks = [], fruits = [], items = [];
-    for (let r = 0; r < N; r++) for (let c = 0; c < N; c++) {
-      if (grid[r][c] === -1 || (exclude && exclude[r * N + c])) continue;
+    for (let r = 0; r < ROWS; r++) for (let c = 0; c < COLS; c++) {
+      if (grid[r][c] === -1 || (exclude && exclude[r * COLS + c])) continue;
       if (grid[r][c] === BRICK) bricks.push([r, c]);
       else if (special[r][c]) items.push([r, c]);   // item bud
       else fruits.push([r, c]);                       // plain fruit
@@ -1320,7 +1325,7 @@
   function spawnBird(fromR, fromC) {
     // exclude cells already targeted by in-flight birds so multiple birds pick different targets
     const exclude = {};
-    for (const f of birds) exclude[f.tr * N + f.tc] = true;
+    for (const f of birds) exclude[f.tr * COLS + f.tc] = true;
     const t = chooseBirdTarget(exclude);
     if (!t) return false;
     birds.push({ sr: fromR, sc: fromC, tr: t[0], tc: t[1], t: 0, curve: Math.random() < 0.5 ? -1 : 1 });
@@ -1331,7 +1336,7 @@
     for (let dr = -R; dr <= R; dr++)
       for (let dc = -R; dc <= R; dc++) {
         const rr = r0 + dr, cc = c0 + dc;
-        if (rr >= 0 && rr < N && cc >= 0 && cc < N && grid[rr][cc] === -1)
+        if (rr >= 0 && rr < ROWS && cc >= 0 && cc < COLS && grid[rr][cc] === -1)
           glow[rr][cc] = { c: colorIdx < 0 ? 0 : colorIdx, t: 0.7 };
       }
   }
@@ -1646,7 +1651,7 @@
     // idle-skip: when nothing is animating and no change is pending, don't redraw (saves heat)
     let live = particles.length || birds.length || flares.length || waves.length || links.length
              || shake > 0.3 || flash > 0.01;
-    if (!live) for (let r = 0; r < N && !live; r++) for (let c = 0; c < N; c++)
+    if (!live) for (let r = 0; r < ROWS && !live; r++) for (let c = 0; c < COLS; c++)
       if (glow[r][c] || appear[r][c] > 0 || special[r][c] === "bomb") { live = true; break; }
     if (!dirty && !live) { requestAnimationFrame(draw); return; }
     frame++;   // advance idle-animation clock only while actually drawing
@@ -1662,10 +1667,10 @@
 
     // board bg
     ctx.fillStyle = "#171a26";
-    roundRect(0, 0, boardPx, boardPx, 18); ctx.fill();
+    roundRect(0, 0, boardPx, boardH, 18); ctx.fill();
 
-    for (let r = 0; r < N; r++) {
-      for (let c = 0; c < N; c++) {
+    for (let r = 0; r < ROWS; r++) {
+      for (let c = 0; c < COLS; c++) {
         const x = pad + c * cell, y = pad + r * cell;
         const g = boardPx * 0.006;
         // empty cell
@@ -1798,10 +1803,11 @@
     for (let i = waves.length - 1; i >= 0; i--) {
       const w = waves[i]; w.t += 0.019;            // roll
       if (w.t >= 1) { waves.splice(i, 1); continue; }
-      const front = w.t * (N + 3);                 // wave front distance from origin
+      const span = w.type === "h" ? COLS : ROWS;   // cells this ripple travels across
+      const front = w.t * (span + 3);              // wave front distance from origin
       ctx.save();
       ctx.fillStyle = COLORS[w.color] || "#fff";
-      for (let k = 0; k < N; k++) {
+      for (let k = 0; k < span; k++) {
         const dist = Math.abs(k - w.origin);
         const behind = front - dist;               // how long since front passed this cell
         if (behind <= 0) continue;
@@ -1931,7 +1937,7 @@
       ctx.save();
       ctx.globalAlpha = flash;
       ctx.fillStyle = "#fff";
-      roundRect(0, 0, boardPx, boardPx, 18); ctx.fill();
+      roundRect(0, 0, boardPx, boardH, 18); ctx.fill();
       ctx.restore();
       flash *= 0.855;
     } else flash = 0;
