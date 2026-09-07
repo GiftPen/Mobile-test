@@ -126,9 +126,9 @@
   #menufx { position: fixed; inset: 0; z-index: 1; pointer-events: none; }
   #menu > .mode-btn, #menu > .menu-icons, #menu > #menu-msg, #menu > .ver { position: relative; z-index: 2; }
   .rr { position: relative; }
-  /* star sitting INSIDE the R's counter (the empty loop/hole), not above the letter */
-  .rr .d-star { position: absolute; top: 8px; left: 5px; width: 29px; height: 29px; transform: rotate(15deg); z-index: 3;
-    pointer-events: none; filter: drop-shadow(0 2px 3px rgba(0,0,0,.5)); }
+  /* detached accent: kept clear of the letterforms so it stops fighting the R's shape */
+  .title .d-star { position: absolute; right: -22px; top: -18px; width: 29px; z-index: 3;
+    transform: rotate(18deg); pointer-events: none; filter: drop-shadow(0 -2px 3px rgba(0,0,0,.5)); }
   .title { position: relative; z-index: 2; line-height: .92; }
   /* depth: shadow cast upward, glyph face lit from the top.
      drop-shadow, not text-shadow -- text-shadow paints ON a background-clip:text fill
@@ -230,8 +230,9 @@
           <polygon points="50.0,0.0 57.6,16.9 71.7,5.0 71.2,23.4 89.1,18.8 80.6,35.2 98.7,38.9 84.0,50.0 98.7,61.1 80.6,64.8 89.1,81.2 71.2,76.6 71.7,95.0 57.6,83.1 50.0,100.0 42.4,83.1 28.3,95.0 28.8,76.6 10.9,81.2 19.4,64.8 1.3,61.1 16.0,50.0 1.3,38.9 19.4,35.2 10.9,18.8 28.8,23.4 28.3,5.0 42.4,16.9" fill="#242838"/>
         </svg>
         <div class="title">
+          <img class="d-star" src="assets_new/star.png" onerror="this.onerror=null;this.src='assets/star.png'" alt="">
           <div class="t1">FRUIT</div>
-          <div class="t2">STA<span class="rr">R<img class="d-star" src="assets_new/star.png" onerror="this.onerror=null;this.src='assets/star.png'" alt=""></span></div>
+          <div class="t2">STA<span class="rr">R</span></div>
         </div>
         <p class="tagline">톡! 터뜨리는 상쾌한 과일 퍼즐</p>
       </div>
