@@ -2029,13 +2029,12 @@
       // turns the remaining touches into bonus scoring, with the board filling as the cost.
       const rush = rules().touchBudget;
       if (placement && emptyCells().length === 0) {
-        // board is completely full -> let the spawned pieces pop in & be seen, then over
+        // board is completely full -> let the spawned pieces pop in & be seen, then decide
         busy = true;
-        setTimeout(() => gameOver("board"), 750);
+        setTimeout(() => closeStage("board"), 750);
       } else if (rush && touchesLeft <= 0) {
-        const met = stageScore >= rules().quota(stage);
         busy = true;
-        setTimeout(met ? stageClear : () => gameOver("touches"), met ? 520 : 750);
+        setTimeout(() => closeStage("touches"), 750);
       } else {
         busy = false;
         updateHUD();      // the "leave early" button needs !busy, which was still true above
@@ -2294,6 +2293,27 @@
     document.getElementById("rush-next").classList.add("hidden");
     updateHUD();
     setTimeout(stageClear, 560);
+  }
+
+  // The verdict has to be reached when the board is actually still, not when it was queued.
+  // A bird is in the air for ~880ms after the turn ends and still scores and still eats a
+  // fruit when it lands -- so a last touch could hit the quota exactly, or free the cell that
+  // filled the board, after the loss had already been decided.
+  function closeStage(reason, deadline) {
+    if (!running) return;
+    deadline = deadline || performance.now() + 2500;
+    if (birds.length && performance.now() < deadline) {     // let them land first
+      setTimeout(() => closeStage(reason, deadline), 100);
+      return;
+    }
+    if (rules().touchBudget && stageScore >= rules().quota(stage)) { stageClear(); return; }
+    if (reason === "board" && emptyCells().length > 0) {    // a bird ate one: play on
+      const outOfTouches = rules().touchBudget && touchesLeft <= 0;
+      if (!outOfTouches) { busy = false; updateHUD(); return; }
+      gameOver("touches");
+      return;
+    }
+    gameOver(reason);
   }
 
   // ---- Star Rush: quota met -> next stage ----
@@ -3133,7 +3153,7 @@
       RELICS, notify, modify, applyRelics, activeRelics, relicCap, stageTouches, RELIC_SLOTS,
       openShop, closeShop, buyRelic, discardRelic, renderShop, rollOffers,
       openInfo, closeInfo, renderInfo,
-      endStageEarly, leftoverCoins, takeCoin, updateHUD, COIN_FRUIT_CHANCE, COIN_PER_LEFTOVER, COIN_PAYOUT,
+      endStageEarly, leftoverCoins, takeCoin, updateHUD, closeStage, gameOver, COIN_FRUIT_CHANCE, COIN_PER_LEFTOVER, COIN_PAYOUT,
       TRAITS, STAGES_PER_ROUND, stageLabel, traitEffects, rollTraits, openTraits, pickTrait, renderTraits,
       get traits() { return traits; }, set traits(v) { traits = v; },
       get doubles() { return doubles; }, set doubles(v) { doubles = v; },

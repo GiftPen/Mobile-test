@@ -10,16 +10,20 @@ Uses the ?test=1 hook in index.html.
 import subprocess, re, os, json, sys
 os.chdir('/Users/kimjaehoon/Mobile-test')
 TEST = r"""<script>
+window.__err = [];
+window.addEventListener('error', e => window.__err.push(e.message + ' @' + e.lineno));
 const sleep = ms => new Promise(r => setTimeout(r, ms));
 // headless produces no frames, so rAF never fires -- pump draw() to advance animation
 const pump = async (frames, gap) => { for (let i = 0; i < frames; i++)
   { window.__fs.draw(); await sleep(gap || 8); } };
 window.addEventListener('load', async () => {
+ try {
   await sleep(700);
   const F = window.__fs, $ = id => document.getElementById(id), cv = $('game');
   const fails = [];
   const chk = (name, got, want) => { if (JSON.stringify(got) !== JSON.stringify(want))
                                        fails.push({ check: name, got, want }); };
+  const over = () => !$('gameover').classList.contains('hidden');
   const clearBoard = () => { for (let r=0;r<F.ROWS;r++) for (let c=0;c<F.COLS;c++)
     { F.grid[r][c] = -1; F.special[r][c] = null; F.appear[r][c] = 0; } };
 
@@ -87,7 +91,42 @@ window.addEventListener('load', async () => {
   chk('star: constellation actually ran', sawLink, true);
   chk('star: no fruit spawned mid-draw', grew, false);
 
-  document.title = 'RESULT ' + JSON.stringify({ fails });
+  // ---- the reported bug: a bird landing after the last touch still counts ----
+  // BIRD_SCORE lands the quota exactly, and it arrives ~880ms after the turn ended -- later
+  // than the 750ms the loss used to be scheduled at.
+  await pump(40);
+  F.mode = 'rush'; F.resetRun(); F.mode = 'rush'; F.running = true;
+  clearBoard();
+  F.birds.length = 0;
+  F.grid[0][0] = 1;                       // the bird's snack
+  F.grid[7][7] = 2;
+  const q = F.MODES.rush.quota(1);
+  F.stageScore = q - 2;                   // 2 short: exactly one bird snack
+  F.touchesLeft = 0;
+  F.stage = 1;
+  F.birds.push({ sr: 7, sc: 7, tr: 0, tc: 0, t: 0.5, curve: 1 });
+  F.busy = true;
+  F.closeStage('touches');
+  await pump(120, 16);
+  chk('last-touch bird: not a game over', over(), false);
+  chk('last-touch bird: stage advanced',  F.stage, 2);
+
+  // and the same for a board that a bird empties a cell in
+  await pump(40);
+  document.getElementById('shop').classList.add('hidden');
+  F.resetRun(); F.mode = 'rush'; F.running = true; F.busy = true;
+  for (let r = 0; r < F.ROWS; r++) for (let c = 0; c < F.COLS; c++) F.grid[r][c] = 1;
+  F.birds.length = 0;
+  F.birds.push({ sr: 7, sc: 7, tr: 0, tc: 0, t: 0.5, curve: 1 });
+  F.touchesLeft = 5; F.stageScore = 0;
+  F.closeStage('board');
+  await pump(120, 16);
+  chk('bird frees a cell: not a game over', over(), false);
+
+  document.title = 'RESULT ' + JSON.stringify({ fails, err: window.__err.slice(0, 3) });
+ } catch (e) {
+  document.title = 'RESULT ' + JSON.stringify({ fails: [{check:'threw', got: String(e && e.message), want:'no throw'}], err: [String(e && e.stack || e).slice(0,300)] });
+ }
 });
 </script>"""
 open('_it.html','w',encoding='utf-8').write(
@@ -102,6 +141,7 @@ if not m:
     print('NO RESULT'); sys.exit(1)
 res = json.loads(m.group(1))
 print(f"items: {len(res['fails'])} fail")
+if res.get('err'): print('  JS errors:', res['err'])
 for f in res['fails']: print('  ', f)
 print('PASS' if not res['fails'] else 'FAIL')
 sys.exit(0 if not res['fails'] else 1)
