@@ -72,6 +72,8 @@
   .rb-lab { font-size: 10px; color: var(--muted); letter-spacing: 1px; margin-top: 3px; white-space: nowrap; }
   .rb-div { width: 1px; align-self: stretch; margin: 3px 0 6px; background: #2b3048; }
   .rb-chips { margin-left: auto; display: flex; align-items: center; gap: 6px; }
+  #rb-quota-cell.met .rb-val { color: #ffd23e; }
+  #rb-quota-cell.met .rb-lab { color: #ffd23e; opacity: .9; }
   #rb-touch-cell.warn .rb-val, #rb-touch-cell.warn .rb-lab { color: #ffab3d; }
   #rb-touch-cell.low  .rb-val, #rb-touch-cell.low  .rb-lab { color: #ff5a5f; }
   #danger-label2 { font-size: 12px; font-weight: 800; color: #ff5a5f; }
@@ -233,7 +235,7 @@
   </div>
   <div id="rush" class="hidden">
     <div class="rb-row">
-      <div class="rb-cell"><span class="rb-val" id="rb-quota">0/40</span><span class="rb-lab">목표</span></div>
+      <div class="rb-cell" id="rb-quota-cell"><span class="rb-val" id="rb-quota">0/70</span><span class="rb-lab" id="rb-quota-lab">목표</span></div>
       <div class="rb-div"></div>
       <div class="rb-cell" id="rb-touch-cell"><span class="rb-val" id="rb-touch">15</span><span class="rb-lab">남은 터치</span></div>
       <div class="rb-chips">
@@ -1202,7 +1204,11 @@
     document.getElementById("rush-box").classList.toggle("hidden", !rush);
     if (rush) {
       const q = rules().quota(stage);
-      document.getElementById("rb-quota").textContent = `${Math.min(stageScore, q)}/${q}`;
+      const met = stageScore >= q;
+      // once met, keep counting past the quota -- the overflow is the reward for playing on
+      document.getElementById("rb-quota").textContent = `${stageScore}/${q}`;
+      document.getElementById("rb-quota-cell").classList.toggle("met", met);
+      document.getElementById("rb-quota-lab").textContent = met ? "목표 달성 ✓" : "목표";
       document.getElementById("rb-touch").textContent = touchesLeft;
       document.getElementById("rb-score").textContent = score;
       document.getElementById("rb-best").textContent = best;
@@ -1630,19 +1636,19 @@
         dirty = true;
       }
 
-      // Star Rush ends a turn three ways. Clearing the quota is checked first, so meeting it
-      // on the turn that also fills the board counts as a clear rather than a death.
-      const budget = placement && rules().touchBudget;
-      if (budget && stageScore >= rules().quota(stage)) {
-        busy = true;
-        setTimeout(stageClear, 520);
-      } else if (placement && emptyCells().length === 0) {
+      // Meeting the quota does NOT end the stage. Forcing the jump threw away whatever
+      // touches were left, cut a big chain's aftermath short, and took the decision away at
+      // the moment you succeeded. The stage runs its full budget; clearing the quota just
+      // turns the remaining touches into bonus scoring, with the board filling as the cost.
+      const rush = rules().touchBudget;
+      if (placement && emptyCells().length === 0) {
         // board is completely full -> let the spawned pieces pop in & be seen, then over
         busy = true;
         setTimeout(() => gameOver("board"), 750);
-      } else if (budget && touchesLeft <= 0) {
+      } else if (rush && touchesLeft <= 0) {
+        const met = stageScore >= rules().quota(stage);
         busy = true;
-        setTimeout(() => gameOver("touches"), 750);
+        setTimeout(met ? stageClear : () => gameOver("touches"), met ? 520 : 750);
       } else {
         busy = false;
       }
