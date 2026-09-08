@@ -278,6 +278,9 @@
   .inf-body b { display: block; font-size: 13px; font-weight: 800; color: var(--text); }
   .inf-body span { font-size: 11px; color: var(--muted); line-height: 1.35; }
   .inf-num { font-size: 13px; font-weight: 800; color: #ffd23e; white-space: nowrap; }
+  .inf-drop { margin: 0 0 0 8px; padding: 6px 10px; font-size: 11px; font-weight: 800;
+    border-radius: 999px; background: #33203a; color: #ff9db0; box-shadow: none;
+    font-family: inherit; white-space: nowrap; }
   .inf-empty { padding: 16px; text-align: center; color: var(--muted); font-size: 13px; }
   /* hold the taller tab's height (7 fruit rows) so switching tabs doesn't resize the card
      under your thumb -- it jumped 537px -> 177px before */
@@ -1087,6 +1090,9 @@
     score = 0; streak = 0; touchCount = 0;
     stage = 1; stageScore = 0; touchesLeft = RUSH_TOUCHES;
     touchBonus = 0; spawnBonus = 0; slotBonus = 0; brickChance = 0; offerBonus = 0;
+    chainStep = 0; coinFruitBonus = 0; starCoinMult = 1; payoutMult = 1;
+    bombRadiusBonus = 0; itemEase = 0;
+    STREAK_STEP = 0.2; STREAK_CAP = 2.0;
     traits = []; doubles = 0;
     coins = 0; coinsShown = 0; coinFly = [];
     oddsMult = [0, 0, 0, 0, 0, 0, 0];
@@ -1177,6 +1183,9 @@
   let relics = [];                         // ids of the relics owned this run
   // derived from the owned relics -- never written directly, always recomputed by applyRelics()
   let touchBonus = 0, spawnBonus = 0, slotBonus = 0, brickChance = 0, offerBonus = 0;
+  // more knobs for relics to turn. All derived: applyRelics() resets them every recompute.
+  let chainStep = 0, coinFruitBonus = 0, starCoinMult = 1, payoutMult = 1,
+      bombRadiusBonus = 0, itemEase = 0;
   let traits = [];                         // [{id, amount}] -- amount may have been doubled
   let doubles = 0;                         // unspent "next trait x2" charges
   const RELIC_SLOTS = 5;                   // base carry limit (doc 6)
@@ -1222,7 +1231,7 @@
   // patching scattered `score +=` sites -- which is how a relic quietly misses a path.
   const CHAIN_STEP = 0.15;                 // chain-size bonus per extra cleared cell
   let fruitMult = [1, 1, 1, 1, 1, 1, 1];   // per-colour multiplier; all 1.0 today
-  function chainBonus(cleared) { return 1 + Math.max(0, cleared - 1) * CHAIN_STEP; }
+  function chainBonus(cleared) { return 1 + Math.max(0, cleared - 1) * (CHAIN_STEP + chainStep); }
   function fruitScore(colorIdx) {          // one fruit's worth, before chain/streak
     return (FRUIT_POINTS[colorIdx] || 1) * (fruitMult[colorIdx] || 1);
   }
@@ -1306,6 +1315,56 @@
       apply() { brickChance += 0.18; },
       modify: { pop: v => v * 1.3 },
     },
+    // ---- A. odds ----
+    cherry_pick: { name: "체리 편애", icon: "🍒", price: 9,
+      desc: "체리 1만큼 더 등장", apply() { oddsMult[0] += 1; } },
+    citrus_crate: { name: "감귤 상자", icon: "🍊", price: 13,
+      desc: "오렌지·레몬 1만큼 더 등장", apply() { oddsMult[1] += 1; oddsMult[3] += 1; } },
+    orchard: { name: "과수원", icon: "🍑", price: 14,
+      desc: "포도·복숭아 1만큼 더 등장", apply() { oddsMult[4] += 1; oddsMult[5] += 1; } },
+    banana_grove: { name: "바나나 농장", icon: "🌴", price: 22,
+      desc: "바나나 3만큼 더 등장", apply() { oddsMult[6] += 3; } },
+
+    // ---- B. score ----
+    chain_master: { name: "연쇄 광", icon: "🔗", price: 17,
+      desc: "연쇄 보너스가 두 배로 커집니다", apply() { chainStep += 0.15; } },
+    streak_amp: { name: "불꽃 증폭", icon: "🔥", price: 16,
+      desc: "콤보 배율 상한 ×2.0 → ×2.8", apply() { STREAK_CAP += 0.8; } },
+    streak_step: { name: "탄력", icon: "📈", price: 13,
+      desc: "콤보가 더 빨리 오릅니다 (+0.2 → +0.3)", apply() { STREAK_STEP += 0.1; } },
+    golden_banana: { name: "황금 바나나", icon: "🏆", price: 20,
+      desc: "바나나 점수 배율 +1.0", apply() { fruitMult[6] += 1; } },
+    sweet_tooth: { name: "단맛 애호", icon: "🍬", price: 15,
+      desc: "포도·복숭아 점수 배율 +0.5", apply() { fruitMult[4] += 0.5; fruitMult[5] += 0.5; } },
+    humble: { name: "소박한 맛", icon: "🥄", price: 11,
+      desc: "체리·레몬 점수 배율 +0.6", apply() { fruitMult[0] += 0.6; fruitMult[3] += 0.6; } },
+    huge_pop: { name: "대폭발", icon: "🎆", price: 21,
+      desc: "8개 이상 터뜨리면 점수 ×2",
+      modify: { pop: (v, ctx) => (ctx.cleared >= 8 ? v * 2 : v) } },
+
+    // ---- C. resource ----
+    endurance: { name: "끈기", icon: "💪", price: 9,
+      desc: "스테이지마다 터치 +2", apply() { touchBonus += 2; } },
+    mint: { name: "별 조폐국", icon: "🪙", price: 15,
+      desc: "별이 주는 코인 두 배", apply() { starCoinMult += 1; } },
+    lucky_coin: { name: "행운의 주머니", icon: "🍀", price: 12,
+      desc: "코인 달린 과일이 훨씬 자주 나옵니다", apply() { coinFruitBonus += 0.08; } },
+    tycoon: { name: "거상", icon: "💰", price: 14,
+      desc: "스테이지 정산 코인 +50%", apply() { payoutMult += 0.5; } },
+
+    // ---- D. risk ----
+    avalanche: { name: "쏟아짐", icon: "⛰️", price: 18,
+      desc: "매 턴 과일 +2 (판이 훨씬 빨리 참)", apply() { spawnBonus += 2; } },
+    quarry: { name: "채석장", icon: "⛏️", price: 16,
+      desc: "터뜨린 점수 +60% · 새 과일의 30%가 벽돌",
+      apply() { brickChance += 0.30; }, modify: { pop: v => v * 1.6 } },
+
+    // ---- F. item upgrades ----
+    bomb_mod: { name: "폭탄 개조", icon: "💣", price: 19,
+      desc: "폭탄이 7×7로 터집니다", apply() { bombRadiusBonus += 1; } },
+    tinkerer: { name: "손재주", icon: "🔧", price: 18,
+      desc: "아이템이 하나 적게 터뜨려도 생깁니다", apply() { itemEase += 1; } },
+
     satchel: {                                                  // capacity (doc 6)
       name: "보따리", icon: "🎒", price: 10,
       desc: "유물 칸 +2 (한 칸 차지)",
@@ -1331,6 +1390,9 @@
     oddsMult = [0, 0, 0, 0, 0, 0, 0];
     fruitMult = [1, 1, 1, 1, 1, 1, 1];
     touchBonus = 0; spawnBonus = 0; slotBonus = 0; brickChance = 0; offerBonus = 0;
+    chainStep = 0; coinFruitBonus = 0; starCoinMult = 1; payoutMult = 1;
+    bombRadiusBonus = 0; itemEase = 0;
+    STREAK_STEP = 0.2; STREAK_CAP = 2.0;      // relics may raise these; reset first
     for (const id of activeRelics()) {
       const a = RELICS[id] && RELICS[id].apply;
       if (a) a();
@@ -1376,7 +1438,7 @@
         continue;
       }
       grid[r][c] = pickColor(); appear[r][c] = 1;
-      if (Math.random() < COIN_FRUIT_CHANCE) coinCell[r][c] = 1;   // this one comes with a coin
+      if (Math.random() < COIN_FRUIT_CHANCE + coinFruitBonus) coinCell[r][c] = 1;
       notify("onSpawn", { r, c, color: grid[r][c] });
     }
   }
@@ -1715,11 +1777,11 @@
 
         // ---- item detonations (fire regardless of how this cell was popped) ----
         if (sp === "bomb") {                     // 5x5 blast, ignores color walls
-          flashBox(r, c, BOMB_RADIUS, cellColor);
+          flashBox(r, c, BOMB_RADIUS + bombRadiusBonus, cellColor);
           const [fx, fy] = cellCenter(r, c);
           flares.push({ cx: fx, cy: fy, kind: cellColor < 0 ? it.color : cellColor, maxR: cell * 1.7, t: 0 });  // grow to ~3x3
           addShake(11);
-          for (const [nr, nc, d] of budsAround(r, c, BOMB_RADIUS, visited))
+          for (const [nr, nc, d] of budsAround(r, c, BOMB_RADIUS + bombRadiusBonus, visited))
             next.push({ r: nr, c: nc, d, mode: "blast", color: cellColor });
         } else if (sp === "lineH" || sp === "lineV") { // clears whole row / column
           flashLine(r, c, sp);
@@ -1917,16 +1979,16 @@
         // reward: item tier from YOUR color group only (chainCount), not item cascades.
         // items now sit on the board — tap them, or chain into them, to trigger.
         let itemMsg = "";
-        if (chainCount >= STAR_THRESHOLD) {
+        if (chainCount >= STAR_THRESHOLD - itemEase) {
           grid[r0][c0] = color; special[r0][c0] = "star";
           itemMsg = "🌟 별 — 탭! 같은 색을 별자리로 잇습니다";
-        } else if (chainCount >= BOMB_THRESHOLD) {
+        } else if (chainCount >= BOMB_THRESHOLD - itemEase) {
           grid[r0][c0] = color; special[r0][c0] = "bomb";
           itemMsg = "💣 폭탄 — 탭! 5×5 대폭발";
-        } else if (chainCount >= LINE_THRESHOLD) {
+        } else if (chainCount >= LINE_THRESHOLD - itemEase) {
           grid[r0][c0] = color; special[r0][c0] = randInt(2) ? "lineH" : "lineV";
           itemMsg = "↔️ 라인 — 탭! 한 줄 청소";
-        } else if (chainCount >= BIRD_THRESHOLD) {
+        } else if (chainCount >= BIRD_THRESHOLD - itemEase) {
           grid[r0][c0] = color; special[r0][c0] = "bird";
           itemMsg = "🐦 참새 — 탭! 벽돌과 걸리는 과일을 쪼아냅니다";
         }
@@ -2152,7 +2214,7 @@
       b.classList.toggle("on", b.dataset.tab === infoTab);
     const body = $sh("info-body");
     body.textContent = "";
-    const row = (ic, name, desc, num, inert) => {
+    const row = (ic, name, desc, num, inert, action) => {
       const d = document.createElement("div");
       d.className = "inf-row" + (inert ? " inert" : "");
       let i;
@@ -2164,6 +2226,7 @@
       b.append(n, s2);
       const v = document.createElement("span"); v.className = "inf-num"; v.textContent = num;
       d.append(i, b, v);
+      if (action) d.appendChild(action);
       body.appendChild(d);
     };
     if (infoTab === "relics") {
@@ -2173,10 +2236,20 @@
         body.appendChild(e);
         return;
       }
+      // discarding is a shop decision: it frees a slot for something better, at half back
+      const inShop = !$sh("shop").classList.contains("hidden");
       relics.forEach((id, i) => {
         const R = RELICS[id]; if (!R) return;
         const inert = i >= relicCap();
-        row(R.icon, R.name, inert ? "칸이 모자라 꺼져 있습니다" : R.desc, inert ? "비활성" : "", inert);
+        let act = null;
+        if (inShop) {
+          act = document.createElement("button");
+          act.className = "inf-drop";
+          act.textContent = `버리기 🪙${Math.floor(R.price / 2)}`;
+          act.addEventListener("click", e => { e.stopPropagation(); discardRelic(i); });
+        }
+        row(R.icon, R.name, inert ? "칸이 모자라 꺼져 있습니다" : R.desc,
+            inert ? "비활성" : "", inert, act);
       });
       for (const t of traits) {                 // traits have no slot limit, so they follow
         const T = TRAITS[t.id]; if (!T) continue;
@@ -2195,6 +2268,16 @@
             `${p[i].toFixed(1)}%`, false);
       }
     }
+  }
+  function discardRelic(i) {
+    const id = relics[i], R = RELICS[id];
+    if (!R || $sh("shop").classList.contains("hidden")) return;
+    relics.splice(i, 1);
+    coins += Math.floor(R.price / 2);          // half back -- never enough to churn for profit
+    coinsShown = coins;
+    applyRelics();
+    renderInfo();
+    renderShop();
   }
   function openInfo(tab) { if (tab) infoTab = tab; renderInfo(); $sh("info").classList.remove("hidden"); }
   function closeInfo() { $sh("info").classList.add("hidden"); }
@@ -2219,7 +2302,7 @@
   function stageClear() {
     // fly the payout from the middle of the board -- awarding it position-less meant the
     // counter just ticked up silently, which read as "the coin effect isn't working"
-    addCoins(COIN_PAYOUT(stage), (ROWS - 1) / 2, (COLS - 1) / 2);
+    addCoins(Math.round(COIN_PAYOUT(stage) * payoutMult), (ROWS - 1) / 2, (COLS - 1) / 2);
     stage++;
     stageScore = 0;
     touchesLeft = stageTouches();
@@ -2832,7 +2915,7 @@
         const nd = nodes[L.reached];
         if (nd) {
           burst(nd[0], nd[1], L.color); popScoreText(nd[0], nd[1], L.color);
-          addCoins(1 + (nd[2] || 0), nd[0], nd[1]);   // ⭐ signature coin + any it was carrying
+          addCoins(starCoinMult + (nd[2] || 0), nd[0], nd[1]);   // ⭐ signature + carried coin
         }
       }
       const seg = Math.floor(p), frac = p - seg;
@@ -3048,7 +3131,8 @@
       resetRun, serializeRun, restoreRun, FRUIT_POINTS, COLS,
       MODES, activeColors, spawnCount, brickHpLevel, computeMaxLevel,
       RELICS, notify, modify, applyRelics, activeRelics, relicCap, stageTouches, RELIC_SLOTS,
-      openShop, closeShop, buyRelic, renderShop, rollOffers, openInfo, closeInfo, renderInfo,
+      openShop, closeShop, buyRelic, discardRelic, renderShop, rollOffers,
+      openInfo, closeInfo, renderInfo,
       endStageEarly, leftoverCoins, takeCoin, updateHUD, COIN_FRUIT_CHANCE, COIN_PER_LEFTOVER, COIN_PAYOUT,
       TRAITS, STAGES_PER_ROUND, stageLabel, traitEffects, rollTraits, openTraits, pickTrait, renderTraits,
       get traits() { return traits; }, set traits(v) { traits = v; },
@@ -3060,6 +3144,10 @@
       get shopOffers() { return shopOffers; }, set shopOffers(v) { shopOffers = v; },
       get touchBonus() { return touchBonus; }, get spawnBonus() { return spawnBonus; },
       get slotBonus()  { return slotBonus; }, get brickChance() { return brickChance; },
+      get chainStep() { return chainStep; }, get coinFruitBonus() { return coinFruitBonus; },
+      get starCoinMult() { return starCoinMult; }, get payoutMult() { return payoutMult; },
+      get bombRadiusBonus() { return bombRadiusBonus; }, get itemEase() { return itemEase; },
+      get STREAK_CAP() { return STREAK_CAP; }, get STREAK_STEP() { return STREAK_STEP; },
       get relics() { return relics; }, set relics(v) { relics = v; },
       get mode() { return mode; }, set mode(v) { mode = v; },
       get ROWS()        { return ROWS; },        set ROWS(v)        { ROWS = v; },

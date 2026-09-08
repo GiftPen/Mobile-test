@@ -193,6 +193,19 @@ window.addEventListener('load', () => setTimeout(() => {
   F.score = 0; F.scorePop(10, 1); const plain = F.score;
   chk('brick deal: +30% on pops', withDeal, Math.round(plain * 1.3));
 
+  // discarding frees a slot and returns half, and only inside the shop
+  F.resetRun(); F.mode = 'rush'; F.coins = 100;
+  F.buyRelic('storm'); F.buyRelic('stamina');
+  const beforeDrop = F.coins, price = F.RELICS.storm.price;
+  F.discardRelic(0);
+  chk('discard blocked outside the shop', F.relics.length, 2);
+  F.openShop();
+  F.discardRelic(0);
+  chk('discard removes it', F.relics.map(x=>x), ['stamina']);
+  chk('discard refunds half', F.coins, beforeDrop + Math.floor(price / 2));
+  chk('discard undoes its effect', F.spawnCount(0), F.MODES.rush.spawns(0));
+  F.closeShop(); F.resetRun(); F.mode = 'rush';
+
   // the satchel costs a slot and grants two
   F.resetRun(); F.mode = 'rush'; F.coins = 100;
   F.buyRelic('satchel');
