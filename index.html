@@ -366,6 +366,8 @@
   // per-fruit base points (shared with Star Rush). slot order: 0체리 1오렌지 2키위 3레몬 4포도 5복숭아 6바나나
   // cherry/lemon=1, orange/kiwi=2, grape/peach=3, banana=5
   const FRUIT_POINTS = [1, 2, 2, 1, 3, 3, 5];
+  // spawn odds in PERCENT (doc 3-1): rarer fruit is worth more. Arcade stays uniform.
+  const BASE_ODDS    = [20, 15, 15, 20, 12, 12, 6];
   const BASE_COLORS = 4;       // colors in play at score 0
   const MAX_COLORS = 7;        // cap
   const START_BUDS = 10;
@@ -997,22 +999,22 @@
     stage = 1; stageScore = 0; touchesLeft = RUSH_TOUCHES;
     touchBonus = 0; spawnBonus = 0; slotBonus = 0;
     coins = 0; coinsShown = 0; coinFly = [];
-    colorWeight = [1, 1, 1, 1, 1, 1, 1];
-    fruitMult   = [1, 1, 1, 1, 1, 1, 1];
+    oddsBonus = [0, 0, 0, 0, 0, 0, 0];
+    fruitMult = [1, 1, 1, 1, 1, 1, 1];
     relics = [];
     layout();                              // ROWS may have changed -> resize the board
   }
   function serializeRun() {
     return { v: RUN_VERSION, mode, rows: ROWS, grid, special, hp,
              nextColor, nextColor2, score, streak, touchCount,
-             stage, stageScore, touchesLeft, coins, colorWeight, fruitMult, relics };
+             stage, stageScore, touchesLeft, coins, oddsBonus, fruitMult, relics };
   }
   function restoreRun(o) {
     if (!o || o.v !== RUN_VERSION) return false;   // unknown/older save -> caller starts fresh
     mode = MODES[o.mode] ? o.mode : "arcade";     // a saved rush run must come back as rush
     ROWS = o.rows;
     ({ grid, special, hp, nextColor, nextColor2, score, streak, touchCount,
-       stage, stageScore, touchesLeft, coins, colorWeight, fruitMult, relics } = o);
+       stage, stageScore, touchesLeft, coins, oddsBonus, fruitMult, relics } = o);
     coinsShown = coins; coinFly = [];
     glow = layer(null); appear = layer(0); ghost = layer(null);
     layout(); dirty = true;
@@ -1039,6 +1041,7 @@
       startBuds: START_BUDS,
       scaleWithScore: true,                                 // HUD shows a Lv. chip
       touchBudget: false,                                   // no touch limit; play till the board fills
+      odds:    () => null,                                  // uniform, as arcade has always been
       colors:  m => Math.min(MAX_COLORS, BASE_COLORS + Math.floor((m + 1) / 3)),
       spawns:  m => Math.min(SPAWN_MAX, SPAWN_BASE + Math.floor(m / 3)),
       brickHp: m => Math.min(3, Math.floor((m + 2) / 3)),   // 0 = none, else 1..3
@@ -1050,6 +1053,7 @@
       quota: rushQuota,
       touches: RUSH_TOUCHES,
       colors:  () => MAX_COLORS,                            // 7 from the start
+      odds:    () => BASE_ODDS,                             // rare fruit = valuable fruit
       spawns:  () => RUSH_SPAWNS,                           // relics raise this, not the score
       brickHp: () => 0,                                     // bricks arrive via risk relics
     },
@@ -1074,9 +1078,11 @@
   MAX_LEVEL = computeMaxLevel();
   function addShake(a) { shake = Math.min(SHAKE_MAX, shake + a); }
 
-  // ---- spawn-colour chokepoint (Star Rush relics bend these; all-1 == uniform, i.e. today) ----
-  // every place a fruit colour is rolled goes through pickColor(), so a relic only has to
-  // touch colorWeight[] for board spawns AND the next-queue to follow.
+  // ---- spawn-colour chokepoint ----
+  // Odds are real percentages that always sum to 100. A relic adds percentage POINTS to a
+  // fruit (oddsBonus) and the untouched fruits shrink proportionally to pay for it, so
+  // "바나나 +6%p" means 6% -> 12% and the other six give up 6 points between them.
+  // Relative weights were the wrong model -- nobody could tell what "weight 4" meant.
   let relics = [];                         // ids of the relics owned this run
   // derived from the owned relics -- never written directly, always recomputed by applyRelics()
   let touchBonus = 0, spawnBonus = 0, slotBonus = 0;
@@ -1085,15 +1091,35 @@
   // over the cap, the extras are carried but inert (doc 6): losing a slot must not destroy
   // a relic, and which ones go quiet is then a decision rather than a deletion
   const activeRelics = () => relics.slice(0, relicCap());
-  let colorWeight = [1, 1, 1, 1, 1, 1, 1];
-  function pickColor() {
+  let oddsBonus = [0, 0, 0, 0, 0, 0, 0];        // percentage points added by relics
+  function colorOdds() {
     const n = activeColors();
-    let total = 0;
-    for (let i = 0; i < n; i++) total += colorWeight[i];
-    if (!(total > 0)) return randInt(n);        // every active colour sealed -> uniform fallback
-    let t = Math.random() * total;
-    for (let i = 0; i < n; i++) { t -= colorWeight[i]; if (t < 0) return i; }
-    return n - 1;                               // float rounding guard
+    const base = rules().odds();
+    const out = new Array(n);
+    let baseSum = 0;
+    for (let i = 0; i < n; i++) { out[i] = base ? base[i] : 1; baseSum += out[i]; }
+    for (let i = 0; i < n; i++) out[i] = out[i] / baseSum * 100;   // normalise to 100
+
+    let boosted = 0, restBase = 0;
+    for (let i = 0; i < n; i++) {
+      if (oddsBonus[i] > 0) boosted += out[i] + oddsBonus[i];
+      else restBase += out[i];
+    }
+    if (boosted <= 0) return out;
+    if (boosted >= 100) {                        // bonuses ate the whole pool -> split it
+      for (let i = 0; i < n; i++)
+        out[i] = oddsBonus[i] > 0 ? (out[i] + oddsBonus[i]) / boosted * 100 : 0;
+      return out;
+    }
+    const scale = restBase > 0 ? (100 - boosted) / restBase : 0;
+    for (let i = 0; i < n; i++) out[i] = oddsBonus[i] > 0 ? out[i] + oddsBonus[i] : out[i] * scale;
+    return out;
+  }
+  function pickColor() {
+    const p = colorOdds();
+    let t = Math.random() * 100;
+    for (let i = 0; i < p.length; i++) { t -= p[i]; if (t < 0) return i; }
+    return p.length - 1;                         // float rounding guard
   }
 
   // ---- scoring chokepoint ----
@@ -1126,13 +1152,13 @@
   // run (spawn weights, fruit multipliers, extra rows) belong in apply(), run once at start.
   // RELICS is empty until Phase 2 -- with no relics owned, both calls are a no-op.
   // id -> { name, icon, desc, price, apply?, modify?, ...events }
-  // apply() may only set derived state (colorWeight / fruitMult / *Bonus); applyRelics wipes
+  // apply() may only set derived state (oddsBonus / fruitMult / *Bonus); applyRelics wipes
   // those first, so an apply that did anything else would not survive a recompute.
   const RELICS = {
     banana_hunter: {                                            // A. odds
       name: "바나나 사냥꾼", icon: "🍌", price: 14,
-      desc: "바나나가 나올 확률이 크게 오릅니다 (가장 비싼 과일)",
-      apply() { colorWeight[6] = 4; },
+      desc: "바나나 확률 +6%p (6% → 12%) · 나머지 과일이 그만큼 줄어듭니다",
+      apply() { oddsBonus[6] += 6; },
     },
     big_pop: {                                                  // B. score
       name: "대량 보너스", icon: "💥", price: 16,
@@ -1171,8 +1197,8 @@
   // Recomputes every passive effect from scratch, so it is safe to call any time the relic
   // list changes. Applying incrementally would double up a "+3 touches" on every purchase.
   function applyRelics() {
-    colorWeight = [1, 1, 1, 1, 1, 1, 1];
-    fruitMult   = [1, 1, 1, 1, 1, 1, 1];
+    oddsBonus = [0, 0, 0, 0, 0, 0, 0];
+    fruitMult = [1, 1, 1, 1, 1, 1, 1];
     touchBonus = 0; spawnBonus = 0; slotBonus = 0;
     for (const id of activeRelics()) {
       const a = RELICS[id] && RELICS[id].apply;
@@ -1890,7 +1916,9 @@
   // The board deliberately carries over. Touch pressure plus a filling board is the
   // dual tension the design leans on (doc 8); a fresh board would remove half of it.
   function stageClear() {
-    addCoins(COIN_PAYOUT(stage));         // the stage you just cleared pays out
+    // fly the payout from the middle of the board -- awarding it position-less meant the
+    // counter just ticked up silently, which read as "the coin effect isn't working"
+    addCoins(COIN_PAYOUT(stage), (ROWS - 1) / 2, (COLS - 1) / 2);
     stage++;
     stageScore = 0;
     touchesLeft = stageTouches();
@@ -2724,7 +2752,8 @@
       // headless Chrome produces no frames under --virtual-time-budget, so rAF never ticks.
       // Item landings live in draw(); tests pump it by hand to advance them.
       draw,
-      get colorWeight() { return colorWeight; }, set colorWeight(v) { colorWeight = v; },
+      get oddsBonus()   { return oddsBonus; },   set oddsBonus(v)   { oddsBonus = v; },
+      colorOdds, BASE_ODDS,
       get fruitMult()   { return fruitMult; },   set fruitMult(v)   { fruitMult = v; },
     };
 

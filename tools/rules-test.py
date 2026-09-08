@@ -82,6 +82,37 @@ window.addEventListener('load', () => setTimeout(() => {
   F.mode = 'arcade';
   if (F.activeColors(0) !== 4) modeFails.push({knob:'live colours in arcade', got:F.activeColors(0), want:4});
 
+  // ---- spawn odds: real percentages that always total 100 ----
+  const oddsFails = [];
+  const near = (a, b, tol) => Math.abs(a - b) <= tol;
+  const ochk = (c, got, want, tol) => { if (!near(got, want, tol === undefined ? 0.01 : tol))
+                                          oddsFails.push({case: c, got: +got.toFixed(3), want}); };
+  F.resetRun(); F.mode = 'rush';
+  let p = F.colorOdds();
+  ochk('rush: 7 colours', p.length, 7, 0);
+  ochk('rush: totals 100', p.reduce((a, b) => a + b, 0), 100);
+  for (let i = 0; i < 7; i++) ochk('rush: base slot ' + i, p[i], F.BASE_ODDS[i]);
+
+  F.oddsBonus = [0,0,0,0,0,0,6];                 // the banana relic
+  p = F.colorOdds();
+  ochk('boost: totals 100', p.reduce((a, b) => a + b, 0), 100);
+  ochk('boost: banana 6 -> 12', p[6], 12);
+  // the other six pay for it in proportion: they shared 94, now share 88
+  for (let i = 0; i < 6; i++) ochk('boost: slot ' + i + ' shrinks', p[i], F.BASE_ODDS[i] * 88 / 94);
+
+  F.oddsBonus = [0,0,0,0,0,0,0];
+  F.mode = 'arcade'; F.score = 0;
+  p = F.colorOdds();
+  ochk('arcade: still uniform', Math.max(...p) - Math.min(...p), 0);
+  ochk('arcade: totals 100', p.reduce((a, b) => a + b, 0), 100);
+
+  // what pickColor actually rolls has to match what colorOdds claims
+  F.mode = 'rush'; F.oddsBonus = [0,0,0,0,0,0,6];
+  const want2 = F.colorOdds(), hist2 = new Array(7).fill(0), N = 120000;
+  for (let i = 0; i < N; i++) hist2[F.pickColor()]++;
+  for (let i = 0; i < 7; i++) ochk('rolled slot ' + i + ' matches', hist2[i] / N * 100, want2[i], 0.6);
+  F.oddsBonus = [0,0,0,0,0,0,0]; F.mode = 'arcade'; F.resetRun();
+
   // ---- relic hooks ----
   const relicFails = [];
   const chk = (c, got, want) => { if (JSON.stringify(got) !== JSON.stringify(want))
@@ -130,7 +161,7 @@ window.addEventListener('load', () => setTimeout(() => {
   chk('storm: +1 spawn', F.spawnCount(0), baseSpawn + 1);
 
   F.buyRelic('banana_hunter');
-  chk('banana odds raised', F.colorWeight[6] > 1, true);
+  chk('banana odds raised', F.oddsBonus[6], 6);
 
   // score relic: 5+ cleared gets x1.5, fewer does not
   F.relics = ['big_pop']; F.applyRelics(); F.streak = 0;
@@ -186,10 +217,10 @@ window.addEventListener('load', () => setTimeout(() => {
   F.relics = ['relic_a','relic_b'];
   F.stage = 4; F.stageScore = 42; F.touchesLeft = 9; F.coins = 23;
   F.score = 1234; F.streak = 3; F.touchCount = 77;
-  F.colorWeight = [1,2,3,4,5,6,7];
+  F.oddsBonus = [0,0,0,4,0,0,9];
   F.fruitMult = [1,1.5,2,1,1,1,3];
   const want = {mode:'rush', ROWS:10, grid:F.grid, special:F.special, hp:F.hp, nextColor:5, nextColor2:2,
-                score:1234, streak:3, touchCount:77, colorWeight:[1,2,3,4,5,6,7],
+                score:1234, streak:3, touchCount:77, oddsBonus:[0,0,0,4,0,0,9],
                 fruitMult:[1,1.5,2,1,1,1,3], relics:['relic_a','relic_b'],
                 stage:4, stageScore:42, touchesLeft:9, coins:23};
   const snap = JSON.parse(JSON.stringify(F.serializeRun()));
@@ -208,7 +239,7 @@ window.addEventListener('load', () => setTimeout(() => {
   if (F.stageScore !== 0) resetLeaks.push('stageScore');
   if (F.touchesLeft !== F.RUSH_TOUCHES) resetLeaks.push('touchesLeft');
   if (F.coins !== 0) resetLeaks.push('coins');
-  if (JSON.stringify(F.colorWeight) !== '[1,1,1,1,1,1,1]') resetLeaks.push('colorWeight');
+  if (JSON.stringify(F.oddsBonus) !== '[0,0,0,0,0,0,0]') resetLeaks.push('oddsBonus');
   if (JSON.stringify(F.fruitMult) !== '[1,1,1,1,1,1,1]') resetLeaks.push('fruitMult');
 
   const restored = F.restoreRun(snap);
@@ -228,7 +259,7 @@ window.addEventListener('load', () => setTimeout(() => {
   F.resetRun();
 
   document.title = 'RESULT ' + JSON.stringify({
-    cases: n, fails, fsFails, hist, runFails, resetLeaks, modeFails, relicFails,
+    cases: n, fails, fsFails, hist, runFails, resetLeaks, modeFails, relicFails, oddsFails,
     fatal: null
   });
 }, 900));
@@ -246,12 +277,14 @@ if not m:
     print('NO RESULT'); sys.exit(1)
 res = json.loads(m.group(1))
 ok = (not res['fails'] and not res['fsFails'] and res['cases'] > 0
-      and not res['runFails'] and not res['resetLeaks'] and not res['modeFails'] and not res['relicFails'])
+      and not res['runFails'] and not res['resetLeaks'] and not res['modeFails'] and not res['relicFails'] and not res['oddsFails'])
 active = sum(1 for h in res['hist'] if h > 0)
 spread = (max(res['hist']) - min(h for h in res['hist'] if h > 0)) / max(res['hist'])
 print(f"scoring : {res['cases']} cases, {len(res['fails'])} fail")
 print(f"fruit   : {len(res['fsFails'])} fail")
 print(f"pickColor: {active} active colours, max spread {spread:.1%}")
+print(f"odds    : {len(res['oddsFails'])} fail")
+if res['oddsFails']: print('  ', res['oddsFails'][:4])
 print(f"modes   : {len(res['modeFails'])} fail")
 if res['modeFails']: print('  ', res['modeFails'][:4])
 print(f"relics  : {len(res['relicFails'])} fail")
