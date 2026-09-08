@@ -213,6 +213,22 @@
     display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 14px; }
   #pause.hidden { display: none; }
   /* ---- between-stage shop ---- */
+  /* trait picks stay a list -- they are read, not compared at a glance like relic cards */
+  #traits { position: fixed; inset: 0; z-index: 12; background: rgba(8,9,15,.9); backdrop-filter: blur(5px);
+    display: flex; align-items: center; justify-content: center; padding: 18px; }
+  #traits.hidden { display: none; }
+  .trait-row { display: flex; align-items: center; gap: 11px; width: 100%; text-align: left;
+    margin: 0 0 8px; padding: 12px; border: 1px solid #2b3048; border-radius: 14px;
+    background: #1c2032; color: var(--text); box-shadow: none; font-family: inherit; cursor: pointer; }
+  .trait-row .tr-ic { font-size: 26px; line-height: 1; }
+  .trait-row .tr-body { display: flex; flex-direction: column; gap: 3px; flex: 1; min-width: 0; }
+  .trait-row .tr-body b { font-size: 14px; font-weight: 800; }
+  .trait-row .tr-body span { font-size: 11px; color: var(--muted); line-height: 1.4; white-space: normal; }
+  .trait-row.boost { border-color: #6f5bd6; background: #221f3a; }
+  .trait-row.boost .tr-body span { color: #c4b6ff; }
+  #tr-double { margin: 0; padding: 7px 12px; font-size: 12px; border-radius: 999px; }
+  #tr-double.on { background: linear-gradient(90deg,#a66cff,#6f5bd6) !important; color: #fff !important; }
+  #tr-double.hidden { display: none; }
   #shop { position: fixed; inset: 0; z-index: 12; background: rgba(8,9,15,.9); backdrop-filter: blur(5px);
     display: flex; align-items: center; justify-content: center; padding: 18px; }
   #shop.hidden { display: none; }
@@ -249,6 +265,7 @@
     background: #1c2032; border-radius: 12px; }
   .inf-row.inert { opacity: .38; }
   .inf-ic { font-size: 24px; }
+  .inf-fruit { width: 30px; height: 30px; display: block; flex: none; }
   .inf-body { flex: 1; min-width: 0; }
   .inf-body b { display: block; font-size: 13px; font-weight: 800; color: var(--text); }
   .inf-body span { font-size: 11px; color: var(--muted); line-height: 1.35; }
@@ -280,6 +297,15 @@
       </div>
       <div id="info-body"></div>
       <button id="info-close" class="ghost-btn">닫기</button>
+    </div>
+  </div>
+  <div id="traits" class="hidden">
+    <div class="shop-card">
+      <div class="shop-head">
+        <span class="shop-title">특성 선택</span>
+        <button id="tr-double" class="ghost-btn hidden">✨ 2배 <b id="tr-double-n">1</b></button>
+      </div>
+      <div id="tr-offers"></div>
     </div>
   </div>
   <div id="shop" class="hidden">
@@ -1037,7 +1063,8 @@
     nextColor = null; nextColor2 = null;   // null queue -> pickNext refills both slots
     score = 0; streak = 0; touchCount = 0;
     stage = 1; stageScore = 0; touchesLeft = RUSH_TOUCHES;
-    touchBonus = 0; spawnBonus = 0; slotBonus = 0;
+    touchBonus = 0; spawnBonus = 0; slotBonus = 0; brickChance = 0; offerBonus = 0;
+    traits = []; doubles = 0;
     coins = 0; coinsShown = 0; coinFly = [];
     oddsMult = [0, 0, 0, 0, 0, 0, 0];
     fruitMult = [1, 1, 1, 1, 1, 1, 1];
@@ -1047,14 +1074,14 @@
   function serializeRun() {
     return { v: RUN_VERSION, mode, rows: ROWS, grid, special, hp, coinCell,
              nextColor, nextColor2, score, streak, touchCount,
-             stage, stageScore, touchesLeft, coins, oddsMult, fruitMult, relics };
+             stage, stageScore, touchesLeft, coins, oddsMult, fruitMult, relics, traits, doubles };
   }
   function restoreRun(o) {
     if (!o || o.v !== RUN_VERSION) return false;   // unknown/older save -> caller starts fresh
     mode = MODES[o.mode] ? o.mode : "arcade";     // a saved rush run must come back as rush
     ROWS = o.rows;
     ({ grid, special, hp, coinCell, nextColor, nextColor2, score, streak, touchCount,
-       stage, stageScore, touchesLeft, coins, oddsMult, fruitMult, relics } = o);
+       stage, stageScore, touchesLeft, coins, oddsMult, fruitMult, relics, traits, doubles } = o);
     coinsShown = coins; coinFly = [];
     glow = layer(null); appear = layer(0); ghost = layer(null);
     layout(); dirty = true;
@@ -1126,7 +1153,9 @@
   // exact percentage belongs in the fruit table, not in every relic's description.
   let relics = [];                         // ids of the relics owned this run
   // derived from the owned relics -- never written directly, always recomputed by applyRelics()
-  let touchBonus = 0, spawnBonus = 0, slotBonus = 0;
+  let touchBonus = 0, spawnBonus = 0, slotBonus = 0, brickChance = 0, offerBonus = 0;
+  let traits = [];                         // [{id, amount}] -- amount may have been doubled
+  let doubles = 0;                         // unspent "next trait x2" charges
   const RELIC_SLOTS = 5;                   // base carry limit (doc 6)
   const relicCap = () => RELIC_SLOTS + slotBonus;
   // over the cap, the extras are carried but inert (doc 6): losing a slot must not destroy
@@ -1193,6 +1222,37 @@
   // without each one having to know about the others. Passive effects that just set up the
   // run (spawn weights, fruit multipliers, extra rows) belong in apply(), run once at start.
   // RELICS is empty until Phase 2 -- with no relics owned, both calls are a no-op.
+  // Traits are DATA, not closures: every effect declares {stat, target, amount} so a
+  // "double the next trait" consumable can just scale `amount` (doc 7). scalable:false marks
+  // the ones where doubling has no meaning. Multiplier effects are additive for the same
+  // reason -- doubling a x1.5 would give x3 and compound out of control.
+  const TRAITS = {
+    cherry_taste: { name: "체리 감식가", icon: "🍒", scalable: true,
+      effects: [{ stat: "fruitMult", target: 0, amount: 0.4 }],
+      desc: e => `체리 점수 배율 +${+e[0].amount.toFixed(2)}` },
+    banana_taste: { name: "바나나 취향", icon: "🍌", scalable: true,
+      effects: [{ stat: "oddsMult", target: 6, amount: 1 }],
+      desc: e => `바나나가 ${e[0].amount}만큼 더 등장` },
+    citrus: { name: "감귤 애호", icon: "🍊", scalable: true,
+      effects: [{ stat: "oddsMult", target: 1, amount: 1 }, { stat: "oddsMult", target: 3, amount: 1 }],
+      desc: e => `오렌지와 레몬이 ${e[0].amount}만큼 더 등장` },
+    grape_taste: { name: "포도 수집가", icon: "🍇", scalable: true,
+      effects: [{ stat: "fruitMult", target: 4, amount: 0.5 }],
+      desc: e => `포도 점수 배율 +${+e[0].amount.toFixed(2)}` },
+    leisure: { name: "여유", icon: "👆", scalable: true,
+      effects: [{ stat: "touchBonus", amount: 2 }],
+      desc: e => `스테이지마다 터치 +${e[0].amount}` },
+    keen_eye: { name: "안목", icon: "👀", scalable: false,
+      effects: [{ stat: "offerBonus", amount: 1 }],
+      desc: () => "상점에 유물이 하나 더 진열됩니다" },
+    big_pocket: { name: "넓은 주머니", icon: "🎒", scalable: false, once: true,
+      effects: [{ stat: "slotBonus", amount: 1 }],
+      desc: () => "유물 칸 +1 (런당 한 번만 등장)" },
+    graft: { name: "접붙이기", icon: "✨", scalable: false, once: true,
+      effects: [{ stat: "doubles", amount: 1 }],
+      desc: () => "다음 특성 선택 때 효과를 2배로 (1회)" },
+  };
+
   // id -> { name, icon, desc, price, apply?, modify?, ...events }
   // apply() may only set derived state (oddsMult / fruitMult / *Bonus); applyRelics wipes
   // those first, so an apply that did anything else would not survive a recompute.
@@ -1216,6 +1276,12 @@
       name: "폭풍 스폰", icon: "🌊", price: 11,
       desc: "매 턴 과일이 1개 더 생깁니다 — 점수 기회도, 판이 차는 속도도 ↑",
       apply() { spawnBonus += 1; },
+    },
+    brick_deal: {                                               // D. risk
+      name: "벽돌 계약", icon: "🧱", price: 12,
+      desc: "모든 팡 점수 +30% · 대신 새로 생기는 것의 18%가 벽돌",
+      apply() { brickChance += 0.18; },
+      modify: { pop: v => v * 1.3 },
     },
     satchel: {                                                  // capacity (doc 6)
       name: "보따리", icon: "🎒", price: 10,
@@ -1241,11 +1307,28 @@
   function applyRelics() {
     oddsMult = [0, 0, 0, 0, 0, 0, 0];
     fruitMult = [1, 1, 1, 1, 1, 1, 1];
-    touchBonus = 0; spawnBonus = 0; slotBonus = 0;
+    touchBonus = 0; spawnBonus = 0; slotBonus = 0; brickChance = 0; offerBonus = 0;
     for (const id of activeRelics()) {
       const a = RELICS[id] && RELICS[id].apply;
       if (a) a();
     }
+    // traits are data, so one generic loop applies every one of them
+    for (const t of traits) {
+      const T = TRAITS[t.id]; if (!T) continue;
+      for (const e of traitEffects(T, t.amount)) {
+        if (e.stat === "fruitMult")       fruitMult[e.target] += e.amount;
+        else if (e.stat === "oddsMult")   oddsMult[e.target]  += e.amount;
+        else if (e.stat === "touchBonus") touchBonus += e.amount;
+        else if (e.stat === "spawnBonus") spawnBonus += e.amount;
+        else if (e.stat === "slotBonus")  slotBonus  += e.amount;
+        else if (e.stat === "offerBonus") offerBonus += e.amount;
+      }
+    }
+  }
+  // a trait's effects at a given scale (x2 when a graft charge is spent on it)
+  function traitEffects(T, mult = 1) {
+    const m = T.scalable ? mult : 1;
+    return T.effects.map(e => ({ ...e, amount: e.amount * m }));
   }
 
   function emptyCells() {
@@ -1265,6 +1348,10 @@
       const e = emptyCells();
       if (!e.length) return;
       const [r, c] = e[randInt(e.length)];
+      if (brickChance > 0 && Math.random() < brickChance) {        // the brick contract's cost
+        grid[r][c] = BRICK; special[r][c] = null; hp[r][c] = 1; appear[r][c] = 1;
+        continue;
+      }
       grid[r][c] = pickColor(); appear[r][c] = 1;
       if (Math.random() < COIN_FRUIT_CHANCE) coinCell[r][c] = 1;   // this one comes with a coin
       notify("onSpawn", { r, c, color: grid[r][c] });
@@ -1331,6 +1418,7 @@
   function start(next = mode) {
     mode = MODES[next] ? next : "arcade";
     document.getElementById("shop").classList.add("hidden");
+    document.getElementById("traits").classList.add("hidden");
     loadBest();
     resetRun();
     resetEffects();
@@ -1897,13 +1985,18 @@
     return out;
   }
   function openShop() {
-    shopOffers = rollOffers();
+    shopOffers = rollOffers(3 + offerBonus);   // the 안목 trait widens the shelf
     shopReroll = REROLL_COST;
     renderShop();
     $sh("shop").classList.remove("hidden");
   }
   function closeShop() {
     $sh("shop").classList.add("hidden");
+    // a trait pick lands every couple of stages, right after the shop
+    if (rules().touchBudget && stage > 1 && (stage - 1) % TRAIT_EVERY === 0) { openTraits(); return; }
+    resumePlay();
+  }
+  function resumePlay() {
     busy = false; dirty = true;
     $sh("hint").textContent =
       `스테이지 ${stage} — 목표 ${rules().quota(stage)}점 · 터치 ${touchesLeft}회`;
@@ -1952,9 +2045,78 @@
     renderShop();
   }
 
+  // ---- trait picks, every couple of stages ----
+  const TRAIT_EVERY = 2;
+  let traitOffers = [], graftArmed = false;
+
+  function rollTraits(n = 3) {
+    const owned = new Set(traits.map(t => t.id));
+    const pool = Object.keys(TRAITS).filter(id => !(TRAITS[id].once && owned.has(id)));
+    const out = [];
+    while (out.length < n && pool.length) out.push(pool.splice(randInt(pool.length), 1)[0]);
+    return out;
+  }
+  function openTraits() {
+    traitOffers = rollTraits();
+    graftArmed = false;
+    renderTraits();
+    $sh("traits").classList.remove("hidden");
+  }
+  function renderTraits() {
+    const btn = $sh("tr-double");
+    // the charge only means anything if something on offer can actually be scaled
+    const anyScalable = traitOffers.some(id => TRAITS[id].scalable);
+    btn.classList.toggle("hidden", doubles <= 0);
+    btn.disabled = !anyScalable;
+    btn.classList.toggle("on", graftArmed);
+    btn.title = anyScalable ? "" : "2배로 만들 수 있는 특성이 없습니다";
+    $sh("tr-double-n").textContent = doubles;
+
+    const wrap = $sh("tr-offers");
+    wrap.textContent = "";
+    for (const id of traitOffers) {
+      const T = TRAITS[id];
+      const scaled = graftArmed && T.scalable;
+      const eff = traitEffects(T, scaled ? 2 : 1);
+      const b = document.createElement("button");
+      b.className = "trait-row" + (scaled ? " boost" : "");
+      const ic = document.createElement("span"); ic.className = "tr-ic"; ic.textContent = T.icon;
+      const body = document.createElement("span"); body.className = "tr-body";
+      const nm = document.createElement("b"); nm.textContent = T.name + (scaled ? "  ✨2배" : "");
+      const ds = document.createElement("span"); ds.textContent = T.desc(eff);
+      body.append(nm, ds);
+      b.append(ic, body);
+      b.addEventListener("click", () => pickTrait(id));
+      wrap.appendChild(b);
+    }
+  }
+  function pickTrait(id) {
+    const T = TRAITS[id]; if (!T) return;
+    const scaled = graftArmed && T.scalable;
+    if (scaled) doubles = Math.max(0, doubles - 1);
+    // graft grants a charge instead of a passive; applyRelics ignores the "doubles" stat, so
+    // recomputing the build can never hand it out a second time
+    for (const e of T.effects) if (e.stat === "doubles") doubles += e.amount;
+    traits.push({ id, amount: scaled ? 2 : 1 });
+    applyRelics();
+    touchesLeft = Math.max(touchesLeft, stageTouches());
+    closeTraits();
+  }
+  function closeTraits() { $sh("traits").classList.add("hidden"); resumePlay(); }
+
   // ---- info popup: what I am carrying, and the odds as they stand ----
-  const FRUIT_EMOJI = ["🍒", "🍊", "🥝", "🍋", "🍇", "🍑", "🍌"];
   const FRUIT_NAMES = ["체리", "오렌지", "키위", "레몬", "포도", "복숭아", "바나나"];
+  // slot order is historical (0체리 1오렌지 2키위 3레몬 …); the table reads better grouped by
+  // points, so cherry and lemon sit together at 1점 and orange and kiwi at 2점
+  const FRUIT_TABLE_ORDER = [0, 3, 1, 2, 4, 5, 6];
+  function fruitIconEl(i) {                    // the real board art, not an emoji stand-in
+    const im = document.createElement("img");
+    im.className = "inf-fruit";
+    im.src = `assets_new/fruit${i}.png`;
+    im.onerror = () => { im.onerror = null; im.src = `assets/fruit${i}.png`; };
+    im.alt = FRUIT_NAMES[i];
+    return im;
+  }
   let infoTab = "fruits";
 
   function renderInfo() {
@@ -1965,7 +2127,9 @@
     const row = (ic, name, desc, num, inert) => {
       const d = document.createElement("div");
       d.className = "inf-row" + (inert ? " inert" : "");
-      const i = document.createElement("span"); i.className = "inf-ic"; i.textContent = ic;
+      let i;
+      if (typeof ic === "string") { i = document.createElement("span"); i.className = "inf-ic"; i.textContent = ic; }
+      else i = ic;
       const b = document.createElement("span"); b.className = "inf-body";
       const n = document.createElement("b"); n.textContent = name;
       const s2 = document.createElement("span"); s2.textContent = desc;
@@ -1975,9 +2139,9 @@
       body.appendChild(d);
     };
     if (infoTab === "relics") {
-      if (!relics.length) {
+      if (!relics.length && !traits.length) {
         const e = document.createElement("div");
-        e.className = "inf-empty"; e.textContent = `아직 유물이 없습니다 (0 / ${relicCap()}칸)`;
+        e.className = "inf-empty"; e.textContent = `아직 유물도 특성도 없습니다 (0 / ${relicCap()}칸)`;
         body.appendChild(e);
         return;
       }
@@ -1986,13 +2150,19 @@
         const inert = i >= relicCap();
         row(R.icon, R.name, inert ? "유물 칸이 모자라 꺼져 있습니다" : R.desc, inert ? "비활성" : "", inert);
       });
+      for (const t of traits) {                 // traits have no slot limit, so they follow
+        const T = TRAITS[t.id]; if (!T) continue;
+        row(T.icon, T.name + (t.amount > 1 ? " ✨2배" : ""), T.desc(traitEffects(T, t.amount)), "특성", false);
+      }
+      if (doubles > 0) row("✨", "접붙이기", "다음 특성 선택 때 효과 2배", `${doubles}회`, false);
     } else {
       // the fruit table is where a relic's "1만큼 더" turns into a number you can read
       const p = colorOdds();
-      for (let i = 0; i < p.length; i++) {
+      for (const i of FRUIT_TABLE_ORDER) {
+        if (i >= p.length) continue;           // arcade runs fewer colours
         const m = fruitMult[i] || 1;
-        row(FRUIT_EMOJI[i], FRUIT_NAMES[i],
-            `${FRUIT_POINTS[i]}점` + (m !== 1 ? ` × ${m}` : "") +
+        row(fruitIconEl(i), FRUIT_NAMES[i],
+            `${FRUIT_POINTS[i]}점` + (m !== 1 ? ` × ${+m.toFixed(2)}` : "") +
             (oddsMult[i] > 0 ? `  ·  +${oddsMult[i]}만큼 더` : ""),
             `${p[i].toFixed(1)}%`, false);
       }
@@ -2852,10 +3022,16 @@
       RELICS, notify, modify, applyRelics, activeRelics, relicCap, stageTouches, RELIC_SLOTS,
       openShop, closeShop, buyRelic, renderShop, rollOffers, openInfo, closeInfo, renderInfo,
       endStageEarly, leftoverCoins, takeCoin, COIN_FRUIT_CHANCE, COIN_PER_LEFTOVER, COIN_PAYOUT,
+      TRAITS, TRAIT_EVERY, traitEffects, rollTraits, openTraits, pickTrait, renderTraits,
+      get traits() { return traits; }, set traits(v) { traits = v; },
+      get doubles() { return doubles; }, set doubles(v) { doubles = v; },
+      get offerBonus() { return offerBonus; },
+      get traitOffers() { return traitOffers; }, set traitOffers(v) { traitOffers = v; },
+      get graftArmed() { return graftArmed; }, set graftArmed(v) { graftArmed = v; },
       get coinCell() { return coinCell; }, set coinCell(v) { coinCell = v; },
       get shopOffers() { return shopOffers; }, set shopOffers(v) { shopOffers = v; },
       get touchBonus() { return touchBonus; }, get spawnBonus() { return spawnBonus; },
-      get slotBonus()  { return slotBonus; },
+      get slotBonus()  { return slotBonus; }, get brickChance() { return brickChance; },
       get relics() { return relics; }, set relics(v) { relics = v; },
       get mode() { return mode; }, set mode(v) { mode = v; },
       get ROWS()        { return ROWS; },        set ROWS(v)        { ROWS = v; },
@@ -2916,6 +3092,11 @@
   document.getElementById("rush-next").addEventListener("click", endStageEarly);
   document.getElementById("sh-next").addEventListener("click", closeShop);
   document.getElementById("sh-info").addEventListener("click", () => openInfo("relics"));
+  document.getElementById("tr-double").addEventListener("click", () => {
+    if (doubles <= 0) return;
+    graftArmed = !graftArmed;           // armed, not spent -- picking an unscalable trait keeps it
+    renderTraits();
+  });
   document.getElementById("info-btn").addEventListener("click", () => openInfo());
   document.getElementById("info-close").addEventListener("click", closeInfo);
   for (const b of document.querySelectorAll(".itab"))
@@ -2924,7 +3105,7 @@
     if (coins < shopReroll || !shopOffers.length) return;
     coins -= shopReroll; coinsShown = coins;
     shopReroll += 2;                    // rerolling again in the same shop costs more
-    shopOffers = rollOffers();
+    shopOffers = rollOffers(3 + offerBonus);
     renderShop();
   });
 

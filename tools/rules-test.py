@@ -172,6 +172,16 @@ window.addEventListener('load', () => setTimeout(() => {
   chk('big_pop: under 5 cleared unaffected', small, 10);
   chk('big_pop: 5+ cleared x1.5', big, Math.round(bigPlain * 1.5));
 
+  // the brick contract pays score and charges board space
+  F.resetRun(); F.mode = 'rush'; F.coins = 100; F.streak = 0;
+  F.relics = ['brick_deal']; F.applyRelics();
+  chk('brick deal: bricks now spawn', F.brickChance > 0, true);
+  F.score = 0; F.scorePop(10, 1); const withDeal = F.score;
+  F.relics = []; F.applyRelics();
+  chk('brick deal: no bricks without it', F.brickChance, 0);
+  F.score = 0; F.scorePop(10, 1); const plain = F.score;
+  chk('brick deal: +30% on pops', withDeal, Math.round(plain * 1.3));
+
   // the satchel costs a slot and grants two
   F.resetRun(); F.mode = 'rush'; F.coins = 100;
   F.buyRelic('satchel');
@@ -193,6 +203,49 @@ window.addEventListener('load', () => setTimeout(() => {
   chk('over cap: only the first 5 are active', F.activeRelics().length, 5);
   chk('over cap: the inert one has no effect', F.spawnCount(0), baseSpawn);
   chk('over cap: it is still carried', F.relics.length, 6);
+
+  // ---- traits: data-defined, and the x2 charge ----
+  F.resetRun(); F.mode = 'rush';
+  const base0 = F.fruitMult[0];
+  F.pickTrait('cherry_taste');
+  chk('trait applies its effect', +F.fruitMult[0].toFixed(2), +(base0 + 0.4).toFixed(2));
+  chk('trait is recorded', F.traits.length, 1);
+  F.applyRelics(); F.applyRelics();
+  chk('trait survives recompute unchanged', +F.fruitMult[0].toFixed(2), +(base0 + 0.4).toFixed(2));
+
+  // an armed graft charge doubles a scalable trait and is spent
+  F.resetRun(); F.mode = 'rush'; F.doubles = 1;
+  F.traitOffers = ['cherry_taste']; F.graftArmed = true;
+  F.pickTrait('cherry_taste');
+  chk('graft doubles the amount', +F.fruitMult[0].toFixed(2), +(base0 + 0.8).toFixed(2));
+  chk('graft charge spent', F.doubles, 0);
+
+  // ...but an unscalable trait cannot use it, so the charge is kept
+  F.resetRun(); F.mode = 'rush'; F.doubles = 1;
+  F.traitOffers = ['keen_eye']; F.graftArmed = true;
+  F.pickTrait('keen_eye');
+  chk('unscalable trait keeps the charge', F.doubles, 1);
+  chk('keen_eye widens the shop', F.offerBonus, 1);
+  chk('shop rolls one more', F.rollOffers(3 + F.offerBonus).length, 4);
+
+  // graft grants a charge, and recomputing must not hand out another
+  F.resetRun(); F.mode = 'rush';
+  F.pickTrait('graft');
+  chk('graft grants a charge', F.doubles, 1);
+  F.applyRelics(); F.applyRelics();
+  chk('recompute does not re-grant it', F.doubles, 1);
+
+  // once-per-run traits stop being offered
+  F.resetRun(); F.mode = 'rush';
+  F.traits = [{id:'big_pocket', amount:1}];
+  const t20 = []; for (let i = 0; i < 40; i++) t20.push(...F.rollTraits(3));
+  chk('once-only trait not re-offered', t20.includes('big_pocket'), false);
+
+  // multi-effect traits scale every part
+  const cit = F.traitEffects(F.TRAITS.citrus, 2);
+  chk('citrus doubles both fruits', cit.map(e => e.amount), [2, 2]);
+  chk('unscalable ignores the multiplier', F.traitEffects(F.TRAITS.keen_eye, 2)[0].amount, 1);
+  F.resetRun(); F.mode = 'arcade';
 
   // shop offers never repeat something already owned
   F.resetRun(); F.mode = 'rush';
@@ -216,6 +269,8 @@ window.addEventListener('load', () => setTimeout(() => {
   F.coinCell = Array.from({length:10}, (_,r) => Array.from({length:8}, (_,c) => (r+c)%3 ? 0 : 1));
   F.nextColor = 5; F.nextColor2 = 2;
   F.relics = ['relic_a','relic_b'];
+  F.traits = [{id:'cherry_taste', amount:2}];
+  F.doubles = 3;
   F.stage = 4; F.stageScore = 42; F.touchesLeft = 9; F.coins = 23;
   F.score = 1234; F.streak = 3; F.touchCount = 77;
   F.oddsMult = [0,0,0,2,0,0,3];
@@ -223,7 +278,8 @@ window.addEventListener('load', () => setTimeout(() => {
   const want = {mode:'rush', ROWS:10, grid:F.grid, special:F.special, hp:F.hp, coinCell:F.coinCell, nextColor:5, nextColor2:2,
                 score:1234, streak:3, touchCount:77, oddsMult:[0,0,0,2,0,0,3],
                 fruitMult:[1,1.5,2,1,1,1,3], relics:['relic_a','relic_b'],
-                stage:4, stageScore:42, touchesLeft:9, coins:23};
+                stage:4, stageScore:42, touchesLeft:9, coins:23,
+                traits:[{id:'cherry_taste', amount:2}], doubles:3};
   const snap = JSON.parse(JSON.stringify(F.serializeRun()));
 
   F.resetRun();                                   // reset must wipe it all
@@ -240,6 +296,8 @@ window.addEventListener('load', () => setTimeout(() => {
   if (F.stageScore !== 0) resetLeaks.push('stageScore');
   if (F.touchesLeft !== F.RUSH_TOUCHES) resetLeaks.push('touchesLeft');
   if (F.coins !== 0) resetLeaks.push('coins');
+  if (F.traits.length !== 0) resetLeaks.push('traits');
+  if (F.doubles !== 0) resetLeaks.push('doubles');
   if (JSON.stringify(F.oddsMult) !== '[0,0,0,0,0,0,0]') resetLeaks.push('oddsMult');
   if (JSON.stringify(F.fruitMult) !== '[1,1,1,1,1,1,1]') resetLeaks.push('fruitMult');
 
