@@ -95,7 +95,7 @@
   canvas { display: block; border-radius: 18px; touch-action: none; }
   .gain-pop {
     position: absolute; transform: translate(-50%,-50%);
-    font-size: 26px; font-weight: 900; pointer-events: none; z-index: 5; white-space: nowrap;
+    font-weight: 900; pointer-events: none; z-index: 5; white-space: nowrap;
     text-align: center; text-shadow: 0 2px 6px rgba(0,0,0,.7), 0 0 2px rgba(0,0,0,.5);
   }
   /* the multipliers are the "why" behind the total, so they get pills of their own rather
@@ -1752,6 +1752,10 @@
     const el = document.createElement("div");
     el.className = "gain-pop";
     el.textContent = "+" + gained;
+    // the total is the payoff, so it has to outweigh the per-fruit numbers (~20px) -- and it
+    // grows with the hit, so a big chain is felt before it is read. sqrt keeps 350 from
+    // dwarfing 50 the way a linear scale would.
+    el.style.fontSize = Math.round(Math.max(30, Math.min(54, 30 + (Math.sqrt(gained) - 3) * 2))) + "px";
     if (sub && sub.length) {
       const s2 = document.createElement("span");
       s2.className = "gp-sub";
