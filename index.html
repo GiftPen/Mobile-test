@@ -319,7 +319,7 @@
   <div id="shop" class="hidden">
     <div class="shop-card">
       <div class="shop-head">
-        <span class="shop-title">스테이지 <b id="sh-stage">2</b> 준비</span>
+        <span class="shop-title"><b id="sh-stage">1-2</b> 준비</span>
         <span class="chip coin">🪙 <b id="sh-coin">0</b></span>
       </div>
       <div id="sh-offers" class="offer-grid"></div>
@@ -341,7 +341,7 @@
       <span id="streak-badge"></span>
     </div>
     <div class="rush-box center hidden" id="rush-box">
-      <span class="rb-stage">스테이지 <b id="rs-stage">1</b></span>
+      <span class="rb-stage">스테이지 <b id="rs-stage">1-1</b></span>
       <span class="best-line">점수 <b id="rb-score">0</b> · 최고 <b id="rb-best">0</b></span>
       <span id="streak-badge2"></span>
     </div>
@@ -474,6 +474,7 @@
   const BRICK = -2;            // grid value for a brick (wall; only items can clear it)
   const BRICK_EVERY = 5;       // one brick spawns every N touches once unlocked
   // ---- Star Rush stage curve (DRAFT numbers, meant to be tuned by feel) ----
+  const STAGES_PER_ROUND = 3;  // a round is 1-1, 1-2, 1-3; traits land when a round ends
   const RUSH_TOUCHES   = 15;   // touches granted per stage
   const RUSH_SPAWNS    = 2;    // per turn. base 2 -> relic +1 -> trait +1 tops out at 4
   const RUSH_BUDS      = 18;   // opening board. a one-off injection, NOT a substitute for
@@ -481,6 +482,9 @@
   const RUSH_QUOTA_1   = 70;   // stage 1 target
   const RUSH_QUOTA_MUL = 1.5;  // each stage's target vs the previous
   const rushQuota = st => Math.round(RUSH_QUOTA_1 * Math.pow(RUSH_QUOTA_MUL, st - 1));
+  // `stage` stays a flat counter; rounds are just how it is shown and when traits fire
+  const stageLabel = (st = 1) =>
+    `${Math.floor((st - 1) / STAGES_PER_ROUND) + 1}-${((st - 1) % STAGES_PER_ROUND) + 1}`;
 
   // ---- optional custom fruit art (SVG string). null = use built-in procedural drawing ----
   const CHERRY_SVG = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" width="100%" height="100%">
@@ -1007,7 +1011,7 @@
   let waves = [];             // {type:'h'|'v', fixed, origin, color, t} line-clear ripple wave
   let links = [];             // {nodes,color,prog,reached,done} star one-stroke constellation
   let shake = 0;              // screen-shake magnitude
-  let flash = 0;              // white screen flash (0..1) for the star 팡
+  let flash = 0;              // white screen flash (0..1) when the star finishes
   let dirty = true;           // redraw needed; when idle we skip drawing to save battery/heat
   let frame = 0;              // frame counter for idle animations (e.g. bomb wiggle)
   const fruitImg = [];        // loaded SVG Images per color slot
@@ -1240,10 +1244,10 @@
       desc: e => `체리 점수 배율 +${+e[0].amount.toFixed(2)}` },
     banana_taste: { name: "바나나 취향", icon: "🍌", scalable: true,
       effects: [{ stat: "oddsMult", target: 6, amount: 1 }],
-      desc: e => `바나나가 ${e[0].amount}만큼 더 등장` },
+      desc: e => `바나나 ${e[0].amount}만큼 더 등장` },
     citrus: { name: "감귤 애호", icon: "🍊", scalable: true,
       effects: [{ stat: "oddsMult", target: 1, amount: 1 }, { stat: "oddsMult", target: 3, amount: 1 }],
-      desc: e => `오렌지와 레몬이 ${e[0].amount}만큼 더 등장` },
+      desc: e => `오렌지·레몬 ${e[0].amount}만큼 더 등장` },
     grape_taste: { name: "포도 수집가", icon: "🍇", scalable: true,
       effects: [{ stat: "fruitMult", target: 4, amount: 0.5 }],
       desc: e => `포도 점수 배율 +${+e[0].amount.toFixed(2)}` },
@@ -1252,13 +1256,13 @@
       desc: e => `스테이지마다 터치 +${e[0].amount}` },
     keen_eye: { name: "안목", icon: "👀", scalable: false,
       effects: [{ stat: "offerBonus", amount: 1 }],
-      desc: () => "상점에 유물이 하나 더 진열됩니다" },
+      desc: () => "상점 진열 +1" },
     big_pocket: { name: "넓은 주머니", icon: "🎒", scalable: false, once: true,
       effects: [{ stat: "slotBonus", amount: 1 }],
-      desc: () => "유물 칸 +1 (런당 한 번만 등장)" },
+      desc: () => "유물 칸 +1" },
     graft: { name: "접붙이기", icon: "✨", scalable: false, once: true,
       effects: [{ stat: "doubles", amount: 1 }],
-      desc: () => "다음 특성 선택 때 효과를 2배로 (1회)" },
+      desc: () => "다음 특성 선택을 2배로" },
   };
 
   // id -> { name, icon, desc, price, apply?, modify?, ...events }
@@ -1267,12 +1271,12 @@
   const RELICS = {
     banana_hunter: {                                            // A. odds
       name: "바나나 사냥꾼", icon: "🍌", price: 14,
-      desc: "바나나가 1만큼 더 등장합니다",
+      desc: "바나나 1만큼 더 등장",
       apply() { oddsMult[6] += 1; },
     },
     big_pop: {                                                  // B. score
       name: "대량 보너스", icon: "💥", price: 16,
-      desc: "한 번에 5개 이상 터뜨리면 그 점수 ×1.5",
+      desc: "5개 이상 터뜨리면 점수 ×1.5",
       modify: { pop: (v, ctx) => (ctx.cleared >= 5 ? v * 1.5 : v) },
     },
     stamina: {                                                  // C. resource
@@ -1282,18 +1286,18 @@
     },
     storm: {                                                    // D. risk
       name: "폭풍 스폰", icon: "🌊", price: 11,
-      desc: "매 턴 과일이 1개 더 생깁니다 — 점수 기회도, 판이 차는 속도도 ↑",
+      desc: "매 턴 과일 +1 (판도 빨리 참)",
       apply() { spawnBonus += 1; },
     },
     brick_deal: {                                               // D. risk
       name: "벽돌 계약", icon: "🧱", price: 12,
-      desc: "모든 팡 점수 +30% · 대신 새로 생기는 것의 18%가 벽돌",
+      desc: "터뜨린 점수 +30% · 새 과일의 18%가 벽돌",
       apply() { brickChance += 0.18; },
       modify: { pop: v => v * 1.3 },
     },
     satchel: {                                                  // capacity (doc 6)
       name: "보따리", icon: "🎒", price: 10,
-      desc: "유물 칸 +2 (자기도 한 칸을 씁니다)",
+      desc: "유물 칸 +2 (한 칸 차지)",
       apply() { slotBonus += 2; },
     },
   };
@@ -1439,7 +1443,7 @@
     mfxStop();
     document.getElementById("overlay").classList.add("hidden");
     document.getElementById("hint").textContent = rules().touchBudget
-      ? `스테이지 1 — 목표 ${rules().quota(1)}점 · 터치 ${touchesLeft}회`
+      ? `1-1 — 목표 ${rules().quota(1)}점 · 터치 ${touchesLeft}회`
       : "같은 색 과일 옆(3×3)에 놓아 터뜨리세요";
   }
 
@@ -1508,7 +1512,7 @@
       const tc = document.getElementById("rb-touch-cell");
       tc.classList.toggle("warn", touchesLeft <= 5 && touchesLeft > 3);
       tc.classList.toggle("low", touchesLeft <= 3);
-      document.getElementById("rs-stage").textContent = stage;
+      document.getElementById("rs-stage").textContent = stageLabel(stage);
       document.getElementById("rs-spawn").textContent = spawnCount();
     }
     // The button holds its place for the whole stage and only enables once the quota is met:
@@ -1714,7 +1718,7 @@
           addShake(8);
           for (const [nr, nc, d] of lineCells(r, c, sp, visited))
             next.push({ r: nr, c: nc, d, mode: "blast", color: cellColor });
-        } else if (sp === "star") {           // COLOR BOMB: connect-the-dots then 팡
+        } else if (sp === "star") {           // COLOR BOMB: connect-the-dots, then clear them all
           flashBox(r, c, R, cellColor);
           addShake(5);
           const target = mode === "color" ? it.color : mostCommonColor();
@@ -1904,16 +1908,16 @@
         let itemMsg = "";
         if (chainCount >= STAR_THRESHOLD) {
           grid[r0][c0] = color; special[r0][c0] = "star";
-          itemMsg = "🌟 별! 탭하거나 주변 폭발로 발동 — 같은 색 별자리 팡";
+          itemMsg = "🌟 별 — 탭! 같은 색을 별자리로 잇습니다";
         } else if (chainCount >= BOMB_THRESHOLD) {
           grid[r0][c0] = color; special[r0][c0] = "bomb";
-          itemMsg = "💣 폭탄! 탭하거나 주변 폭발로 발동 — 5×5 대폭발";
+          itemMsg = "💣 폭탄 — 탭! 5×5 대폭발";
         } else if (chainCount >= LINE_THRESHOLD) {
           grid[r0][c0] = color; special[r0][c0] = randInt(2) ? "lineH" : "lineV";
-          itemMsg = "↔️ 라인! 탭하거나 주변 폭발로 발동 — 한 줄 청소";
+          itemMsg = "↔️ 라인 — 탭! 한 줄 청소";
         } else if (chainCount >= BIRD_THRESHOLD) {
           grid[r0][c0] = color; special[r0][c0] = "bird";
-          itemMsg = "🐦 참새! 탭하거나 주변 폭발로 발동 — 벽돌·걸리는 과일을 쪼아 없애요";
+          itemMsg = "🐦 참새 — 탭! 벽돌과 걸리는 과일을 쪼아냅니다";
         }
         if (itemMsg) { burst(r0, c0, color); document.getElementById("hint").textContent = itemMsg; }
       } else {
@@ -2006,17 +2010,17 @@
   function closeShop() {
     $sh("shop").classList.add("hidden");
     // a trait pick lands every couple of stages, right after the shop
-    if (rules().touchBudget && stage > 1 && (stage - 1) % TRAIT_EVERY === 0) { openTraits(); return; }
+    if (rules().touchBudget && stage > 1 && (stage - 1) % STAGES_PER_ROUND === 0) { openTraits(); return; }
     resumePlay();
   }
   function resumePlay() {
     busy = false; dirty = true;
     $sh("hint").textContent =
-      `스테이지 ${stage} — 목표 ${rules().quota(stage)}점 · 터치 ${touchesLeft}회`;
+      `${stageLabel(stage)} — 목표 ${rules().quota(stage)}점 · 터치 ${touchesLeft}회`;
     updateHUD();
   }
   function renderShop() {
-    $sh("sh-stage").textContent = stage;
+    $sh("sh-stage").textContent = stageLabel(stage);
     $sh("sh-coin").textContent = coins;
     $sh("sh-slots").textContent = `${relics.length}/${relicCap()}`;
     $sh("sh-reroll-cost").textContent = shopReroll;
@@ -2059,7 +2063,7 @@
   }
 
   // ---- trait picks, every couple of stages ----
-  const TRAIT_EVERY = 2;
+  // shop runs after every stage; traits only when a round has just ended (…-3 cleared)
   let traitOffers = [], graftArmed = false;
 
   function rollTraits(n = 3) {
@@ -2154,20 +2158,20 @@
     if (infoTab === "relics") {
       if (!relics.length && !traits.length) {
         const e = document.createElement("div");
-        e.className = "inf-empty"; e.textContent = `아직 유물도 특성도 없습니다 (0 / ${relicCap()}칸)`;
+        e.className = "inf-empty"; e.textContent = `아직 없습니다 (0 / ${relicCap()}칸)`;
         body.appendChild(e);
         return;
       }
       relics.forEach((id, i) => {
         const R = RELICS[id]; if (!R) return;
         const inert = i >= relicCap();
-        row(R.icon, R.name, inert ? "유물 칸이 모자라 꺼져 있습니다" : R.desc, inert ? "비활성" : "", inert);
+        row(R.icon, R.name, inert ? "칸이 모자라 꺼져 있습니다" : R.desc, inert ? "비활성" : "", inert);
       });
       for (const t of traits) {                 // traits have no slot limit, so they follow
         const T = TRAITS[t.id]; if (!T) continue;
         row(T.icon, T.name + (t.amount > 1 ? " ✨2배" : ""), T.desc(traitEffects(T, t.amount)), "특성", false);
       }
-      if (doubles > 0) row("✨", "접붙이기", "다음 특성 선택 때 효과 2배", `${doubles}회`, false);
+      if (doubles > 0) row("✨", "접붙이기", "다음 특성 선택을 2배로", `${doubles}회`, false);
     } else {
       // the fruit table is where a relic's "1만큼 더" turns into a number you can read
       const p = colorOdds();
@@ -2210,7 +2214,7 @@
     touchesLeft = stageTouches();
     flash = Math.max(flash, 0.5); addShake(7);
     document.getElementById("hint").textContent =
-      `스테이지 ${stage} — 목표 ${rules().quota(stage)}점 · 터치 ${touchesLeft}회`;
+      `${stageLabel(stage)} — 목표 ${rules().quota(stage)}점 · 터치 ${touchesLeft}회`;
     updateHUD();
     dirty = true;
     setTimeout(openShop, 700);          // let the payout coins fly first; busy stays true
@@ -2220,7 +2224,7 @@
     running = false; busy = false;
     const why = reason === "touches" ? "터치 소진" : reason === "board" ? "판이 가득 참" : "";
     document.getElementById("ov-msg").innerHTML = rules().touchBudget
-      ? `스테이지 <b>${stage}</b> 도달 · 점수 <b>${score}</b> · 최고 <b>${best}</b>` +
+      ? `<b>${stageLabel(stage)}</b> 도달 · 점수 <b>${score}</b> · 최고 <b>${best}</b>` +
         (why ? `<br><span style="font-size:14px;opacity:.7">${why}</span>` : "")
       : `점수 <b>${score}</b> · 최고 <b>${best}</b>`;
     document.getElementById("menu").classList.add("hidden");     // show the game-over view
@@ -2805,7 +2809,7 @@
       ctx.restore();
     }
 
-    // star constellation — one-stroke path links same-color fruits, then 팡
+    // star constellation — one-stroke path links same-colour fruits, then clears them
     for (let i = links.length - 1; i >= 0; i--) {
       const L = links[i];
       L.prog += 0.19;                                  // nodes traversed per frame — star line-draw (~5% faster)
@@ -2843,9 +2847,9 @@
         else { ctx.save(); ctx.globalAlpha = 0.9; fruitVisual(L.color, nx, ny, cell * 0.88); ctx.restore(); }
       }
       drawStar(px0, py0, cell * 0.24, "#fff");         // bright origin
-      // completion -> 팡
+      // the stroke reached the end
       if (!L.done && L.prog >= maxIdx) { L.done = true; flash = 0.55; addShake(15); }
-      if (L.prog >= maxIdx + 6) links.splice(i, 1);    // linger briefly after the 팡
+      if (L.prog >= maxIdx + 6) links.splice(i, 1);    // linger briefly after it lands
     }
 
     // birds (참새) swooping along a curved path to their target fruit
@@ -2918,7 +2922,7 @@
       }
     }
 
-    // star 팡 — white screen flash
+    // the star finishing — white screen flash
     if (flash > 0.01) {
       ctx.save();
       ctx.globalAlpha = flash;
@@ -3035,7 +3039,7 @@
       RELICS, notify, modify, applyRelics, activeRelics, relicCap, stageTouches, RELIC_SLOTS,
       openShop, closeShop, buyRelic, renderShop, rollOffers, openInfo, closeInfo, renderInfo,
       endStageEarly, leftoverCoins, takeCoin, updateHUD, COIN_FRUIT_CHANCE, COIN_PER_LEFTOVER, COIN_PAYOUT,
-      TRAITS, TRAIT_EVERY, traitEffects, rollTraits, openTraits, pickTrait, renderTraits,
+      TRAITS, STAGES_PER_ROUND, stageLabel, traitEffects, rollTraits, openTraits, pickTrait, renderTraits,
       get traits() { return traits; }, set traits(v) { traits = v; },
       get doubles() { return doubles; }, set doubles(v) { doubles = v; },
       get offerBonus() { return offerBonus; },

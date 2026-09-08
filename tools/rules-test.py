@@ -71,6 +71,16 @@ window.addEventListener('load', () => setTimeout(() => {
     if (F.rushQuota(st) <= F.rushQuota(st-1))
       modeFails.push({knob:'quota rises s'+st, got:F.rushQuota(st), want:'> '+F.rushQuota(st-1)});
   }
+  // rounds are a display + pacing layer over the flat stage counter
+  [[1,'1-1'],[2,'1-2'],[3,'1-3'],[4,'2-1'],[6,'2-3'],[7,'3-1'],[12,'4-3']].forEach(([st,want]) => {
+    if (F.stageLabel(st) !== want) modeFails.push({knob:'label '+st, got:F.stageLabel(st), want});
+  });
+  // traits fire only when a round has just ended: entering 2-1, 3-1, 4-1 …
+  for (let st = 1; st <= 13; st++) {
+    const fires = st > 1 && (st - 1) % F.STAGES_PER_ROUND === 0;
+    const want = st > 1 && F.stageLabel(st).endsWith('-1');
+    if (fires !== want) modeFails.push({knob:'trait trigger at '+F.stageLabel(st), got:fires, want});
+  }
   if (F.MODES.rush.startBuds !== F.RUSH_BUDS)
     modeFails.push({knob:'rush startBuds', got:F.MODES.rush.startBuds, want:F.RUSH_BUDS});
   if (F.MODES.rush.touches !== F.RUSH_TOUCHES) modeFails.push({knob:'rush touches', got:F.MODES.rush.touches, want:F.RUSH_TOUCHES});
