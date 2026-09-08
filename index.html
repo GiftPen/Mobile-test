@@ -1636,7 +1636,14 @@
     // input blocked through the wait so it reads as part of the burst rather than a stall.
     if (placement) {
       busy = true;
-      setTimeout(endTurn, Math.max(0, visualEnd - performance.now()) + SPAWN_SETTLE_MS);
+      // The star holds every cell it cleared as a ghost fruit for the length of its
+      // constellation draw (~0.7-1.5s), and links paint over the grid -- spawning into those
+      // cells would put a new fruit under an old ghost. Wait the animation out.
+      const whenSettled = () => {
+        if (links.length) { setTimeout(whenSettled, 80); return; }
+        endTurn();
+      };
+      setTimeout(whenSettled, Math.max(0, visualEnd - performance.now()) + SPAWN_SETTLE_MS);
     } else {
       endTurn();
     }
@@ -2174,15 +2181,33 @@
       }
       ctx.restore();
       if (f.t >= 1) {
-        if (grid[f.tr][f.tc] !== -1) {
-          if (special[f.tr][f.tc] && !busy) {    // landed on an item -> detonate it
+        if (!running) { birds.splice(i, 1); continue; }
+        const occupied = grid[f.tr][f.tc] !== -1;
+        // Landing on an item while a chain was still running used to fall through to "eat it",
+        // which DELETED the item for 2 points instead of setting it off -- a star could vanish
+        // without ever firing. Hover over it until the board is free, then detonate properly.
+        if (occupied && special[f.tr][f.tc] && busy) { dirty = true; continue; }
+        if (occupied) {
+          if (special[f.tr][f.tc]) {
             tapItem(f.tr, f.tc);
           } else {                                // plain fruit / brick -> eat it
             const col = grid[f.tr][f.tc];
-            grid[f.tr][f.tc] = -1; special[f.tr][f.tc] = null;
-            burst(f.tr, f.tc, col);
+            const isBrick = col === BRICK;
+            grid[f.tr][f.tc] = -1; special[f.tr][f.tc] = null; hp[f.tr][f.tc] = 0;
+            burst(f.tr, f.tc, isBrick ? "#9aa0b5" : col);   // bricks burst grey, as they do elsewhere
             addScore(BIRD_SCORE); dirty = true;
             updateHUD();
+          }
+        } else if (!f.retried) {
+          // the target got cleared mid-flight, so the bird would just fizzle out with nothing
+          // to show for the item. Give it one more hop from where it is.
+          const taken = {};
+          for (const o of birds) if (o !== f) taken[o.tr * COLS + o.tc] = true;
+          const t2 = chooseBirdTarget(taken);
+          if (t2) {
+            f.sr = f.tr; f.sc = f.tc; f.tr = t2[0]; f.tc = t2[1];
+            f.t = 0.45; f.retried = true; f.curve = -f.curve; dirty = true;
+            continue;
           }
         }
         birds.splice(i, 1);
@@ -2321,6 +2346,14 @@
       get stageScore()  { return stageScore; },  set stageScore(v)  { stageScore = v; },
       get touchesLeft() { return touchesLeft; }, set touchesLeft(v) { touchesLeft = v; },
       rushQuota, RUSH_TOUCHES, RUSH_SPAWNS, RUSH_BUDS, RUSH_QUOTA_1, RUSH_QUOTA_MUL, rules,
+      get busy()        { return busy; },        set busy(v)        { busy = v; },
+      get running()     { return running; },     set running(v)     { running = v; },
+      get birds()       { return birds; },
+      get links()       { return links; },
+      tapItem, spawnBird, chooseBirdTarget,
+      // headless Chrome produces no frames under --virtual-time-budget, so rAF never ticks.
+      // Item landings live in draw(); tests pump it by hand to advance them.
+      draw,
       get colorWeight() { return colorWeight; }, set colorWeight(v) { colorWeight = v; },
       get fruitMult()   { return fruitMult; },   set fruitMult(v)   { fruitMult = v; },
     };
