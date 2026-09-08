@@ -113,6 +113,64 @@ window.addEventListener('load', () => setTimeout(() => {
   for (const k of ['t_double','t_plus10','t_watch','t_apply']) delete F.RELICS[k];
   F.relics = []; F.score = 0; F.streak = 0;
 
+  // ---- starter relics + shop ----
+  F.mode = 'rush'; F.resetRun(); F.mode = 'rush';
+  const baseTouch = F.stageTouches(), baseSpawn = F.spawnCount(0);
+  chk('cap starts at RELIC_SLOTS', F.relicCap(), F.RELIC_SLOTS);
+
+  F.coins = 100;
+  F.buyRelic('stamina');
+  chk('buy: coins deducted',  F.coins, 100 - F.RELICS.stamina.price);
+  chk('buy: relic owned',     F.relics, ['stamina']);
+  chk('stamina: +3 touches',  F.stageTouches(), baseTouch + 3);
+  F.applyRelics(); F.applyRelics();                 // recompute must be idempotent
+  chk('stamina: not doubled by recompute', F.stageTouches(), baseTouch + 3);
+
+  F.buyRelic('storm');
+  chk('storm: +1 spawn', F.spawnCount(0), baseSpawn + 1);
+
+  F.buyRelic('banana_hunter');
+  chk('banana odds raised', F.colorWeight[6] > 1, true);
+
+  // score relic: 5+ cleared gets x1.5, fewer does not
+  F.relics = ['big_pop']; F.applyRelics(); F.streak = 0;
+  F.score = 0; F.scorePop(10, 1); const small = F.score;
+  F.score = 0; F.scorePop(10, 5); const big = F.score;
+  F.relics = []; F.applyRelics();
+  F.score = 0; F.scorePop(10, 5); const bigPlain = F.score;
+  chk('big_pop: under 5 cleared unaffected', small, 10);
+  chk('big_pop: 5+ cleared x1.5', big, Math.round(bigPlain * 1.5));
+
+  // the satchel costs a slot and grants two
+  F.resetRun(); F.mode = 'rush'; F.coins = 100;
+  F.buyRelic('satchel');
+  chk('satchel: cap 5 -> 7', F.relicCap(), F.RELIC_SLOTS + 2);
+  chk('satchel: occupies a slot', F.relics.length, 1);
+
+  // cannot buy without the coins, or without a slot
+  F.resetRun(); F.mode = 'rush'; F.coins = 0;
+  F.buyRelic('storm');
+  chk('too poor: nothing bought', F.relics.length, 0);
+  F.coins = 500; F.relics = ['a','b','c','d','e']; F.applyRelics();
+  F.buyRelic('storm');
+  chk('slots full: nothing bought', F.relics.length, 5);
+
+  // past the cap a relic is carried but inert (doc 6)
+  F.resetRun(); F.mode = 'rush';
+  F.relics = ['stamina','a','b','c','d','storm'];   // 6 owned, cap 5 -> storm is inert
+  F.applyRelics();
+  chk('over cap: only the first 5 are active', F.activeRelics().length, 5);
+  chk('over cap: the inert one has no effect', F.spawnCount(0), baseSpawn);
+  chk('over cap: it is still carried', F.relics.length, 6);
+
+  // shop offers never repeat something already owned
+  F.resetRun(); F.mode = 'rush';
+  F.relics = ['storm','stamina']; F.applyRelics();
+  const offers = F.rollOffers(9);
+  chk('offers exclude owned', offers.some(id => F.relics.includes(id)), false);
+  chk('offers are unique', new Set(offers).size, offers.length);
+  F.resetRun(); F.mode = 'arcade';
+
   // ---- run-state round trip ----
   // This list is the TEST's own idea of what belongs to a run. If serializeRun()
   // forgets a field, restore leaves it at its reset value and the compare fails.

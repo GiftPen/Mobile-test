@@ -206,6 +206,35 @@
   #pause { position: fixed; inset: 0; z-index: 11; background: rgba(10,11,18,.85); backdrop-filter: blur(6px);
     display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 14px; }
   #pause.hidden { display: none; }
+  /* ---- between-stage shop ---- */
+  #shop { position: fixed; inset: 0; z-index: 12; background: rgba(8,9,15,.9); backdrop-filter: blur(5px);
+    display: flex; align-items: center; justify-content: center; padding: 18px; }
+  #shop.hidden { display: none; }
+  .shop-card { width: 100%; max-width: 400px; max-height: 92vh; overflow-y: auto;
+    background: #161926; border-radius: 20px; padding: 16px; border: 1px solid #262b40; }
+  .shop-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px; }
+  .shop-title { font-size: 17px; font-weight: 800; color: var(--text); }
+  .shop-title b { color: #ffd23e; }
+  .offer { display: flex; align-items: center; gap: 10px; width: 100%; text-align: left;
+    margin: 0 0 8px; padding: 10px 12px; border: 1px solid #2b3048; border-radius: 14px;
+    background: #1c2032; color: var(--text); box-shadow: none; font-family: inherit; cursor: pointer; }
+  .offer.off { opacity: .42; cursor: default; }
+  .of-ic { font-size: 26px; line-height: 1; }
+  .of-body { display: flex; flex-direction: column; gap: 2px; flex: 1; min-width: 0; }
+  .of-body b { font-size: 14px; font-weight: 800; }
+  .of-desc { font-size: 11px; color: var(--muted); line-height: 1.35; white-space: normal; }
+  .of-price { font-size: 13px; font-weight: 800; color: #ffd23e; white-space: nowrap; }
+  .shop-empty { padding: 14px; text-align: center; color: var(--muted); font-size: 13px; }
+  .shop-owned { margin: 10px 0 4px; }
+  .shop-lab { font-size: 12px; color: var(--muted); }
+  .shop-lab b { color: var(--text); }
+  .owned-row { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 6px; min-height: 30px; }
+  .owned { width: 30px; height: 30px; border-radius: 9px; background: #232842;
+    display: flex; align-items: center; justify-content: center; font-size: 17px; }
+  .owned.inert { opacity: .3; filter: grayscale(1); }
+  .shop-actions { display: flex; gap: 8px; margin-top: 10px; }
+  .shop-actions button { flex: 1; margin: 0; padding: 12px 8px; font-size: 14px; border-radius: 14px; }
+  .shop-actions button:disabled { opacity: .4; }
   #pause h2 { color: var(--text); font-size: 30px; margin: 0 0 6px; font-weight: 900; }
   #pause button { width: 220px; }
 </style>
@@ -215,6 +244,23 @@
     <h2>일시정지</h2>
     <button id="btn-resume">계속하기</button>
     <button id="btn-tomain" class="ghost-btn">메인으로</button>
+  </div>
+  <div id="shop" class="hidden">
+    <div class="shop-card">
+      <div class="shop-head">
+        <span class="shop-title">스테이지 <b id="sh-stage">2</b> 준비</span>
+        <span class="chip coin">🪙 <b id="sh-coin">0</b></span>
+      </div>
+      <div id="sh-offers"></div>
+      <div class="shop-owned">
+        <span class="shop-lab">보유 유물 <b id="sh-slots">0 / 5</b></span>
+        <div id="sh-relics" class="owned-row"></div>
+      </div>
+      <div class="shop-actions">
+        <button id="sh-reroll" class="ghost-btn">🔄 리롤 🪙<b id="sh-reroll-cost">3</b></button>
+        <button id="sh-next">다음 스테이지 ▶</button>
+      </div>
+    </div>
   </div>
   <div id="top">
     <button id="pause-btn" aria-label="일시정지">⏸</button>
@@ -949,6 +995,7 @@
     nextColor = null; nextColor2 = null;   // null queue -> pickNext refills both slots
     score = 0; streak = 0; touchCount = 0;
     stage = 1; stageScore = 0; touchesLeft = RUSH_TOUCHES;
+    touchBonus = 0; spawnBonus = 0; slotBonus = 0;
     coins = 0; coinsShown = 0; coinFly = [];
     colorWeight = [1, 1, 1, 1, 1, 1, 1];
     fruitMult   = [1, 1, 1, 1, 1, 1, 1];
@@ -1013,7 +1060,8 @@
   // difficulty knobs (accept an explicit milestone m; default = current)
   function brickHpLevel(m = milestone()) { return rules().brickHp(m); }
   function activeColors(m = milestone()) { return rules().colors(m); }
-  function spawnCount(m = milestone()) { return rules().spawns(m); }
+  function spawnCount(m = milestone()) { return rules().spawns(m) + spawnBonus; }
+  function stageTouches() { return rules().touches + touchBonus; }
   // max meaningful level = milestone where every arcade knob first reaches its cap (+1).
   // Arcade-only: it drives the Lv. chip, and rush has no score-driven ramp.
   function computeMaxLevel() {
@@ -1030,6 +1078,13 @@
   // every place a fruit colour is rolled goes through pickColor(), so a relic only has to
   // touch colorWeight[] for board spawns AND the next-queue to follow.
   let relics = [];                         // ids of the relics owned this run
+  // derived from the owned relics -- never written directly, always recomputed by applyRelics()
+  let touchBonus = 0, spawnBonus = 0, slotBonus = 0;
+  const RELIC_SLOTS = 5;                   // base carry limit (doc 6)
+  const relicCap = () => RELIC_SLOTS + slotBonus;
+  // over the cap, the extras are carried but inert (doc 6): losing a slot must not destroy
+  // a relic, and which ones go quiet is then a decision rather than a deletion
+  const activeRelics = () => relics.slice(0, relicCap());
   let colorWeight = [1, 1, 1, 1, 1, 1, 1];
   function pickColor() {
     const n = activeColors();
@@ -1070,22 +1125,56 @@
   // without each one having to know about the others. Passive effects that just set up the
   // run (spawn weights, fruit multipliers, extra rows) belong in apply(), run once at start.
   // RELICS is empty until Phase 2 -- with no relics owned, both calls are a no-op.
-  const RELICS = {};                   // id -> { name, icon, desc, apply?, modify?, ...events }
+  // id -> { name, icon, desc, price, apply?, modify?, ...events }
+  // apply() may only set derived state (colorWeight / fruitMult / *Bonus); applyRelics wipes
+  // those first, so an apply that did anything else would not survive a recompute.
+  const RELICS = {
+    banana_hunter: {                                            // A. odds
+      name: "바나나 사냥꾼", icon: "🍌", price: 14,
+      desc: "바나나가 나올 확률이 크게 오릅니다 (가장 비싼 과일)",
+      apply() { colorWeight[6] = 4; },
+    },
+    big_pop: {                                                  // B. score
+      name: "대량 보너스", icon: "💥", price: 16,
+      desc: "한 번에 5개 이상 터뜨리면 그 점수 ×1.5",
+      modify: { pop: (v, ctx) => (ctx.cleared >= 5 ? v * 1.5 : v) },
+    },
+    stamina: {                                                  // C. resource
+      name: "지구력", icon: "✋", price: 13,
+      desc: "스테이지마다 터치 +3",
+      apply() { touchBonus += 3; },
+    },
+    storm: {                                                    // D. risk
+      name: "폭풍 스폰", icon: "🌊", price: 11,
+      desc: "매 턴 과일이 1개 더 생깁니다 — 점수 기회도, 판이 차는 속도도 ↑",
+      apply() { spawnBonus += 1; },
+    },
+    satchel: {                                                  // capacity (doc 6)
+      name: "보따리", icon: "🎒", price: 10,
+      desc: "유물 칸 +2 (자기도 한 칸을 씁니다)",
+      apply() { slotBonus += 2; },
+    },
+  };
   function notify(event, payload) {
-    for (const id of relics) {
+    for (const id of activeRelics()) {
       const h = RELICS[id] && RELICS[id][event];
       if (h) h(payload);
     }
   }
   function modify(key, value, ctx) {
-    for (const id of relics) {
+    for (const id of activeRelics()) {
       const m = RELICS[id] && RELICS[id].modify && RELICS[id].modify[key];
       if (m) value = m(value, ctx);
     }
     return value;
   }
-  function applyRelics() {             // re-apply every passive effect onto a fresh run
-    for (const id of relics) {
+  // Recomputes every passive effect from scratch, so it is safe to call any time the relic
+  // list changes. Applying incrementally would double up a "+3 touches" on every purchase.
+  function applyRelics() {
+    colorWeight = [1, 1, 1, 1, 1, 1, 1];
+    fruitMult   = [1, 1, 1, 1, 1, 1, 1];
+    touchBonus = 0; spawnBonus = 0; slotBonus = 0;
+    for (const id of activeRelics()) {
       const a = RELICS[id] && RELICS[id].apply;
       if (a) a();
     }
@@ -1172,6 +1261,7 @@
   // ---- game start ----
   function start(next = mode) {
     mode = MODES[next] ? next : "arcade";
+    document.getElementById("shop").classList.add("hidden");
     loadBest();
     resetRun();
     resetEffects();
@@ -1716,6 +1806,86 @@
     }
   }
 
+  // ---- between-stage shop ----
+  const REROLL_COST = 3;
+  let shopOffers = [], shopReroll = REROLL_COST;
+  const $sh = id => document.getElementById(id);
+
+  function rollOffers(n = 3) {
+    const pool = Object.keys(RELICS).filter(id => !relics.includes(id));
+    const out = [];
+    while (out.length < n && pool.length) out.push(pool.splice(randInt(pool.length), 1)[0]);
+    return out;
+  }
+  function openShop() {
+    shopOffers = rollOffers();
+    shopReroll = REROLL_COST;
+    renderShop();
+    $sh("shop").classList.remove("hidden");
+  }
+  function closeShop() {
+    $sh("shop").classList.add("hidden");
+    busy = false; dirty = true;
+    $sh("hint").textContent =
+      `스테이지 ${stage} — 목표 ${rules().quota(stage)}점 · 터치 ${touchesLeft}회`;
+    updateHUD();
+  }
+  function renderShop() {
+    $sh("sh-stage").textContent = stage;
+    $sh("sh-coin").textContent = coins;
+    $sh("sh-slots").textContent = `${relics.length} / ${relicCap()}`;
+    $sh("sh-reroll-cost").textContent = shopReroll;
+    $sh("sh-reroll").disabled = coins < shopReroll || !shopOffers.length;
+
+    const own = $sh("sh-relics");
+    own.textContent = "";
+    relics.forEach((id, i) => {
+      const R = RELICS[id]; if (!R) return;
+      const b = document.createElement("span");
+      b.className = "owned" + (i >= relicCap() ? " inert" : "");   // past the cap: carried, inert
+      b.textContent = R.icon;
+      b.title = i >= relicCap() ? `${R.name} (칸 부족 — 비활성)` : `${R.name} — ${R.desc}`;
+      own.appendChild(b);
+    });
+
+    const wrap = $sh("sh-offers");
+    wrap.textContent = "";
+    if (!shopOffers.length) {
+      const e = document.createElement("div");
+      e.className = "shop-empty"; e.textContent = "더 살 유물이 없습니다";
+      wrap.appendChild(e);
+      return;
+    }
+    const full = relics.length >= relicCap();
+    for (const id of shopOffers) {
+      const R = RELICS[id];
+      const poor = coins < R.price;
+      const card = document.createElement("button");
+      card.className = "offer" + (poor || full ? " off" : "");
+      card.disabled = poor || full;
+      const ic = document.createElement("span"); ic.className = "of-ic"; ic.textContent = R.icon;
+      const body = document.createElement("span"); body.className = "of-body";
+      const nm = document.createElement("b"); nm.textContent = R.name;
+      const ds = document.createElement("span"); ds.className = "of-desc";
+      ds.textContent = full ? "유물 칸이 가득 찼습니다" : R.desc;
+      body.append(nm, ds);
+      const pr = document.createElement("span"); pr.className = "of-price"; pr.textContent = `🪙 ${R.price}`;
+      card.append(ic, body, pr);
+      card.addEventListener("click", () => buyRelic(id));
+      wrap.appendChild(card);
+    }
+  }
+  function buyRelic(id) {
+    const R = RELICS[id];
+    if (!R || coins < R.price || relics.length >= relicCap()) return;
+    coins -= R.price; coinsShown = coins;
+    relics.push(id);
+    applyRelics();                      // recompute, so buying mid-run matches a fresh run
+    touchesLeft = Math.max(touchesLeft, stageTouches());   // a touch relic pays out this stage
+    shopOffers = shopOffers.filter(x => x !== id);
+    renderShop();
+  }
+
   // ---- Star Rush: quota met -> next stage ----
   // The board deliberately carries over. Touch pressure plus a filling board is the
   // dual tension the design leans on (doc 8); a fresh board would remove half of it.
@@ -1723,12 +1893,13 @@
     addCoins(COIN_PAYOUT(stage));         // the stage you just cleared pays out
     stage++;
     stageScore = 0;
-    touchesLeft = rules().touches;
+    touchesLeft = stageTouches();
     flash = Math.max(flash, 0.5); addShake(7);
     document.getElementById("hint").textContent =
       `스테이지 ${stage} — 목표 ${rules().quota(stage)}점 · 터치 ${touchesLeft}회`;
     updateHUD();
-    busy = false; dirty = true;
+    dirty = true;
+    setTimeout(openShop, 700);          // let the payout coins fly first; busy stays true
   }
 
   function gameOver(reason) {
@@ -2520,7 +2691,11 @@
       scorePop, fruitScore, chainBonus, streakMult, pickColor, addScore,
       resetRun, serializeRun, restoreRun, FRUIT_POINTS, COLS,
       MODES, activeColors, spawnCount, brickHpLevel, computeMaxLevel,
-      RELICS, notify, modify, applyRelics,
+      RELICS, notify, modify, applyRelics, activeRelics, relicCap, stageTouches, RELIC_SLOTS,
+      openShop, closeShop, buyRelic, renderShop, rollOffers,
+      get shopOffers() { return shopOffers; }, set shopOffers(v) { shopOffers = v; },
+      get touchBonus() { return touchBonus; }, get spawnBonus() { return spawnBonus; },
+      get slotBonus()  { return slotBonus; },
       get relics() { return relics; }, set relics(v) { relics = v; },
       get mode() { return mode; }, set mode(v) { mode = v; },
       get ROWS()        { return ROWS; },        set ROWS(v)        { ROWS = v; },
@@ -2577,8 +2752,18 @@
     paused = false;
     document.getElementById("pause").classList.add("hidden");
   });
+  document.getElementById("sh-next").addEventListener("click", closeShop);
+  document.getElementById("sh-reroll").addEventListener("click", () => {
+    if (coins < shopReroll || !shopOffers.length) return;
+    coins -= shopReroll; coinsShown = coins;
+    shopReroll += 2;                    // rerolling again in the same shop costs more
+    shopOffers = rollOffers();
+    renderShop();
+  });
+
   document.getElementById("btn-tomain").addEventListener("click", () => {
     paused = false; running = false;
+    document.getElementById("shop").classList.add("hidden");
     document.getElementById("pause").classList.add("hidden");
     showMenu();
   });
