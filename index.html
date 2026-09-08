@@ -312,7 +312,12 @@
   let MAX_LEVEL = 10;          // auto-computed at boot from where every difficulty knob caps
   const FILL_SEGS = 16;        // segments in the board-fill / danger gauge
   const WAVE_STEP_MS = 83;     // time between chain steps (rings)
-  const POP_STAGGER_MS = 35;   // extra micro-delay per cell within a ring (ripple feel)
+  const POP_STAGGER_MS = 38;   // delay per unit of DISTANCE from the blast (not per cell):
+                               // cells at the same radius pop together, so a bomb reads as
+                               // one expanding ring (~110ms) instead of 24 staggered cells
+                               // (~840ms). A line's cells sit at distance 1..7, so its timing
+                               // is unchanged.
+  const SPAWN_SETTLE_MS = 130; // beat between the last pop firing and the turn's new fruits
   const PI2 = Math.PI * 2;
   const SHAKE_MAX = 16;        // screen-shake cap (px)
   const BURST_RADIUS = 1;      // 1 = 3x3 burst (Chebyshev). items can raise this later
@@ -868,6 +873,10 @@
   let starImg = null;         // loaded star SVG image
   const brickImg = [];        // brickImg[hp] = SVG image (1..3)
   let glow;                    // glow[r][c] = {c: colorIdx, t: 0..1}
+  let ghost;                   // ghost[r][c] = colorIdx of a cell already cleared in logic
+                               // but not yet visually popped -- keeps the fruit on screen
+                               // until ITS staggered burst fires, so a blast reads as fruit
+                               // vanishing outward instead of the whole area blinking out
   let special;                 // special[r][c] = null | "bomb" | "lineH" | "lineV" | "star"
   let hp;                      // hp[r][c] = brick health (only when grid === BRICK)
   let appear;                  // appear[r][c] = 1..0 pop-in animation for newly spawned cells
@@ -911,7 +920,7 @@
   function resetRun() {
     ROWS = 8;                              // Star Rush grows this mid-run; runs start at 8
     grid = layer(-1); special = layer(null); hp = layer(0);
-    glow = layer(null); appear = layer(0); // decay-only display layers
+    glow = layer(null); appear = layer(0); ghost = layer(null);   // display-only layers
     nextColor = null; nextColor2 = null;   // null queue -> pickNext refills both slots
     score = 0; streak = 0; touchCount = 0;
     stage = 1; stageScore = 0; touchesLeft = RUSH_TOUCHES;
@@ -931,7 +940,7 @@
     ROWS = o.rows;
     ({ grid, special, hp, nextColor, nextColor2, score, streak, touchCount,
        stage, stageScore, touchesLeft, colorWeight, fruitMult, relics } = o);
-    glow = layer(null); appear = layer(0);
+    glow = layer(null); appear = layer(0); ghost = layer(null);
     layout(); dirty = true;
     return true;
   }
@@ -1267,14 +1276,14 @@
     const visited = Array.from({length: ROWS}, () => Array(COLS).fill(false));
     visited[r0][c0] = true;
     // frontier items {r,c,mode,color}: "color" = same-color flood, "blast" = item-cleared
-    const frontier = seedsAround(r0, c0, R, color, visited).map(([r, c]) => ({ r, c, mode: "color", color }));
+    const frontier = seedsAround(r0, c0, R, color, visited).map(([r, c, d]) => ({ r, c, d, mode: "color", color }));
     // placing right next to an item detonates it too (the placement burst reaches it)
     for (let dr = -R; dr <= R; dr++)
       for (let dc = -R; dc <= R; dc++) {
         if (dr === 0 && dc === 0) continue;
         const nr = r0 + dr, nc = c0 + dc;
         if (nr < 0 || nr >= ROWS || nc < 0 || nc >= COLS || visited[nr][nc]) continue;
-        if (special[nr][nc]) { visited[nr][nc] = true; frontier.push({ r: nr, c: nc, mode: "blast", color: grid[nr][nc] }); }
+        if (special[nr][nc]) { visited[nr][nc] = true; frontier.push({ r: nr, c: nc, d: Math.hypot(dr, dc), mode: "blast", color: grid[nr][nc] }); }
       }
     flashBox(r0, c0, R, color);
     runChain(r0, c0, color, visited, frontier, true);
@@ -1284,7 +1293,7 @@
   function tapItem(r0, c0) {
     const color = grid[r0][c0];
     const visited = Array.from({length: ROWS}, () => Array(COLS).fill(false));
-    runChain(r0, c0, color, visited, [{ r: r0, c: c0, mode: "blast", color }], false);
+    runChain(r0, c0, color, visited, [{ r: r0, c: c0, d: 0, mode: "blast", color }], false);
   }
 
   // run the chain from an initial frontier; placement=true means a ball was placed
@@ -1296,6 +1305,7 @@
     let chainPopped = 0;     // only your own color-chain pops (for item generation)
     let pointsPopped = 0;    // sum of FRUIT_POINTS of every popped fruit (for scoring)
     const hitBricks = new Map();   // brick key -> number of adjacent pops (1 HP each)
+    let visualEnd = 0;             // timestamp the last staggered pop fires at
     function step() {
       if (!frontier.length) {
         let broke = 0;
@@ -1307,17 +1317,22 @@
           if (hp[br][bc] <= 0) { grid[br][bc] = -1; special[br][bc] = null; burst(br, bc, "#9aa0b5"); broke++; }
         });
         if (broke) addScore(broke * 3);
-        finishBurst(r0, c0, color, popped, chainPopped, placement, pointsPopped);
+        finishBurst(r0, c0, color, popped, chainPopped, placement, pointsPopped, visualEnd);
         return;
       }
       const next = [];
-      let pi = 0;                    // stagger index within this ring
+      let maxD = 0;                  // furthest cell in this ring, for the settle time
+      // Pop order has to radiate from whatever caused the ring. budsAround/lineCells collect
+      // cells in dr/dc order, so a bomb used to wipe top-to-bottom instead of outward.
+      frontier.sort((a, b) => (a.d || 0) - (b.d || 0));
+      const ringAt = performance.now();
       for (const it of frontier) {
         const { r, c, mode } = it;
         const cellColor = grid[r][c];
         const sp = special[r][c];
         const vis = cellColor < 0 ? it.color : cellColor;
         grid[r][c] = -1; special[r][c] = null;   // logic clears immediately (game state stays correct)
+        ghost[r][c] = vis;                       // ...but it stays on screen until its burst
         popped++;
         if (cellColor >= 0) pointsPopped += fruitScore(cellColor);
         // item reward = size of YOUR placed color group. Count color-flood pops AND any
@@ -1325,13 +1340,16 @@
         // so overlapping items no longer rob the count. (Star's board-wide sweep bypasses this
         // loop entirely -> still uncounted, preserving the anti-snowball rule.)
         if (mode === "color" || (placement && cellColor === color)) chainPopped++;
-        // stagger the VISUAL pop a hair so cells ripple out instead of firing all at once
+        // the visual pop is delayed by DISTANCE, so the blast ripples outward as one front
+        const popAt = (it.d || 0) * POP_STAGGER_MS;
+        if (popAt > maxD) maxD = popAt;
         setTimeout(() => {
+          ghost[r][c] = null;                    // this cell's turn: fruit goes, particles fly
           burst(r, c, vis);
           glow[r][c] = { c: vis, t: 1 };
           if (mode === "color") flashBox(r, c, R, vis);   // ripple its 3x3 burst range
           dirty = true;
-        }, (pi++) * POP_STAGGER_MS);
+        }, popAt);
 
         // neighbors: chip bricks, and trigger any adjacent item (any color) via this pop
         for (let dr = -1; dr <= 1; dr++)
@@ -1342,14 +1360,14 @@
             if (grid[nr][nc] === BRICK) { const k = nr * COLS + nc; hitBricks.set(k, (hitBricks.get(k) || 0) + 1); }
             else if (special[nr][nc] && !visited[nr][nc]) {   // adjacent item -> detonate it
               visited[nr][nc] = true;
-              next.push({ r: nr, c: nc, mode: "blast", color: grid[nr][nc] });
+              next.push({ r: nr, c: nc, d: Math.hypot(dr, dc), mode: "blast", color: grid[nr][nc] });
             }
           }
 
         // same-color flood continues through color-mode pops (matching this item's color)
         if (mode === "color")
-          for (const [nr, nc] of seedsAround(r, c, R, it.color, visited))
-            next.push({ r: nr, c: nc, mode: "color", color: it.color });
+          for (const [nr, nc, d] of seedsAround(r, c, R, it.color, visited))
+            next.push({ r: nr, c: nc, d, mode: "color", color: it.color });
 
         // ---- item detonations (fire regardless of how this cell was popped) ----
         if (sp === "bomb") {                     // 5x5 blast, ignores color walls
@@ -1357,16 +1375,16 @@
           const [fx, fy] = cellCenter(r, c);
           flares.push({ cx: fx, cy: fy, kind: cellColor < 0 ? it.color : cellColor, maxR: cell * 1.7, t: 0 });  // grow to ~3x3
           addShake(11);
-          for (const [nr, nc] of budsAround(r, c, BOMB_RADIUS, visited))
-            next.push({ r: nr, c: nc, mode: "blast", color: cellColor });
+          for (const [nr, nc, d] of budsAround(r, c, BOMB_RADIUS, visited))
+            next.push({ r: nr, c: nc, d, mode: "blast", color: cellColor });
         } else if (sp === "lineH" || sp === "lineV") { // clears whole row / column
           flashLine(r, c, sp);
           waves.push({ type: sp === "lineH" ? "h" : "v",
                        fixed: sp === "lineH" ? r : c, origin: sp === "lineH" ? c : r,
                        color: cellColor < 0 ? it.color : cellColor, t: 0 });
           addShake(8);
-          for (const [nr, nc] of lineCells(r, c, sp, visited))
-            next.push({ r: nr, c: nc, mode: "blast", color: cellColor });
+          for (const [nr, nc, d] of lineCells(r, c, sp, visited))
+            next.push({ r: nr, c: nc, d, mode: "blast", color: cellColor });
         } else if (sp === "star") {           // COLOR BOMB: connect-the-dots then 팡
           flashBox(r, c, R, cellColor);
           addShake(5);
@@ -1402,12 +1420,14 @@
           }
           links.push({ nodes: path, color: target, prog: 0, reached: 0, done: false });
           // small local splash so the star itself pops immediately
-          for (const [nr, nc] of budsAround(r, c, R, visited))
-            next.push({ r: nr, c: nc, mode: "blast", color: grid[nr][nc] });
+          for (const [nr, nc, d] of budsAround(r, c, R, visited))
+            next.push({ r: nr, c: nc, d, mode: "blast", color: grid[nr][nc] });
         } else if (sp === "bird") {
           spawnBird(r, c);          // bird flies off from here to a target
         }
       }
+      // when the outermost pop of this ring will have fired
+      visualEnd = Math.max(visualEnd, ringAt + maxD);
       frontier = next;
       setTimeout(step, WAVE_STEP_MS);
     }
@@ -1423,7 +1443,7 @@
         const nr = r + dr, nc = c + dc;
         if (nr < 0 || nr >= ROWS || nc < 0 || nc >= COLS || visited[nr][nc]) continue;
         if (grid[nr][nc] === color && special[nr][nc] === null) {
-          visited[nr][nc] = true; out.push([nr, nc]);
+          visited[nr][nc] = true; out.push([nr, nc, Math.hypot(dr, dc)]);
         }
       }
     }
@@ -1438,7 +1458,7 @@
         if (dr === 0 && dc === 0) continue;
         const nr = r + dr, nc = c + dc;
         if (nr < 0 || nr >= ROWS || nc < 0 || nc >= COLS || visited[nr][nc]) continue;
-        if (grid[nr][nc] !== -1) { visited[nr][nc] = true; out.push([nr, nc]); }
+        if (grid[nr][nc] !== -1) { visited[nr][nc] = true; out.push([nr, nc, Math.hypot(dr, dc)]); }
       }
     }
     return out;
@@ -1450,12 +1470,12 @@
     if (type === "lineH") {
       for (let cc = 0; cc < COLS; cc++) {
         if (cc === c || visited[r][cc]) continue;
-        if (grid[r][cc] !== -1) { visited[r][cc] = true; out.push([r, cc]); }
+        if (grid[r][cc] !== -1) { visited[r][cc] = true; out.push([r, cc, Math.abs(cc - c)]); }
       }
     } else {
       for (let rr = 0; rr < ROWS; rr++) {
         if (rr === r || visited[rr][c]) continue;
-        if (grid[rr][c] !== -1) { visited[rr][c] = true; out.push([rr, c]); }
+        if (grid[rr][c] !== -1) { visited[rr][c] = true; out.push([rr, c, Math.abs(rr - r)]); }
       }
     }
     return out;
@@ -1532,7 +1552,7 @@
       }
   }
 
-  function finishBurst(r0, c0, color, popped, chainPopped, placement, pointsPopped) {
+  function finishBurst(r0, c0, color, popped, chainPopped, placement, pointsPopped, visualEnd = 0) {
     if (placement) {
       if (popped > 0) {
         grid[r0][c0] = -1;               // success -> placed ball consumed cleanly
@@ -1576,34 +1596,49 @@
       addShake(Math.min(12, popped * 0.7));
     }
 
-    // only a real PLACEMENT ends a turn (spawn + brick + game-over). A manual item tap is FREE.
-    if (placement) {
-      spawnBuds(spawnCount());
-      // staged gimmick: once bricks are unlocked, one spawns every few touches at current HP level
-      const bLvl = brickHpLevel();
-      if (bLvl >= 1 && touchCount % BRICK_EVERY === 0) spawnBrick(bLvl);
-      pickNext();
-      notify("onTurn", { touchCount, score });
-      if (rules().touchBudget) touchesLeft--;
-    }
-    updateHUD();
+    updateHUD();                 // score and streak land straight away
     dirty = true;
 
-    // Star Rush ends a turn three ways. Clearing the quota is checked first, so meeting it
-    // on the turn that also fills the board counts as a clear rather than a death.
-    const budget = placement && rules().touchBudget;
-    if (budget && stageScore >= rules().quota(stage)) {
+    // only a real PLACEMENT ends a turn (spawn + brick + game-over). A manual item tap is FREE.
+    const endTurn = () => {
+      if (placement) {
+        spawnBuds(spawnCount());
+        // staged gimmick: once bricks are unlocked, one spawns every few touches at current HP level
+        const bLvl = brickHpLevel();
+        if (bLvl >= 1 && touchCount % BRICK_EVERY === 0) spawnBrick(bLvl);
+        pickNext();
+        notify("onTurn", { touchCount, score });
+        if (rules().touchBudget) touchesLeft--;
+        updateHUD();
+        dirty = true;
+      }
+
+      // Star Rush ends a turn three ways. Clearing the quota is checked first, so meeting it
+      // on the turn that also fills the board counts as a clear rather than a death.
+      const budget = placement && rules().touchBudget;
+      if (budget && stageScore >= rules().quota(stage)) {
+        busy = true;
+        setTimeout(stageClear, 520);
+      } else if (placement && emptyCells().length === 0) {
+        // board is completely full -> let the spawned pieces pop in & be seen, then over
+        busy = true;
+        setTimeout(() => gameOver("board"), 750);
+      } else if (budget && touchesLeft <= 0) {
+        busy = true;
+        setTimeout(() => gameOver("touches"), 750);
+      } else {
+        busy = false;
+      }
+    };
+
+    // The turn's new fruits used to land the instant the chain's LOGIC finished, dropping them
+    // into cells still mid-explosion. Hold them until every staggered pop has fired, and keep
+    // input blocked through the wait so it reads as part of the burst rather than a stall.
+    if (placement) {
       busy = true;
-      setTimeout(stageClear, 520);
-    } else if (placement && emptyCells().length === 0) {
-      // board is completely full -> let the spawned pieces pop in & be seen, then over
-      busy = true;
-      setTimeout(() => gameOver("board"), 750);
-    } else if (budget && touchesLeft <= 0) {
-      busy = true;
-      setTimeout(() => gameOver("touches"), 750);
+      setTimeout(endTurn, Math.max(0, visualEnd - performance.now()) + SPAWN_SETTLE_MS);
     } else {
-      busy = false;
+      endTurn();
     }
   }
 
@@ -1907,6 +1942,10 @@
           gl.t -= 0.048;
           if (gl.t <= 0) glow[r][c] = null;
         }
+
+        // a cleared-but-not-yet-popped fruit still sits here
+        if (grid[r][c] === -1 && ghost[r][c] !== null && ghost[r][c] >= 0)
+          fruitVisual(ghost[r][c], x + cell/2, y + cell/2, cell * 0.88);
 
         // pop-in animation for newly spawned buds/bricks (scale small -> full)
         let apScale = 1;
