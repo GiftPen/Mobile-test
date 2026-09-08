@@ -200,9 +200,10 @@
     -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent; }
   .ghost-btn { background: #1e2130 !important; color: var(--text) !important; box-shadow: none !important; }
   /* ---- in-game pause ---- */
-  #pause-btn { justify-self: start; width: 42px; height: 42px;
+  #pause-btn, #info-btn { width: 42px; height: 42px;
     margin: 0; padding: 0; border-radius: 12px; background: #1e2130; color: var(--text);
     font-size: 18px; box-shadow: none; }
+  #info-btn { margin: 0; }
   #pause { position: fixed; inset: 0; z-index: 11; background: rgba(10,11,18,.85); backdrop-filter: blur(6px);
     display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 14px; }
   #pause.hidden { display: none; }
@@ -215,23 +216,41 @@
   .shop-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px; }
   .shop-title { font-size: 17px; font-weight: 800; color: var(--text); }
   .shop-title b { color: #ffd23e; }
-  .offer { display: flex; align-items: center; gap: 10px; width: 100%; text-align: left;
-    margin: 0 0 8px; padding: 10px 12px; border: 1px solid #2b3048; border-radius: 14px;
-    background: #1c2032; color: var(--text); box-shadow: none; font-family: inherit; cursor: pointer; }
+  /* cards, laid out 2 + 1 for three offers and 2 + 2 for four (a "+1 offer" trait later) */
+  .offer-grid { display: flex; flex-wrap: wrap; gap: 10px; justify-content: center; }
+  .offer { width: calc(50% - 5px); display: flex; flex-direction: column; align-items: center;
+    gap: 6px; margin: 0; padding: 12px 10px; border: 1px solid #2b3048; border-radius: 16px;
+    background: #1c2032; color: var(--text); box-shadow: none; font-family: inherit;
+    cursor: pointer; text-align: center; }
   .offer.off { opacity: .42; cursor: default; }
-  .of-ic { font-size: 26px; line-height: 1; }
-  .of-body { display: flex; flex-direction: column; gap: 2px; flex: 1; min-width: 0; }
-  .of-body b { font-size: 14px; font-weight: 800; }
-  .of-desc { font-size: 11px; color: var(--muted); line-height: 1.35; white-space: normal; }
+  .of-name { font-size: 14px; font-weight: 800; }
+  .of-ic { font-size: 40px; line-height: 1.1; }
+  .of-desc { font-size: 11px; color: var(--muted); line-height: 1.4; white-space: normal;
+    min-height: 31px; }
   .of-price { font-size: 13px; font-weight: 800; color: #ffd23e; white-space: nowrap; }
   .shop-empty { padding: 14px; text-align: center; color: var(--muted); font-size: 13px; }
-  .shop-owned { margin: 10px 0 4px; }
-  .shop-lab { font-size: 12px; color: var(--muted); }
-  .shop-lab b { color: var(--text); }
-  .owned-row { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 6px; min-height: 30px; }
-  .owned { width: 30px; height: 30px; border-radius: 9px; background: #232842;
-    display: flex; align-items: center; justify-content: center; font-size: 17px; }
-  .owned.inert { opacity: .3; filter: grayscale(1); }
+
+  /* ---- info popup: what am I carrying, and what are the odds right now ---- */
+  #info { position: fixed; inset: 0; z-index: 13; background: rgba(8,9,15,.92);
+    backdrop-filter: blur(5px); display: flex; align-items: center; justify-content: center; padding: 18px; }
+  #info.hidden { display: none; }
+  .info-card { width: 100%; max-width: 380px; max-height: 88vh; overflow-y: auto;
+    background: #161926; border-radius: 20px; padding: 14px; border: 1px solid #262b40; }
+  .info-tabs { display: flex; gap: 6px; margin-bottom: 10px; }
+  .itab { flex: 1; margin: 0; padding: 9px 6px; font-size: 13px; font-weight: 800; border-radius: 12px;
+    background: #1c2032; color: var(--muted); box-shadow: none; font-family: inherit; }
+  .itab.on { background: #2a2f4d; color: var(--text); }
+  .inf-row { display: flex; align-items: center; gap: 10px; padding: 9px 10px; margin-bottom: 6px;
+    background: #1c2032; border-radius: 12px; }
+  .inf-row.inert { opacity: .38; }
+  .inf-ic { font-size: 24px; }
+  .inf-body { flex: 1; min-width: 0; }
+  .inf-body b { display: block; font-size: 13px; font-weight: 800; color: var(--text); }
+  .inf-body span { font-size: 11px; color: var(--muted); line-height: 1.35; }
+  .inf-num { font-size: 13px; font-weight: 800; color: #ffd23e; white-space: nowrap; }
+  .inf-empty { padding: 16px; text-align: center; color: var(--muted); font-size: 13px; }
+  #info-close { width: 100%; margin-top: 4px; }
+  .top-left { justify-self: start; display: flex; gap: 6px; }
   .shop-actions { display: flex; gap: 8px; margin-top: 10px; }
   .shop-actions button { flex: 1; margin: 0; padding: 12px 8px; font-size: 14px; border-radius: 14px; }
   .shop-actions button:disabled { opacity: .4; }
@@ -245,25 +264,35 @@
     <button id="btn-resume">계속하기</button>
     <button id="btn-tomain" class="ghost-btn">메인으로</button>
   </div>
+  <div id="info" class="hidden">
+    <div class="info-card">
+      <div class="info-tabs">
+        <button class="itab on" data-tab="relics">📜 유물</button>
+        <button class="itab" data-tab="fruits">🍊 과일 확률</button>
+      </div>
+      <div id="info-body"></div>
+      <button id="info-close" class="ghost-btn">닫기</button>
+    </div>
+  </div>
   <div id="shop" class="hidden">
     <div class="shop-card">
       <div class="shop-head">
         <span class="shop-title">스테이지 <b id="sh-stage">2</b> 준비</span>
         <span class="chip coin">🪙 <b id="sh-coin">0</b></span>
       </div>
-      <div id="sh-offers"></div>
-      <div class="shop-owned">
-        <span class="shop-lab">보유 유물 <b id="sh-slots">0 / 5</b></span>
-        <div id="sh-relics" class="owned-row"></div>
-      </div>
+      <div id="sh-offers" class="offer-grid"></div>
       <div class="shop-actions">
-        <button id="sh-reroll" class="ghost-btn">🔄 리롤 🪙<b id="sh-reroll-cost">3</b></button>
-        <button id="sh-next">다음 스테이지 ▶</button>
+        <button id="sh-info" class="ghost-btn">📜 내 유물 <b id="sh-slots">0/5</b></button>
+        <button id="sh-reroll" class="ghost-btn">🔄 🪙<b id="sh-reroll-cost">3</b></button>
+        <button id="sh-next">닫기</button>
       </div>
     </div>
   </div>
   <div id="top">
-    <button id="pause-btn" aria-label="일시정지">⏸</button>
+    <div class="top-left">
+      <button id="pause-btn" aria-label="일시정지">⏸</button>
+      <button id="info-btn" aria-label="유물과 과일 확률">📜</button>
+    </div>
     <div class="score-box center" id="arcade-box">
       <span class="score-val" id="score">0</span>
       <span class="best-line">최고 <b id="best">0</b></span>
@@ -999,7 +1028,7 @@
     stage = 1; stageScore = 0; touchesLeft = RUSH_TOUCHES;
     touchBonus = 0; spawnBonus = 0; slotBonus = 0;
     coins = 0; coinsShown = 0; coinFly = [];
-    oddsBonus = [0, 0, 0, 0, 0, 0, 0];
+    oddsMult = [0, 0, 0, 0, 0, 0, 0];
     fruitMult = [1, 1, 1, 1, 1, 1, 1];
     relics = [];
     layout();                              // ROWS may have changed -> resize the board
@@ -1007,14 +1036,14 @@
   function serializeRun() {
     return { v: RUN_VERSION, mode, rows: ROWS, grid, special, hp,
              nextColor, nextColor2, score, streak, touchCount,
-             stage, stageScore, touchesLeft, coins, oddsBonus, fruitMult, relics };
+             stage, stageScore, touchesLeft, coins, oddsMult, fruitMult, relics };
   }
   function restoreRun(o) {
     if (!o || o.v !== RUN_VERSION) return false;   // unknown/older save -> caller starts fresh
     mode = MODES[o.mode] ? o.mode : "arcade";     // a saved rush run must come back as rush
     ROWS = o.rows;
     ({ grid, special, hp, nextColor, nextColor2, score, streak, touchCount,
-       stage, stageScore, touchesLeft, coins, oddsBonus, fruitMult, relics } = o);
+       stage, stageScore, touchesLeft, coins, oddsMult, fruitMult, relics } = o);
     coinsShown = coins; coinFly = [];
     glow = layer(null); appear = layer(0); ghost = layer(null);
     layout(); dirty = true;
@@ -1079,10 +1108,11 @@
   function addShake(a) { shake = Math.min(SHAKE_MAX, shake + a); }
 
   // ---- spawn-colour chokepoint ----
-  // Odds are real percentages that always sum to 100. A relic adds percentage POINTS to a
-  // fruit (oddsBonus) and the untouched fruits shrink proportionally to pay for it, so
-  // "바나나 +6%p" means 6% -> 12% and the other six give up 6 points between them.
-  // Relative weights were the wrong model -- nobody could tell what "weight 4" meant.
+  // Odds always total 100%. A relic gives a fruit N more helpings of its OWN base share:
+  // oddsMult[banana] = 1 means "one more banana's worth", 6% -> 12%, and the untouched
+  // fruits shrink proportionally to pay for it. Stating it in multiples rather than
+  // percentage points is what lets a relic just say "바나나가 1만큼 더 등장합니다" -- the
+  // exact percentage belongs in the fruit table, not in every relic's description.
   let relics = [];                         // ids of the relics owned this run
   // derived from the owned relics -- never written directly, always recomputed by applyRelics()
   let touchBonus = 0, spawnBonus = 0, slotBonus = 0;
@@ -1091,7 +1121,7 @@
   // over the cap, the extras are carried but inert (doc 6): losing a slot must not destroy
   // a relic, and which ones go quiet is then a decision rather than a deletion
   const activeRelics = () => relics.slice(0, relicCap());
-  let oddsBonus = [0, 0, 0, 0, 0, 0, 0];        // percentage points added by relics
+  let oddsMult = [0, 0, 0, 0, 0, 0, 0];         // extra helpings of each fruit's base share
   function colorOdds() {
     const n = activeColors();
     const base = rules().odds();
@@ -1102,17 +1132,18 @@
 
     let boosted = 0, restBase = 0;
     for (let i = 0; i < n; i++) {
-      if (oddsBonus[i] > 0) boosted += out[i] + oddsBonus[i];
+      if (oddsMult[i] > 0) boosted += out[i] * (1 + oddsMult[i]);
       else restBase += out[i];
     }
     if (boosted <= 0) return out;
-    if (boosted >= 100) {                        // bonuses ate the whole pool -> split it
+    if (boosted >= 100) {                        // boosts ate the whole pool -> split it
       for (let i = 0; i < n; i++)
-        out[i] = oddsBonus[i] > 0 ? (out[i] + oddsBonus[i]) / boosted * 100 : 0;
+        out[i] = oddsMult[i] > 0 ? out[i] * (1 + oddsMult[i]) / boosted * 100 : 0;
       return out;
     }
     const scale = restBase > 0 ? (100 - boosted) / restBase : 0;
-    for (let i = 0; i < n; i++) out[i] = oddsBonus[i] > 0 ? out[i] + oddsBonus[i] : out[i] * scale;
+    for (let i = 0; i < n; i++)
+      out[i] = oddsMult[i] > 0 ? out[i] * (1 + oddsMult[i]) : out[i] * scale;
     return out;
   }
   function pickColor() {
@@ -1152,13 +1183,13 @@
   // run (spawn weights, fruit multipliers, extra rows) belong in apply(), run once at start.
   // RELICS is empty until Phase 2 -- with no relics owned, both calls are a no-op.
   // id -> { name, icon, desc, price, apply?, modify?, ...events }
-  // apply() may only set derived state (oddsBonus / fruitMult / *Bonus); applyRelics wipes
+  // apply() may only set derived state (oddsMult / fruitMult / *Bonus); applyRelics wipes
   // those first, so an apply that did anything else would not survive a recompute.
   const RELICS = {
     banana_hunter: {                                            // A. odds
       name: "바나나 사냥꾼", icon: "🍌", price: 14,
-      desc: "바나나 확률 +6%p (6% → 12%) · 나머지 과일이 그만큼 줄어듭니다",
-      apply() { oddsBonus[6] += 6; },
+      desc: "바나나가 1만큼 더 등장합니다",
+      apply() { oddsMult[6] += 1; },
     },
     big_pop: {                                                  // B. score
       name: "대량 보너스", icon: "💥", price: 16,
@@ -1197,7 +1228,7 @@
   // Recomputes every passive effect from scratch, so it is safe to call any time the relic
   // list changes. Applying incrementally would double up a "+3 touches" on every purchase.
   function applyRelics() {
-    oddsBonus = [0, 0, 0, 0, 0, 0, 0];
+    oddsMult = [0, 0, 0, 0, 0, 0, 0];
     fruitMult = [1, 1, 1, 1, 1, 1, 1];
     touchBonus = 0; spawnBonus = 0; slotBonus = 0;
     for (const id of activeRelics()) {
@@ -1859,20 +1890,9 @@
   function renderShop() {
     $sh("sh-stage").textContent = stage;
     $sh("sh-coin").textContent = coins;
-    $sh("sh-slots").textContent = `${relics.length} / ${relicCap()}`;
+    $sh("sh-slots").textContent = `${relics.length}/${relicCap()}`;
     $sh("sh-reroll-cost").textContent = shopReroll;
     $sh("sh-reroll").disabled = coins < shopReroll || !shopOffers.length;
-
-    const own = $sh("sh-relics");
-    own.textContent = "";
-    relics.forEach((id, i) => {
-      const R = RELICS[id]; if (!R) return;
-      const b = document.createElement("span");
-      b.className = "owned" + (i >= relicCap() ? " inert" : "");   // past the cap: carried, inert
-      b.textContent = R.icon;
-      b.title = i >= relicCap() ? `${R.name} (칸 부족 — 비활성)` : `${R.name} — ${R.desc}`;
-      own.appendChild(b);
-    });
 
     const wrap = $sh("sh-offers");
     wrap.textContent = "";
@@ -1889,14 +1909,12 @@
       const card = document.createElement("button");
       card.className = "offer" + (poor || full ? " off" : "");
       card.disabled = poor || full;
+      const nm = document.createElement("b"); nm.className = "of-name"; nm.textContent = R.name;
       const ic = document.createElement("span"); ic.className = "of-ic"; ic.textContent = R.icon;
-      const body = document.createElement("span"); body.className = "of-body";
-      const nm = document.createElement("b"); nm.textContent = R.name;
       const ds = document.createElement("span"); ds.className = "of-desc";
       ds.textContent = full ? "유물 칸이 가득 찼습니다" : R.desc;
-      body.append(nm, ds);
       const pr = document.createElement("span"); pr.className = "of-price"; pr.textContent = `🪙 ${R.price}`;
-      card.append(ic, body, pr);
+      card.append(nm, ic, ds, pr);
       card.addEventListener("click", () => buyRelic(id));
       wrap.appendChild(card);
     }
@@ -1911,6 +1929,55 @@
     shopOffers = shopOffers.filter(x => x !== id);
     renderShop();
   }
+
+  // ---- info popup: what I am carrying, and the odds as they stand ----
+  const FRUIT_EMOJI = ["🍒", "🍊", "🥝", "🍋", "🍇", "🍑", "🍌"];
+  const FRUIT_NAMES = ["체리", "오렌지", "키위", "레몬", "포도", "복숭아", "바나나"];
+  let infoTab = "relics";
+
+  function renderInfo() {
+    for (const b of document.querySelectorAll(".itab"))
+      b.classList.toggle("on", b.dataset.tab === infoTab);
+    const body = $sh("info-body");
+    body.textContent = "";
+    const row = (ic, name, desc, num, inert) => {
+      const d = document.createElement("div");
+      d.className = "inf-row" + (inert ? " inert" : "");
+      const i = document.createElement("span"); i.className = "inf-ic"; i.textContent = ic;
+      const b = document.createElement("span"); b.className = "inf-body";
+      const n = document.createElement("b"); n.textContent = name;
+      const s2 = document.createElement("span"); s2.textContent = desc;
+      b.append(n, s2);
+      const v = document.createElement("span"); v.className = "inf-num"; v.textContent = num;
+      d.append(i, b, v);
+      body.appendChild(d);
+    };
+    if (infoTab === "relics") {
+      if (!relics.length) {
+        const e = document.createElement("div");
+        e.className = "inf-empty"; e.textContent = `아직 유물이 없습니다 (0 / ${relicCap()}칸)`;
+        body.appendChild(e);
+        return;
+      }
+      relics.forEach((id, i) => {
+        const R = RELICS[id]; if (!R) return;
+        const inert = i >= relicCap();
+        row(R.icon, R.name, inert ? "유물 칸이 모자라 꺼져 있습니다" : R.desc, inert ? "비활성" : "", inert);
+      });
+    } else {
+      // the fruit table is where a relic's "1만큼 더" turns into a number you can read
+      const p = colorOdds();
+      for (let i = 0; i < p.length; i++) {
+        const m = fruitMult[i] || 1;
+        row(FRUIT_EMOJI[i], FRUIT_NAMES[i],
+            `${FRUIT_POINTS[i]}점` + (m !== 1 ? ` × ${m}` : "") +
+            (oddsMult[i] > 0 ? `  ·  +${oddsMult[i]}만큼 더` : ""),
+            `${p[i].toFixed(1)}%`, false);
+      }
+    }
+  }
+  function openInfo(tab) { if (tab) infoTab = tab; renderInfo(); $sh("info").classList.remove("hidden"); }
+  function closeInfo() { $sh("info").classList.add("hidden"); }
 
   // ---- Star Rush: quota met -> next stage ----
   // The board deliberately carries over. Touch pressure plus a filling board is the
@@ -2720,7 +2787,7 @@
       resetRun, serializeRun, restoreRun, FRUIT_POINTS, COLS,
       MODES, activeColors, spawnCount, brickHpLevel, computeMaxLevel,
       RELICS, notify, modify, applyRelics, activeRelics, relicCap, stageTouches, RELIC_SLOTS,
-      openShop, closeShop, buyRelic, renderShop, rollOffers,
+      openShop, closeShop, buyRelic, renderShop, rollOffers, openInfo, closeInfo, renderInfo,
       get shopOffers() { return shopOffers; }, set shopOffers(v) { shopOffers = v; },
       get touchBonus() { return touchBonus; }, get spawnBonus() { return spawnBonus; },
       get slotBonus()  { return slotBonus; },
@@ -2752,7 +2819,7 @@
       // headless Chrome produces no frames under --virtual-time-budget, so rAF never ticks.
       // Item landings live in draw(); tests pump it by hand to advance them.
       draw,
-      get oddsBonus()   { return oddsBonus; },   set oddsBonus(v)   { oddsBonus = v; },
+      get oddsMult()    { return oddsMult; },    set oddsMult(v)    { oddsMult = v; },
       colorOdds, BASE_ODDS,
       get fruitMult()   { return fruitMult; },   set fruitMult(v)   { fruitMult = v; },
     };
@@ -2782,6 +2849,11 @@
     document.getElementById("pause").classList.add("hidden");
   });
   document.getElementById("sh-next").addEventListener("click", closeShop);
+  document.getElementById("sh-info").addEventListener("click", () => openInfo("relics"));
+  document.getElementById("info-btn").addEventListener("click", () => openInfo());
+  document.getElementById("info-close").addEventListener("click", closeInfo);
+  for (const b of document.querySelectorAll(".itab"))
+    b.addEventListener("click", () => openInfo(b.dataset.tab));
   document.getElementById("sh-reroll").addEventListener("click", () => {
     if (coins < shopReroll || !shopOffers.length) return;
     coins -= shopReroll; coinsShown = coins;
