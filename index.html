@@ -73,7 +73,10 @@
   .rb-cell { display: flex; flex-direction: column; align-items: center; }
   .rb-val { font-size: clamp(21px, 6.4vw, 28px); font-weight: 800; line-height: 1;
     letter-spacing: -.5px; white-space: nowrap; }
-  .rb-lab { font-size: 10px; color: var(--muted); letter-spacing: 1px; margin-top: 3px; white-space: nowrap; }
+  /* fixed line box: the ✓ in "목표 달성 ✓" sits taller than the Korean glyphs and grew the
+     whole band by 2px the moment the quota was met, nudging the board and dock */
+  .rb-lab { font-size: 10px; color: var(--muted); letter-spacing: 1px; margin-top: 3px;
+    white-space: nowrap; line-height: 13px; height: 13px; }
   .rb-div { width: 1px; align-self: stretch; margin: 3px 0 6px; background: #2b3048; }
   .rb-chips { margin-left: auto; display: flex; align-items: center; gap: 6px; }
   .rb-stage { font-size: 15px; font-weight: 800; color: var(--text); letter-spacing: .3px; }
@@ -126,10 +129,15 @@
   }
   #hint { color: var(--muted); font-size: 13px; margin-top: 10px; height: 16px; }
   /* only appears once the quota is met: bank the touches you did not need, or play on for score */
-  #rush-next { margin-top: 8px; padding: 11px 22px; font-size: 15px; border-radius: 999px;
+  /* fixed height, not padding: the enabled and disabled states measured 2px apart and that
+     was enough to nudge the board and the dock every time it unlocked */
+  #rush-next { margin-top: 8px; height: 44px; padding: 0 22px; font-size: 15px; border-radius: 999px;
+    display: inline-flex; align-items: center; justify-content: center; line-height: 1;
     background: linear-gradient(90deg,#ffc93c,#43d17a); }
   #rush-next.hidden { display: none; }
+  #rush-next:disabled { background: #232842; color: #6a7089; cursor: default; }
   #rush-next span { font-weight: 900; opacity: .75; margin-left: 4px; }
+  #rush-next:disabled span { opacity: .5; }
   #dock {
     display: flex; align-items: center; flex-wrap: wrap; justify-content: center;
     gap: 6px; margin-top: 10px; max-width: 520px;
@@ -1503,10 +1511,15 @@
       document.getElementById("rs-stage").textContent = stage;
       document.getElementById("rs-spawn").textContent = spawnCount();
     }
-    const canLeave = rush && running && !busy && stageScore >= rules().quota(stage);
-    document.getElementById("rush-next").classList.toggle("hidden", !canLeave);
-    if (canLeave)
+    // The button holds its place for the whole stage and only enables once the quota is met:
+    // appearing on demand pushed everything below it down mid-play.
+    const rn = document.getElementById("rush-next");
+    rn.classList.toggle("hidden", !rush);
+    if (rush) {
+      const canLeave = running && !busy && stageScore >= rules().quota(stage);
+      rn.disabled = !canLeave;
       document.getElementById("rn-coin").textContent = `🪙 +${leftoverCoins()}`;
+    }
     // NOT snapped to `coins` here -- tickCoins() eases it so the flying coins look like
     // they are what fills the counter
     for (const id of ["st-coin-v", "rs-coin-v"]) {
@@ -3021,7 +3034,7 @@
       MODES, activeColors, spawnCount, brickHpLevel, computeMaxLevel,
       RELICS, notify, modify, applyRelics, activeRelics, relicCap, stageTouches, RELIC_SLOTS,
       openShop, closeShop, buyRelic, renderShop, rollOffers, openInfo, closeInfo, renderInfo,
-      endStageEarly, leftoverCoins, takeCoin, COIN_FRUIT_CHANCE, COIN_PER_LEFTOVER, COIN_PAYOUT,
+      endStageEarly, leftoverCoins, takeCoin, updateHUD, COIN_FRUIT_CHANCE, COIN_PER_LEFTOVER, COIN_PAYOUT,
       TRAITS, TRAIT_EVERY, traitEffects, rollTraits, openTraits, pickTrait, renderTraits,
       get traits() { return traits; }, set traits(v) { traits = v; },
       get doubles() { return doubles; }, set doubles(v) { doubles = v; },
