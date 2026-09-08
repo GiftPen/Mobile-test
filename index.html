@@ -479,9 +479,20 @@
   const RUSH_SPAWNS    = 2;    // per turn. base 2 -> relic +1 -> trait +1 tops out at 4
   const RUSH_BUDS      = 18;   // opening board. a one-off injection, NOT a substitute for
                                // spawns/turn: it gets consumed and the board drains again
-  const RUSH_QUOTA_1   = 70;   // stage 1 target
-  const RUSH_QUOTA_MUL = 1.5;  // each stage's target vs the previous
-  const rushQuota = st => Math.round(RUSH_QUOTA_1 * Math.pow(RUSH_QUOTA_MUL, st - 1));
+  // Quota climbs in two tiers so the profile can be shaped: gentle steps inside a round,
+  // a bigger step when a round turns over. A single x1.5 per stage made round 1 free
+  // (cleared with 1.8-2.9x to spare) and then walled at 2-1 with 1.02x -- measured.
+  const RUSH_QUOTA_1   = 110;  // 1-1 target
+  const RUSH_STAGE_MUL = 1.15; // step within a round
+  const RUSH_ROUND_MUL = 1.25; // step across a round boundary
+  // A whole round advances by its internal steps AND the boundary jump, so the round
+  // multiplier compounds on the END of the previous round -- otherwise the quota drops
+  // when a round turns over.
+  const roundSpan = () => Math.pow(RUSH_STAGE_MUL, STAGES_PER_ROUND - 1) * RUSH_ROUND_MUL;
+  const rushQuota = st => {
+    const r = Math.floor((st - 1) / STAGES_PER_ROUND), sub = (st - 1) % STAGES_PER_ROUND;
+    return Math.round(RUSH_QUOTA_1 * Math.pow(roundSpan(), r) * Math.pow(RUSH_STAGE_MUL, sub));
+  };
   // `stage` stays a flat counter; rounds are just how it is shown and when traits fire
   const stageLabel = (st = 1) =>
     `${Math.floor((st - 1) / STAGES_PER_ROUND) + 1}-${((st - 1) % STAGES_PER_ROUND) + 1}`;
@@ -3067,7 +3078,8 @@
       get touchesLeft() { return touchesLeft; }, set touchesLeft(v) { touchesLeft = v; },
       get coins()       { return coins; },       set coins(v)       { coins = v; },
       addCoins, COIN_PAYOUT,
-      rushQuota, RUSH_TOUCHES, RUSH_SPAWNS, RUSH_BUDS, RUSH_QUOTA_1, RUSH_QUOTA_MUL, rules,
+      rushQuota, RUSH_TOUCHES, RUSH_SPAWNS, RUSH_BUDS, RUSH_QUOTA_1,
+      RUSH_STAGE_MUL, RUSH_ROUND_MUL, roundSpan, rules,
       get busy()        { return busy; },        set busy(v)        { busy = v; },
       get running()     { return running; },     set running(v)     { running = v; },
       get birds()       { return birds; },

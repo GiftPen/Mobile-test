@@ -65,8 +65,9 @@ window.addEventListener('load', () => setTimeout(() => {
   // changed by feel, and a test that pins them just has to be edited every time.
   if (F.rushQuota(1) !== F.RUSH_QUOTA_1)
     modeFails.push({knob:'quota starts at RUSH_QUOTA_1', got:F.rushQuota(1), want:F.RUSH_QUOTA_1});
-  for (let st = 2; st <= 8; st++) {
-    const want = Math.round(F.RUSH_QUOTA_1 * Math.pow(F.RUSH_QUOTA_MUL, st - 1));
+  for (let st = 2; st <= 12; st++) {
+    const r = Math.floor((st-1)/F.STAGES_PER_ROUND), sub = (st-1)%F.STAGES_PER_ROUND;
+    const want = Math.round(F.RUSH_QUOTA_1 * Math.pow(F.roundSpan(), r) * Math.pow(F.RUSH_STAGE_MUL, sub));
     if (F.rushQuota(st) !== want) modeFails.push({knob:'quota s'+st, got:F.rushQuota(st), want});
     if (F.rushQuota(st) <= F.rushQuota(st-1))
       modeFails.push({knob:'quota rises s'+st, got:F.rushQuota(st), want:'> '+F.rushQuota(st-1)});
