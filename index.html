@@ -125,6 +125,11 @@
     background: rgba(255,120,40,.16); border: 1px solid rgba(255,140,60,.5);
   }
   #hint { color: var(--muted); font-size: 13px; margin-top: 10px; height: 16px; }
+  /* only appears once the quota is met: bank the touches you did not need, or play on for score */
+  #rush-next { margin-top: 8px; padding: 11px 22px; font-size: 15px; border-radius: 999px;
+    background: linear-gradient(90deg,#ffc93c,#43d17a); }
+  #rush-next.hidden { display: none; }
+  #rush-next span { font-weight: 900; opacity: .75; margin-left: 4px; }
   #dock {
     display: flex; align-items: center; flex-wrap: wrap; justify-content: center;
     gap: 6px; margin-top: 10px; max-width: 520px;
@@ -249,6 +254,9 @@
   .inf-body span { font-size: 11px; color: var(--muted); line-height: 1.35; }
   .inf-num { font-size: 13px; font-weight: 800; color: #ffd23e; white-space: nowrap; }
   .inf-empty { padding: 16px; text-align: center; color: var(--muted); font-size: 13px; }
+  /* hold the taller tab's height (7 fruit rows) so switching tabs doesn't resize the card
+     under your thumb -- it jumped 537px -> 177px before */
+  #info-body { min-height: 406px; }   /* = 7 fruit rows */
   #info-close { width: 100%; margin-top: 4px; }
   .top-left { justify-self: start; display: flex; gap: 6px; }
   .shop-actions { display: flex; gap: 8px; margin-top: 10px; }
@@ -267,8 +275,8 @@
   <div id="info" class="hidden">
     <div class="info-card">
       <div class="info-tabs">
-        <button class="itab on" data-tab="relics">📜 유물</button>
-        <button class="itab" data-tab="fruits">🍊 과일 확률</button>
+        <button class="itab on" data-tab="fruits">🍊 과일 확률</button>
+        <button class="itab" data-tab="relics">📜 유물</button>
       </div>
       <div id="info-body"></div>
       <button id="info-close" class="ghost-btn">닫기</button>
@@ -334,6 +342,7 @@
     <canvas id="game"></canvas>
   </div>
   <div id="hint">빈 칸을 탭해 과일을 놓으세요</div>
+  <button id="rush-next" class="hidden">다음 스테이지 ▶ <span id="rn-coin">🪙 +0</span></button>
 
   <div id="dock">
     <span class="dock-label">테스트</span>
@@ -975,6 +984,7 @@
   let starImg = null;         // loaded star SVG image
   const brickImg = [];        // brickImg[hp] = SVG image (1..3)
   let glow;                    // glow[r][c] = {c: colorIdx, t: 0..1}
+  let coinCell;                // coinCell[r][c] = 1 when this fruit spawned carrying a coin
   let ghost;                   // ghost[r][c] = colorIdx of a cell already cleared in logic
                                // but not yet visually popped -- keeps the fruit on screen
                                // until ITS staggered burst fires, so a blast reads as fruit
@@ -1022,6 +1032,7 @@
   function resetRun() {
     ROWS = 8;                              // Star Rush grows this mid-run; runs start at 8
     grid = layer(-1); special = layer(null); hp = layer(0);
+    coinCell = layer(0);
     glow = layer(null); appear = layer(0); ghost = layer(null);   // display-only layers
     nextColor = null; nextColor2 = null;   // null queue -> pickNext refills both slots
     score = 0; streak = 0; touchCount = 0;
@@ -1034,7 +1045,7 @@
     layout();                              // ROWS may have changed -> resize the board
   }
   function serializeRun() {
-    return { v: RUN_VERSION, mode, rows: ROWS, grid, special, hp,
+    return { v: RUN_VERSION, mode, rows: ROWS, grid, special, hp, coinCell,
              nextColor, nextColor2, score, streak, touchCount,
              stage, stageScore, touchesLeft, coins, oddsMult, fruitMult, relics };
   }
@@ -1042,7 +1053,7 @@
     if (!o || o.v !== RUN_VERSION) return false;   // unknown/older save -> caller starts fresh
     mode = MODES[o.mode] ? o.mode : "arcade";     // a saved rush run must come back as rush
     ROWS = o.rows;
-    ({ grid, special, hp, nextColor, nextColor2, score, streak, touchCount,
+    ({ grid, special, hp, coinCell, nextColor, nextColor2, score, streak, touchCount,
        stage, stageScore, touchesLeft, coins, oddsMult, fruitMult, relics } = o);
     coinsShown = coins; coinFly = [];
     glow = layer(null); appear = layer(0); ghost = layer(null);
@@ -1255,6 +1266,7 @@
       if (!e.length) return;
       const [r, c] = e[randInt(e.length)];
       grid[r][c] = pickColor(); appear[r][c] = 1;
+      if (Math.random() < COIN_FRUIT_CHANCE) coinCell[r][c] = 1;   // this one comes with a coin
       notify("onSpawn", { r, c, color: grid[r][c] });
     }
   }
@@ -1403,6 +1415,10 @@
       document.getElementById("rs-stage").textContent = stage;
       document.getElementById("rs-spawn").textContent = spawnCount();
     }
+    const canLeave = rush && running && !busy && stageScore >= rules().quota(stage);
+    document.getElementById("rush-next").classList.toggle("hidden", !canLeave);
+    if (canLeave)
+      document.getElementById("rn-coin").textContent = `🪙 +${leftoverCoins()}`;
     // NOT snapped to `coins` here -- tickCoins() eases it so the flying coins look like
     // they are what fills the counter
     for (const id of ["st-coin-v", "rs-coin-v"]) {
@@ -1542,6 +1558,7 @@
         const vis = cellColor < 0 ? it.color : cellColor;
         grid[r][c] = -1; special[r][c] = null;   // logic clears immediately (game state stays correct)
         ghost[r][c] = vis;                       // ...but it stays on screen until its burst
+        const carried = takeCoin(r, c);
         popped++;
         if (cellColor >= 0) pointsPopped += fruitScore(cellColor);
         // item reward = size of YOUR placed color group. Count color-flood pops AND any
@@ -1556,6 +1573,7 @@
           ghost[r][c] = null;                    // this cell's turn: fruit goes, particles fly
           burst(r, c, vis);
           popScoreText(r, c, cellColor);
+          if (carried) addCoins(1, r, c);        // its coin flies when the fruit actually pops
           glow[r][c] = { c: vis, t: 1 };
           if (mode === "color") flashBox(r, c, R, vis);   // ripple its 3x3 burst range
           dirty = true;
@@ -1608,7 +1626,7 @@
                   visited[rr][cc] = true;
                   grid[rr][cc] = -1; special[rr][cc] = null; popped++;
                   pointsPopped += fruitScore(target);
-                  tCells.push([rr, cc]);
+                  tCells.push([rr, cc, takeCoin(rr, cc)]);
                   // chip bricks adjacent to each star-cleared cell (was missing)
                   for (let dr = -1; dr <= 1; dr++)
                     for (let dc = -1; dc <= 1; dc++) {
@@ -1933,7 +1951,7 @@
   // ---- info popup: what I am carrying, and the odds as they stand ----
   const FRUIT_EMOJI = ["🍒", "🍊", "🥝", "🍋", "🍇", "🍑", "🍌"];
   const FRUIT_NAMES = ["체리", "오렌지", "키위", "레몬", "포도", "복숭아", "바나나"];
-  let infoTab = "relics";
+  let infoTab = "fruits";
 
   function renderInfo() {
     for (const b of document.querySelectorAll(".itab"))
@@ -1978,6 +1996,20 @@
   }
   function openInfo(tab) { if (tab) infoTab = tab; renderInfo(); $sh("info").classList.remove("hidden"); }
   function closeInfo() { $sh("info").classList.add("hidden"); }
+
+  // Leaving early trades score for coins: the touches you did not spend come back as
+  // currency. Half rate, or rushing the quota would beat playing on for score every time.
+  const leftoverCoins = () => Math.floor(Math.max(0, touchesLeft) * COIN_PER_LEFTOVER);
+  function endStageEarly() {
+    if (!rules().touchBudget || !running || busy) return;
+    if (stageScore < rules().quota(stage)) return;
+    busy = true;
+    addCoins(leftoverCoins(), (ROWS - 1) / 2, (COLS - 1) / 2);
+    touchesLeft = 0;
+    document.getElementById("rush-next").classList.add("hidden");
+    updateHUD();
+    setTimeout(stageClear, 560);
+  }
 
   // ---- Star Rush: quota met -> next stage ----
   // The board deliberately carries over. Touch pressure plus a filling board is the
@@ -2043,6 +2075,14 @@
   // `coins` moves immediately so nothing can desync; the flight and the ticking counter are
   // decoration layered on top of a value that is already correct.
   const COIN_PAYOUT = st => 5 + st;         // coins for clearing stage `st` (draft)
+  const COIN_FRUIT_CHANCE = 0.10;           // a spawned fruit carries a coin this often
+  const COIN_PER_LEFTOVER = 0.5;            // coins per touch banked by leaving a stage early
+  // takes the coin off a cell as it is cleared; returns whether there was one
+  function takeCoin(r, c) {
+    if (!coinCell || !coinCell[r][c]) return 0;
+    coinCell[r][c] = 0;
+    return 1;
+  }
   function addCoins(n, r, c) {
     if (!(n > 0)) return;
     coins += n;
@@ -2447,6 +2487,19 @@
           }
           ctx.restore();
         }
+
+        // a fruit that spawned carrying a coin wears it on its lower-right
+        if (coinCell[r][c] && grid[r][c] >= 0) {
+          const bx = x + cell * 0.76, by = y + cell * 0.76, br = cell * 0.15;
+          ctx.save();
+          ctx.fillStyle = "rgba(0,0,0,.45)";
+          ctx.beginPath(); ctx.arc(bx, by, br * 1.28, 0, PI2); ctx.fill();
+          ctx.fillStyle = "#ffd23e";
+          ctx.beginPath(); ctx.arc(bx, by, br, 0, PI2); ctx.fill();
+          ctx.fillStyle = "#fff3b0";
+          ctx.beginPath(); ctx.arc(bx - br * 0.26, by - br * 0.3, br * 0.42, 0, PI2); ctx.fill();
+          ctx.restore();
+        }
       }
     }
 
@@ -2573,7 +2626,7 @@
         const nd = nodes[L.reached];
         if (nd) {
           burst(nd[0], nd[1], L.color); popScoreText(nd[0], nd[1], L.color);
-          addCoins(1, nd[0], nd[1]);       // ⭐ star signature: a coin per linked fruit
+          addCoins(1 + (nd[2] || 0), nd[0], nd[1]);   // ⭐ signature coin + any it was carrying
         }
       }
       const seg = Math.floor(p), frac = p - seg;
@@ -2650,7 +2703,9 @@
           } else {                                // plain fruit / brick -> eat it
             const col = grid[f.tr][f.tc];
             const isBrick = col === BRICK;
+            const beak = takeCoin(f.tr, f.tc);
             grid[f.tr][f.tc] = -1; special[f.tr][f.tc] = null; hp[f.tr][f.tc] = 0;
+            if (beak) addCoins(1, f.tr, f.tc);
             burst(f.tr, f.tc, isBrick ? "#9aa0b5" : col);   // bricks burst grey, as they do elsewhere
             if (!isBrick) popScoreText(f.tr, f.tc, col);
             addScore(BIRD_SCORE); dirty = true;
@@ -2788,6 +2843,8 @@
       MODES, activeColors, spawnCount, brickHpLevel, computeMaxLevel,
       RELICS, notify, modify, applyRelics, activeRelics, relicCap, stageTouches, RELIC_SLOTS,
       openShop, closeShop, buyRelic, renderShop, rollOffers, openInfo, closeInfo, renderInfo,
+      endStageEarly, leftoverCoins, takeCoin, COIN_FRUIT_CHANCE, COIN_PER_LEFTOVER, COIN_PAYOUT,
+      get coinCell() { return coinCell; }, set coinCell(v) { coinCell = v; },
       get shopOffers() { return shopOffers; }, set shopOffers(v) { shopOffers = v; },
       get touchBonus() { return touchBonus; }, get spawnBonus() { return spawnBonus; },
       get slotBonus()  { return slotBonus; },
@@ -2848,6 +2905,7 @@
     paused = false;
     document.getElementById("pause").classList.add("hidden");
   });
+  document.getElementById("rush-next").addEventListener("click", endStageEarly);
   document.getElementById("sh-next").addEventListener("click", closeShop);
   document.getElementById("sh-info").addEventListener("click", () => openInfo("relics"));
   document.getElementById("info-btn").addEventListener("click", () => openInfo());

@@ -213,13 +213,14 @@ window.addEventListener('load', () => setTimeout(() => {
   F.grid = grid10();
   F.special = Array.from({length:10}, (_,r) => Array.from({length:8}, (_,c) => (r+c)%5 ? null : 'bomb'));
   F.hp = Array.from({length:10}, (_,r) => Array(8).fill(r));
+  F.coinCell = Array.from({length:10}, (_,r) => Array.from({length:8}, (_,c) => (r+c)%3 ? 0 : 1));
   F.nextColor = 5; F.nextColor2 = 2;
   F.relics = ['relic_a','relic_b'];
   F.stage = 4; F.stageScore = 42; F.touchesLeft = 9; F.coins = 23;
   F.score = 1234; F.streak = 3; F.touchCount = 77;
   F.oddsMult = [0,0,0,2,0,0,3];
   F.fruitMult = [1,1.5,2,1,1,1,3];
-  const want = {mode:'rush', ROWS:10, grid:F.grid, special:F.special, hp:F.hp, nextColor:5, nextColor2:2,
+  const want = {mode:'rush', ROWS:10, grid:F.grid, special:F.special, hp:F.hp, coinCell:F.coinCell, nextColor:5, nextColor2:2,
                 score:1234, streak:3, touchCount:77, oddsMult:[0,0,0,2,0,0,3],
                 fruitMult:[1,1.5,2,1,1,1,3], relics:['relic_a','relic_b'],
                 stage:4, stageScore:42, touchesLeft:9, coins:23};

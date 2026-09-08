@@ -42,8 +42,14 @@ window.addEventListener('load', async () => {
   chk('free: bird gone',       F.birds.length, 0);
 
   // ---- bird whose target vanishes mid-flight gets one more hop ----
+  // settle everything the previous phase left in flight before setting this one up, or the
+  // board can be mutated out from under it and the bird finds no target
+  await pump(60);
+  await sleep(400);
   await pump(20);
   clearBoard();
+  F.birds.length = 0;
+  F.busy = false;
   F.grid[3][3] = 4; F.grid[6][6] = 5;
   F.birds.push({ sr: 6, sc: 6, tr: 0, tc: 0, t: 0.99, curve: 1 });   // target (0,0) is empty
   await pump(3);
