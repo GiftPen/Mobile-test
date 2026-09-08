@@ -54,6 +54,10 @@
   }
   .chip b { color: var(--text); font-weight: 800; }
   .chip.lvl { color: var(--text); font-weight: 800; background: #232744; }
+  .chip.coin { color: #ffd23e; background: rgba(255,190,40,.12); border: 1px solid rgba(255,190,60,.35); }
+  .chip.coin b { color: #ffe9a0; }
+  .chip.coin.bump { animation: coinBump .22s ease-out; }
+  @keyframes coinBump { 0% { transform: scale(1); } 45% { transform: scale(1.22); } 100% { transform: scale(1); } }
   .chip.lvl .lvmax { color: #ffd23e; margin-left: 4px; font-size: 10px; letter-spacing: 1px; }
   .chip.lvl .lvmax.hidden { display: none; }
   #stats.hidden { display: none; }
@@ -72,6 +76,8 @@
   .rb-lab { font-size: 10px; color: var(--muted); letter-spacing: 1px; margin-top: 3px; white-space: nowrap; }
   .rb-div { width: 1px; align-self: stretch; margin: 3px 0 6px; background: #2b3048; }
   .rb-chips { margin-left: auto; display: flex; align-items: center; gap: 6px; }
+  .rb-stage { font-size: 15px; font-weight: 800; color: var(--text); letter-spacing: .3px; }
+  .rb-stage b { color: #ffd23e; }
   #rb-quota-cell.met .rb-val { color: #ffd23e; }
   #rb-quota-cell.met .rb-lab { color: #ffd23e; opacity: .9; }
   #rb-touch-cell.warn .rb-val, #rb-touch-cell.warn .rb-lab { color: #ffab3d; }
@@ -218,6 +224,7 @@
       <span id="streak-badge"></span>
     </div>
     <div class="rush-box center hidden" id="rush-box">
+      <span class="rb-stage">스테이지 <b id="rs-stage">1</b></span>
       <span class="best-line">점수 <b id="rb-score">0</b> · 최고 <b id="rb-best">0</b></span>
       <span id="streak-badge2"></span>
     </div>
@@ -231,6 +238,7 @@
     <span class="chip lvl">Lv.<b id="st-level">1</b><span id="st-max" class="lvmax hidden">MAX</span></span>
     <span class="chip">👆 터치 <b id="st-touch">0</b></span>
     <span class="chip">➕ 매턴 <b id="st-spawn">1</b></span>
+    <span class="chip coin" id="st-coin">🪙 <b id="st-coin-v">0</b></span>
     <span id="danger-label" class="hidden">⚠️ 위험!</span>
   </div>
   <div id="rush" class="hidden">
@@ -239,8 +247,8 @@
       <div class="rb-div"></div>
       <div class="rb-cell" id="rb-touch-cell"><span class="rb-val" id="rb-touch">15</span><span class="rb-lab">남은 터치</span></div>
       <div class="rb-chips">
-        <span class="chip lvl">스테이지 <b id="rs-stage">1</b></span>
-        <span class="chip">➕ 매턴 <b id="rs-spawn">1</b></span>
+        <span class="chip coin" id="rs-coin">🪙 <b id="rs-coin-v">0</b></span>
+        <span class="chip">➕ <b id="rs-spawn">1</b></span>
         <span id="danger-label2" class="hidden">⚠️</span>
       </div>
     </div>
@@ -864,6 +872,9 @@
   let score, best, streak;     // streak = consecutive successful taps
   let touchCount;              // total taps this game
   let stage, stageScore, touchesLeft;   // Star Rush: current stage, its score, its budget
+  let coins;                   // shared currency, kept separate from score (doc 4)
+  let coinsShown = 0;          // display value, eased toward `coins` so it ticks up
+  let coinFly = [];            // coins arcing from the cell that dropped them to the HUD chip
   let running = false;
   let busy = false;            // wave animating -> block input
   let paused = false;          // pause overlay open -> block input
@@ -938,6 +949,7 @@
     nextColor = null; nextColor2 = null;   // null queue -> pickNext refills both slots
     score = 0; streak = 0; touchCount = 0;
     stage = 1; stageScore = 0; touchesLeft = RUSH_TOUCHES;
+    coins = 0; coinsShown = 0; coinFly = [];
     colorWeight = [1, 1, 1, 1, 1, 1, 1];
     fruitMult   = [1, 1, 1, 1, 1, 1, 1];
     relics = [];
@@ -946,20 +958,21 @@
   function serializeRun() {
     return { v: RUN_VERSION, mode, rows: ROWS, grid, special, hp,
              nextColor, nextColor2, score, streak, touchCount,
-             stage, stageScore, touchesLeft, colorWeight, fruitMult, relics };
+             stage, stageScore, touchesLeft, coins, colorWeight, fruitMult, relics };
   }
   function restoreRun(o) {
     if (!o || o.v !== RUN_VERSION) return false;   // unknown/older save -> caller starts fresh
     mode = MODES[o.mode] ? o.mode : "arcade";     // a saved rush run must come back as rush
     ROWS = o.rows;
     ({ grid, special, hp, nextColor, nextColor2, score, streak, touchCount,
-       stage, stageScore, touchesLeft, colorWeight, fruitMult, relics } = o);
+       stage, stageScore, touchesLeft, coins, colorWeight, fruitMult, relics } = o);
+    coinsShown = coins; coinFly = [];
     glow = layer(null); appear = layer(0); ghost = layer(null);
     layout(); dirty = true;
     return true;
   }
   function resetEffects() {
-    particles = []; birds = []; flares = []; waves = []; links = []; floats = [];
+    particles = []; birds = []; flares = []; waves = []; links = []; floats = []; coinFly = [];
     shake = 0; flash = 0; dirty = true;
   }
   function randInt(n) { return Math.floor(Math.random() * n); }
@@ -1190,6 +1203,31 @@
     const hue = 220 - (i / (FILL_SEGS - 1)) * 230;   // 220(blue) .. -10(red)
     return `hsl(${(hue + 360) % 360} 85% 58%)`;
   }
+  // the counter ticks up toward `coins` instead of snapping, so the flying coins look like
+  // they are what is filling it
+  let coinBumpTimer = null;
+  function paintCoins() {
+    for (const id of ["st-coin-v", "rs-coin-v"]) {
+      const el = document.getElementById(id);
+      if (el) el.textContent = coinsShown;
+    }
+    const chip = document.getElementById(rules().touchBudget ? "rs-coin" : "st-coin");
+    if (chip) {
+      chip.classList.remove("bump");
+      void chip.offsetWidth;                 // restart the animation
+      chip.classList.add("bump");
+      clearTimeout(coinBumpTimer);
+      coinBumpTimer = setTimeout(() => chip.classList.remove("bump"), 260);
+    }
+  }
+  function tickCoins() {
+    if (coinsShown === coins) return;
+    const d = coins - coinsShown;
+    coinsShown += Math.sign(d) * Math.max(1, Math.ceil(Math.abs(d) * 0.18));
+    if (Math.sign(coins - coinsShown) !== Math.sign(d)) coinsShown = coins;
+    paintCoins();
+  }
+
   function updateHUD() {
     document.getElementById("score").textContent = score;
     document.getElementById("best").textContent = best;
@@ -1217,6 +1255,12 @@
       tc.classList.toggle("low", touchesLeft <= 3);
       document.getElementById("rs-stage").textContent = stage;
       document.getElementById("rs-spawn").textContent = spawnCount();
+    }
+    // NOT snapped to `coins` here -- tickCoins() eases it so the flying coins look like
+    // they are what fills the counter
+    for (const id of ["st-coin-v", "rs-coin-v"]) {
+      const el = document.getElementById(id);
+      if (el) el.textContent = coinsShown;
     }
     const lv = level();
     document.getElementById("st-level").textContent = lv;
@@ -1676,6 +1720,7 @@
   // The board deliberately carries over. Touch pressure plus a filling board is the
   // dual tension the design leans on (doc 8); a fresh board would remove half of it.
   function stageClear() {
+    addCoins(COIN_PAYOUT(stage));         // the stage you just cleared pays out
     stage++;
     stageScore = 0;
     touchesLeft = rules().touches;
@@ -1726,6 +1771,27 @@
       text: m === 1 ? String(base) : `${base}×${m}`,
       color: POP_COLORS[colorIdx] || "#fff", t: 0,
     });
+  }
+
+  // ⭐ the star's signature: every fruit its constellation clears drops a coin (doc 4-0).
+  // `coins` moves immediately so nothing can desync; the flight and the ticking counter are
+  // decoration layered on top of a value that is already correct.
+  const COIN_PAYOUT = st => 5 + st;         // coins for clearing stage `st` (draft)
+  function addCoins(n, r, c) {
+    if (!(n > 0)) return;
+    coins += n;
+    if (r != null) for (let i = 0; i < n && coinFly.length < 60; i++)
+      coinFly.push({ sx: pad + c * cell + cell / 2, sy: pad + r * cell + cell / 2,
+                     t: -i * 0.05, lift: 0.5 + Math.random() * 0.7 });
+    dirty = true;
+  }
+  // where the coins fly to: the HUD coin chip, mapped into board space
+  function coinTargetX() {
+    const chip = document.getElementById(rules().touchBudget ? "rs-coin" : "st-coin");
+    if (!chip) return boardPx / 2;
+    const a = chip.getBoundingClientRect(), b = canvas.getBoundingClientRect();
+    if (!a.width) return boardPx / 2;
+    return a.left + a.width / 2 - b.left;
   }
 
   function burst(r, c, color) {
@@ -1985,12 +2051,13 @@
 
     // idle-skip: when nothing is animating and no change is pending, don't redraw (saves heat)
     let live = particles.length || birds.length || flares.length || waves.length || links.length
-             || floats.length
+             || floats.length || coinFly.length || coinsShown !== coins
              || shake > 0.3 || flash > 0.01;
     if (!live) for (let r = 0; r < ROWS && !live; r++) for (let c = 0; c < COLS; c++)
       if (glow[r][c] || appear[r][c] > 0 || special[r][c] === "bomb") { live = true; break; }
     if (!dirty && !live) { requestAnimationFrame(draw); return; }
     frame++;   // advance idle-animation clock only while actually drawing
+    tickCoins();
 
     // clear the whole canvas in raw pixels (so shake leaves no smear), keep dpr transform
     ctx.save(); ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.clearRect(0, 0, canvas.width, canvas.height); ctx.restore();
@@ -2139,6 +2206,28 @@
       ctx.restore();
     }
 
+    // coins arcing from the cell that dropped them up toward the HUD chip
+    if (coinFly.length) {
+      const tx = coinTargetX(), ty = -cell * 0.15;
+      ctx.save();
+      for (let i = coinFly.length - 1; i >= 0; i--) {
+        const cf = coinFly[i];
+        cf.t += 0.028;
+        if (cf.t >= 1) { coinFly.splice(i, 1); continue; }
+        if (cf.t <= 0) continue;                                  // staggered start
+        const e = cf.t * cf.t * (3 - 2 * cf.t);                   // smoothstep
+        const x = cf.sx + (tx - cf.sx) * e;
+        const y = cf.sy + (ty - cf.sy) * e - Math.sin(e * Math.PI) * cell * cf.lift;
+        const rad = cell * 0.15 * (1 - e * 0.35);
+        ctx.globalAlpha = cf.t > 0.82 ? (1 - cf.t) / 0.18 : 1;
+        ctx.fillStyle = "#ffd23e";
+        ctx.beginPath(); ctx.arc(x, y, rad, 0, PI2); ctx.fill();
+        ctx.fillStyle = "#fff3b0";
+        ctx.beginPath(); ctx.arc(x - rad * 0.25, y - rad * 0.28, rad * 0.42, 0, PI2); ctx.fill();
+      }
+      ctx.restore();
+    }
+
     // per-fruit score pops
     if (floats.length) {
       ctx.save();
@@ -2216,7 +2305,10 @@
       while (L.reached < Math.floor(p)) {
         L.reached++;
         const nd = nodes[L.reached];
-        if (nd) { burst(nd[0], nd[1], L.color); popScoreText(nd[0], nd[1], L.color); }
+        if (nd) {
+          burst(nd[0], nd[1], L.color); popScoreText(nd[0], nd[1], L.color);
+          addCoins(1, nd[0], nd[1]);       // ⭐ star signature: a coin per linked fruit
+        }
       }
       const seg = Math.floor(p), frac = p - seg;
       const C = (n) => cellCenter(n[0], n[1]);
@@ -2445,6 +2537,8 @@
       get stage()       { return stage; },       set stage(v)       { stage = v; },
       get stageScore()  { return stageScore; },  set stageScore(v)  { stageScore = v; },
       get touchesLeft() { return touchesLeft; }, set touchesLeft(v) { touchesLeft = v; },
+      get coins()       { return coins; },       set coins(v)       { coins = v; },
+      addCoins, COIN_PAYOUT,
       rushQuota, RUSH_TOUCHES, RUSH_SPAWNS, RUSH_BUDS, RUSH_QUOTA_1, RUSH_QUOTA_MUL, rules,
       get busy()        { return busy; },        set busy(v)        { busy = v; },
       get running()     { return running; },     set running(v)     { running = v; },

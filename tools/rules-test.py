@@ -126,14 +126,14 @@ window.addEventListener('load', () => setTimeout(() => {
   F.hp = Array.from({length:10}, (_,r) => Array(8).fill(r));
   F.nextColor = 5; F.nextColor2 = 2;
   F.relics = ['relic_a','relic_b'];
-  F.stage = 4; F.stageScore = 42; F.touchesLeft = 9;
+  F.stage = 4; F.stageScore = 42; F.touchesLeft = 9; F.coins = 23;
   F.score = 1234; F.streak = 3; F.touchCount = 77;
   F.colorWeight = [1,2,3,4,5,6,7];
   F.fruitMult = [1,1.5,2,1,1,1,3];
   const want = {mode:'rush', ROWS:10, grid:F.grid, special:F.special, hp:F.hp, nextColor:5, nextColor2:2,
                 score:1234, streak:3, touchCount:77, colorWeight:[1,2,3,4,5,6,7],
                 fruitMult:[1,1.5,2,1,1,1,3], relics:['relic_a','relic_b'],
-                stage:4, stageScore:42, touchesLeft:9};
+                stage:4, stageScore:42, touchesLeft:9, coins:23};
   const snap = JSON.parse(JSON.stringify(F.serializeRun()));
 
   F.resetRun();                                   // reset must wipe it all
@@ -149,6 +149,7 @@ window.addEventListener('load', () => setTimeout(() => {
   if (F.stage !== 1) resetLeaks.push('stage');
   if (F.stageScore !== 0) resetLeaks.push('stageScore');
   if (F.touchesLeft !== F.RUSH_TOUCHES) resetLeaks.push('touchesLeft');
+  if (F.coins !== 0) resetLeaks.push('coins');
   if (JSON.stringify(F.colorWeight) !== '[1,1,1,1,1,1,1]') resetLeaks.push('colorWeight');
   if (JSON.stringify(F.fruitMult) !== '[1,1,1,1,1,1,1]') resetLeaks.push('fruitMult');
 
