@@ -1872,8 +1872,11 @@
       // The star holds every cell it cleared as a ghost fruit for the length of its
       // constellation draw (~0.7-1.5s), and links paint over the grid -- spawning into those
       // cells would put a new fruit under an old ghost. Wait the animation out.
+      // links only drain inside draw(), so if rendering stalls -- a backgrounded tab, say --
+      // this would wait forever and the turn would never end. Give up after a second and a half.
+      const deadline = performance.now() + 1500;
       const whenSettled = () => {
-        if (links.length) { setTimeout(whenSettled, 80); return; }
+        if (links.length && performance.now() < deadline) { setTimeout(whenSettled, 80); return; }
         endTurn();
       };
       setTimeout(whenSettled, Math.max(0, visualEnd - performance.now()) + SPAWN_SETTLE_MS);
@@ -2075,8 +2078,12 @@
   // ⭐ the star's signature: every fruit its constellation clears drops a coin (doc 4-0).
   // `coins` moves immediately so nothing can desync; the flight and the ticking counter are
   // decoration layered on top of a value that is already correct.
-  const COIN_PAYOUT = st => 5 + st;         // coins for clearing stage `st` (draft)
-  const COIN_FRUIT_CHANCE = 0.10;           // a spawned fruit carries a coin this often
+  // Three income streams stack (clear payout + coin fruit + banked touches). Measured over a
+  // 7-stage run they paid roughly double what the relics cost, so all five could be bought
+  // with change to spare and the build stopped being a choice. Trimmed to bring purchases
+  // back toward the design's one-relic-per-two-stages.
+  const COIN_PAYOUT = st => 3 + st;         // coins for clearing stage `st`
+  const COIN_FRUIT_CHANCE = 0.06;           // a spawned fruit carries a coin this often
   const COIN_PER_LEFTOVER = 0.5;            // coins per touch banked by leaving a stage early
   // takes the coin off a cell as it is cleared; returns whether there was one
   function takeCoin(r, c) {
