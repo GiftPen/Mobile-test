@@ -98,8 +98,15 @@
     font-size: 26px; font-weight: 900; pointer-events: none; z-index: 5; white-space: nowrap;
     text-align: center; text-shadow: 0 2px 6px rgba(0,0,0,.7), 0 0 2px rgba(0,0,0,.5);
   }
-  .gain-pop .gp-sub { display: block; margin-top: 1px; font-size: 12px; font-weight: 800;
-    letter-spacing: .3px; color: #fff; opacity: .8; }
+  /* the multipliers are the "why" behind the total, so they get pills of their own rather
+     than a faint grey line -- at 12px/80% they flashed past unread */
+  .gain-pop .gp-sub { display: flex; gap: 5px; justify-content: center; margin-top: 5px;
+    font-size: 0; text-shadow: none; }
+  .gain-pop .gp-sub b { font-size: 14px; font-weight: 900; letter-spacing: .2px;
+    padding: 2px 9px; border-radius: 999px; white-space: nowrap;
+    background: rgba(10,12,20,.72); }
+  .gain-pop .gp-chain { color: #9fd6ff; border: 1px solid rgba(90,160,255,.55); }
+  .gain-pop .gp-combo { color: #ffcaa0; border: 1px solid rgba(255,140,60,.6); }
   /* fixed height reserved always -> toggling never reflows the board (no up/down jump) */
   #streak-badge {
     display: inline-flex; align-items: center; justify-content: center;
@@ -1735,9 +1742,9 @@
   // which multipliers turned the ingredients into the total
   function multLabel(cb, sm) {
     const p = [];
-    if (cb > 1.001) p.push(`×${+cb.toFixed(2)} 연쇄`);
-    if (sm > 1.001) p.push(`×${+sm.toFixed(1)} 콤보`);
-    return p.join("  ");
+    if (cb > 1.001) p.push(["gp-chain", `×${+cb.toFixed(2)} 연쇄`]);
+    if (sm > 1.001) p.push(["gp-combo", `×${+sm.toFixed(1)} 콤보`]);
+    return p;
   }
   function showGain(r, c, gained, colorIdx, sub) {
     if (!gained || gained <= 0) return;
@@ -1745,16 +1752,34 @@
     const el = document.createElement("div");
     el.className = "gain-pop";
     el.textContent = "+" + gained;
-    if (sub) { const s2 = document.createElement("span"); s2.className = "gp-sub"; s2.textContent = sub; el.appendChild(s2); }
+    if (sub && sub.length) {
+      const s2 = document.createElement("span");
+      s2.className = "gp-sub";
+      for (const [cls, txt] of sub) {
+        const b = document.createElement("b"); b.className = cls; b.textContent = txt;
+        s2.appendChild(b);
+      }
+      el.appendChild(s2);
+    }
     el.style.color = (typeof colorIdx === "number" ? COLORS[colorIdx] : colorIdx) || "#fff";
+    el.style.top = (pad + r * cell + cell / 2) + "px";
     el.style.left = (pad + c * cell + cell / 2) + "px";
-    el.style.top  = (pad + r * cell + cell / 2) + "px";
     wrap.appendChild(el);
+    // the multiplier pills are wide; keep the whole pop inside the board or a pop in
+    // column 0 or 7 gets clipped by the viewport
+    const w = el.offsetWidth;
+    if (w) {
+      const cx = pad + c * cell + cell / 2;
+      el.style.left = Math.max(w / 2 + 4, Math.min(boardPx - w / 2 - 4, cx)) + "px";
+    }
+    // hold at full opacity in the middle instead of fading the whole way -- the old curve
+    // was only fully visible for an instant, which is why the multipliers went unread
     const a = el.animate(
       [ {opacity:0, transform:"translate(-50%,-30%) scale(.7)"},
-        {opacity:1, transform:"translate(-50%,-85%) scale(1.1)", offset:.3},
-        {opacity:0, transform:"translate(-50%,-165%) scale(1)"} ],
-      { duration: 820, easing: "cubic-bezier(.2,.8,.2,1)" });
+        {opacity:1, transform:"translate(-50%,-88%) scale(1.12)", offset:.16},
+        {opacity:1, transform:"translate(-50%,-98%) scale(1)",    offset:.62},
+        {opacity:0, transform:"translate(-50%,-140%) scale(.98)"} ],
+      { duration: 1250, easing: "cubic-bezier(.2,.8,.2,1)" });
     a.onfinish = () => el.remove();
   }
   // persistent streak badge near the score; pulses on gain, hides at ×1
