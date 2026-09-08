@@ -257,6 +257,7 @@
   .of-desc { font-size: 11px; color: var(--muted); line-height: 1.4; white-space: normal;
     min-height: 31px; }
   .of-price { font-size: 13px; font-weight: 800; color: #ffd23e; white-space: nowrap; }
+  .of-price.nofit { color: #ff8fa3; }
   .shop-empty { padding: 14px; text-align: center; color: var(--muted); font-size: 13px; }
 
   /* ---- info popup: what am I carrying, and what are the odds right now ---- */
@@ -274,6 +275,17 @@
   .inf-row.inert { opacity: .38; }
   .inf-ic { font-size: 24px; }
   .inf-fruit { width: 30px; height: 30px; display: block; flex: none; }
+  .ftab-row { display: grid; grid-template-columns: 30px 1fr 68px 60px; align-items: center;
+    gap: 10px; padding: 8px 12px; margin-bottom: 5px; background: #1c2032; border-radius: 12px; }
+  .ftab-row.ftab-head { background: none; padding: 0 12px 4px; margin-bottom: 2px;
+    font-size: 10px; color: var(--muted); letter-spacing: 1px; }
+  .ftab-head span:nth-child(3), .ftab-head span:nth-child(4) { text-align: right; }
+  .ft-name { font-size: 13px; font-weight: 800; }
+  .ft-score, .ft-odds { font-size: 14px; font-weight: 800; text-align: right; }
+  .ft-score { color: var(--text); }
+  .ft-score.up { color: #7ee0a0; }        /* a relic or trait raised it */
+  .ft-odds { color: #ffd23e; }
+  .ft-odds.up { color: #ffa94d; }
   .inf-body { flex: 1; min-width: 0; }
   .inf-body b { display: block; font-size: 13px; font-weight: 800; color: var(--text); }
   .inf-body span { font-size: 11px; color: var(--muted); line-height: 1.35; }
@@ -2115,9 +2127,12 @@
       card.disabled = poor || full;
       const nm = document.createElement("b"); nm.className = "of-name"; nm.textContent = R.name;
       const ic = document.createElement("span"); ic.className = "of-ic"; ic.textContent = R.icon;
-      const ds = document.createElement("span"); ds.className = "of-desc";
-      ds.textContent = full ? "유물 칸이 가득 찼습니다" : R.desc;
-      const pr = document.createElement("span"); pr.className = "of-price"; pr.textContent = `🪙 ${R.price}`;
+      // the description always shows: you cannot decide what to sell without knowing what
+      // you would be buying. The full shelf is said on the price line instead.
+      const ds = document.createElement("span"); ds.className = "of-desc"; ds.textContent = R.desc;
+      const pr = document.createElement("span");
+      pr.className = "of-price" + (full ? " nofit" : "");
+      pr.textContent = full ? `🪙 ${R.price} · 칸 없음` : `🪙 ${R.price}`;
       card.append(nm, ic, ds, pr);
       card.addEventListener("click", () => buyRelic(id));
       wrap.appendChild(card);
@@ -2257,14 +2272,29 @@
       if (doubles > 0) row("✨", "접붙이기", "다음 특성 선택을 2배로", `${doubles}회`, false);
     } else {
       // the fruit table is where a relic's "1만큼 더" turns into a number you can read
+      // a proper table: the score column is the number that actually applies, multiplier
+      // already folded in, so nothing has to be worked out in your head
       const p = colorOdds();
+      const head = document.createElement("div");
+      head.className = "ftab-row ftab-head";
+      for (const t of ["", "과일", "점수", "확률"]) {
+        const c = document.createElement("span"); c.textContent = t; head.appendChild(c);
+      }
+      body.appendChild(head);
       for (const i of FRUIT_TABLE_ORDER) {
         if (i >= p.length) continue;           // arcade runs fewer colours
         const m = fruitMult[i] || 1;
-        row(fruitIconEl(i), FRUIT_NAMES[i],
-            `${FRUIT_POINTS[i]}점` + (m !== 1 ? ` × ${+m.toFixed(2)}` : "") +
-            (oddsMult[i] > 0 ? `  ·  +${oddsMult[i]}만큼 더` : ""),
-            `${p[i].toFixed(1)}%`, false);
+        const pts = FRUIT_POINTS[i] * m;
+        const d = document.createElement("div"); d.className = "ftab-row";
+        const nm = document.createElement("span"); nm.className = "ft-name"; nm.textContent = FRUIT_NAMES[i];
+        const sc = document.createElement("span");
+        sc.className = "ft-score" + (m !== 1 ? " up" : "");
+        sc.textContent = `${+pts.toFixed(2)}점`;
+        const od = document.createElement("span");
+        od.className = "ft-odds" + (oddsMult[i] > 0 ? " up" : "");
+        od.textContent = `${p[i].toFixed(1)}%`;
+        d.append(fruitIconEl(i), nm, sc, od);
+        body.appendChild(d);
       }
     }
   }
