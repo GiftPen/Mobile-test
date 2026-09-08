@@ -1860,6 +1860,7 @@
         setTimeout(met ? stageClear : () => gameOver("touches"), met ? 520 : 750);
       } else {
         busy = false;
+        updateHUD();      // the "leave early" button needs !busy, which was still true above
       }
     };
 
