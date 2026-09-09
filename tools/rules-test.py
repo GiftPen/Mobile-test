@@ -461,6 +461,64 @@ window.addEventListener('load', () => setTimeout(() => {
   document.getElementById('traits').classList.add('hidden');
   F.resetRun(); F.mode = 'arcade';
 
+  // ---- graft must mean exactly "pick that trait twice", for EVERY trait ----
+  // asserted over the whole table rather than case by case, so a trait added later cannot
+  // quietly break the rule
+  (() => {
+    const snap = () => JSON.stringify({
+      mult: F.fruitMult.map(v => +v.toFixed(4)), odds: F.oddsMult.slice(),
+      prob: F.colorOdds().map(v => +v.toFixed(4)), stack: F.fruitStack.slice(),
+      boost: F.fruitBoost.map(v => +v.toFixed(4)),
+      score: F.FRUIT_POINTS.map((_, i) => F.fruitScore(i)),
+      touch: F.touchBonus, spawn: F.spawnBonus, offer: F.offerBonus,
+      cap: F.relicCap(), st: F.stageTouches(),
+    });
+    const fresh = () => { F.resetRun(); F.mode = 'rush'; F.graftArmed = false; F.doubles = 0; };
+    const mismatched = [];
+    for (const id of Object.keys(F.TRAITS)) {
+      if (!F.TRAITS[id].scalable) continue;             // the charge itself is not doublable
+      fresh(); F.doubles = 1; F.graftArmed = true; F.pickTrait(id);
+      const grafted = snap(), charge = F.doubles;
+      fresh(); F.pickTrait(id); F.pickTrait(id);
+      if (grafted !== snap() || charge !== 0) mismatched.push(id);
+    }
+    schk('grafted once == picked twice, every trait', mismatched, []);
+
+    // a charge arrives armed: the description promises it just happens
+    fresh(); F.doubles = 1; F.openTraits();
+    schk('a charge opens armed', F.graftArmed, true);
+    F.traitRerolls = 1; document.getElementById('tr-reroll').click();
+    schk('rerolling is not opting out', F.graftArmed, true);
+    schk('and does not eat the charge', F.doubles, 1);
+    fresh(); F.openTraits();
+    schk('no charge, nothing armed', F.graftArmed, false);
+
+    // one pick spends exactly one charge
+    fresh(); F.doubles = 2; F.graftArmed = true; F.pickTrait('leisure');
+    schk('one pick spends one charge', F.doubles, 1);
+
+    // stacking onto a trait you already carry is still just "one more copy"
+    fresh(); F.pickTrait('cherry_taste');
+    F.doubles = 1; F.graftArmed = true; F.pickTrait('cherry_taste');
+    const stacked = +F.fruitMult[0].toFixed(4);
+    fresh(); F.pickTrait('cherry_taste'); F.pickTrait('cherry_taste'); F.pickTrait('cherry_taste');
+    schk('graft on an owned trait == a third copy', stacked, +F.fruitMult[0].toFixed(4));
+
+    // a doubled once-only trait is still once-only
+    fresh(); F.doubles = 1; F.graftArmed = true; F.pickTrait('big_pocket');
+    const seen = []; for (let i = 0; i < 60; i++) seen.push(...F.rollTraits(3));
+    schk('a grafted once-trait is not re-offered', seen.includes('big_pocket'), false);
+
+    // the doubled amount and the unspent charge both survive a save/load
+    fresh(); F.doubles = 2; F.graftArmed = true; F.pickTrait('big_pocket');
+    const was = [F.relicCap(), F.doubles, F.traits.map(t => t.id + ':' + t.amount).join()];
+    const blob = JSON.parse(JSON.stringify(F.serializeRun()));
+    fresh(); F.restoreRun(blob); F.applyRelics();
+    schk('a doubled trait survives a round trip',
+         [F.relicCap(), F.doubles, F.traits.map(t => t.id + ':' + t.amount).join()], was);
+    fresh();
+  })();
+
   // ---- the info panel has to show what the shop was the only place to see ----
   (() => {
     F.mode = 'rush'; F.resetRun(); F.graftArmed = false;

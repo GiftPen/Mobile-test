@@ -2557,7 +2557,11 @@
   }
   function openTraits() {
     traitOffers = rollTraits();
-    graftArmed = false;
+    // "다음 특성 선택을 2배로" promises it just happens, so a charge arrives armed. Starting
+    // it off meant the doubling silently did nothing unless you found the button, which read
+    // as the charge being broken. The toggle stays -- but now it is opting OUT to save the
+    // charge for a better round, which is the decision actually worth making.
+    graftArmed = doubles > 0;
     traitRerolls = 1;                   // one free look at a different three
 
     renderTraits();
@@ -3717,7 +3721,7 @@
     if (traitRerolls <= 0) return;
     traitRerolls--;
     traitOffers = rollTraits();
-    graftArmed = false;                 // a fresh three, so the charge starts unarmed again
+    graftArmed = doubles > 0;           // a fresh three, still armed -- rerolling is not opting out
     renderTraits();
   });
   document.getElementById("tr-double").addEventListener("click", () => {
