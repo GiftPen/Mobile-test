@@ -14,6 +14,7 @@ import subprocess, re, os, json, sys
 os.chdir('/Users/kimjaehoon/Mobile-test')
 TEST = """<script>
 window.addEventListener('load', () => setTimeout(() => {
+ try {
   const F = window.__fs;
   if (!F) { document.title = 'RESULT {"fatal":"no test hook"}'; return; }
   const fails = []; let n = 0;
@@ -67,7 +68,9 @@ window.addEventListener('load', () => setTimeout(() => {
     modeFails.push({knob:'quota starts at RUSH_QUOTA_1', got:F.rushQuota(1), want:F.RUSH_QUOTA_1});
   for (let st = 2; st <= 12; st++) {
     const r = Math.floor((st-1)/F.STAGES_PER_ROUND), sub = (st-1)%F.STAGES_PER_ROUND;
-    const want = Math.round(F.RUSH_QUOTA_1 * Math.pow(F.roundSpan(), r) * Math.pow(F.RUSH_STAGE_MUL, sub));
+    let q = F.RUSH_QUOTA_1;
+    for (let k = 0; k < r; k++) q *= F.roundSpan(k);
+    const want = Math.round(q * Math.pow(F.RUSH_STAGE_MUL, sub));
     if (F.rushQuota(st) !== want) modeFails.push({knob:'quota s'+st, got:F.rushQuota(st), want});
     if (F.rushQuota(st) <= F.rushQuota(st-1))
       modeFails.push({knob:'quota rises s'+st, got:F.rushQuota(st), want:'> '+F.rushQuota(st-1)});
@@ -217,36 +220,41 @@ window.addEventListener('load', () => setTimeout(() => {
   F.resetRun(); F.mode = 'rush'; F.coins = 500;
   F.traits = [{id:'big_pocket', amount:1}]; F.applyRelics();
   chk('trait: cap 5 -> 6', F.relicCap(), F.RELIC_SLOTS + 1);
-  F.relics = ['storm','stamina','mint','tycoon','endurance'];   // fills all 5 base slots
+  // filler that grants no slots, sized from RELIC_SLOTS so tuning the cap can't break this
+  const filler = (n, except) => Object.keys(F.RELICS)
+    .filter(id => !F.RELICS[id].slots && !F.RELICS[id].life && id !== except).slice(0, n);
+  const capWithTrait = F.RELIC_SLOTS + 1;
+  F.relics = filler(capWithTrait - 1);          // one short of the widened cap
   F.applyRelics();
-  chk('five owned, cap still 6', [F.relics.length, F.relicCap()], [5, 6]);
-  F.buyRelic('satchel');                       // lands in the 6th slot
-  chk('satchel bought', F.relics.length, 6);
+  chk('cap unchanged by filler', F.relicCap(), capWithTrait);
+  F.buyRelic('satchel');                        // lands in the last slot
+  chk('satchel bought', F.relics.length, capWithTrait);
   chk('satchel in the last slot still grants +2', F.relicCap(), F.RELIC_SLOTS + 3);
-  chk('so nothing is inert', F.activeRelics().length, 6);
+  chk('so nothing is inert', F.activeRelics().length, capWithTrait);
   // a satchel beyond even the widened cap must NOT bootstrap itself in
   F.resetRun(); F.mode = 'rush';
-  F.relics = ['storm','stamina','mint','tycoon','endurance','avalanche','satchel'];
+  F.relics = filler(F.RELIC_SLOTS + 1).concat('satchel');
   F.applyRelics();
   chk('satchel past the cap stays inert', F.relicCap(), F.RELIC_SLOTS);
-  chk('only five active', F.activeRelics().length, 5);
+  chk('only the cap is active', F.activeRelics().length, F.RELIC_SLOTS);
   F.resetRun(); F.mode = 'rush';
 
   // cannot buy without the coins, or without a slot
   F.resetRun(); F.mode = 'rush'; F.coins = 0;
   F.buyRelic('storm');
   chk('too poor: nothing bought', F.relics.length, 0);
-  F.coins = 500; F.relics = ['a','b','c','d','e']; F.applyRelics();
-  F.buyRelic('storm');
-  chk('slots full: nothing bought', F.relics.length, 5);
+  F.coins = 500; F.relics = filler(F.RELIC_SLOTS); F.applyRelics();
+  const heldWhenFull = F.relics.length;
+  F.buyRelic('crown');
+  chk('slots full: nothing bought', F.relics.length, heldWhenFull);
 
   // past the cap a relic is carried but inert (doc 6)
   F.resetRun(); F.mode = 'rush';
-  F.relics = ['stamina','a','b','c','d','storm'];   // 6 owned, cap 5 -> storm is inert
+  F.relics = filler(F.RELIC_SLOTS, 'storm').concat('storm');   // storm sits one past the cap
   F.applyRelics();
-  chk('over cap: only the first 5 are active', F.activeRelics().length, 5);
+  chk('over cap: only the cap is active', F.activeRelics().length, F.RELIC_SLOTS);
   chk('over cap: the inert one has no effect', F.spawnCount(0), baseSpawn);
-  chk('over cap: it is still carried', F.relics.length, 6);
+  chk('over cap: it is still carried', F.relics.length, F.RELIC_SLOTS + 1);
 
   // ---- traits: data-defined, and the x2 charge ----
   F.resetRun(); F.mode = 'rush';
@@ -391,6 +399,30 @@ window.addEventListener('load', () => setTimeout(() => {
   schk('something is buyable on the first payout', cheapest <= firstPayout + 2, true);
   F.resetRun(); F.mode = 'arcade';
 
+  // ---- grades: rarer tiers really do show up less ----
+  F.resetRun(); F.mode = 'rush';
+  const tierSeen = {common:0, uncommon:0, rare:0, legend:0};
+  const tierPool = {common:0, uncommon:0, rare:0, legend:0};
+  for (const id of Object.keys(F.RELICS)) tierPool[F.relicTier(F.RELICS[id])]++;
+  for (let i = 0; i < 900; i++)
+    for (const id of F.rollOffers(3)) tierSeen[F.relicTier(F.RELICS[id])]++;
+  // per-relic appearance rate has to fall as the grade rises
+  const rate = t => (tierPool[t] ? tierSeen[t] / tierPool[t] : 0);
+  schk('common beats uncommon', rate('common') > rate('uncommon'), true);
+  schk('uncommon beats rare',   rate('uncommon') > rate('rare'), true);
+  schk('rare beats legend',     rate('rare') > rate('legend'), true);
+  schk('every grade is reachable', Math.min(...Object.values(tierSeen)) > 0, true);
+
+  // ---- the item-effect relics ----
+  F.resetRun(); F.mode = 'rush';
+  schk('one bird by default', F.birdFlock, 1);
+  schk('straight lines by default', F.crossLine, false);
+  F.relics = ['flock','crossing']; F.applyRelics();
+  schk('flock sends three', F.birdFlock, 3);
+  schk('crossing makes a cross', F.crossLine, true);
+  F.relics = []; F.applyRelics();
+  schk('and both revert when sold', [F.birdFlock, F.crossLine], [1, false]);
+
   // rare relics really are rarer
   F.resetRun(); F.mode = 'rush';
   let crowns = 0, common = 0;
@@ -468,9 +500,29 @@ window.addEventListener('load', () => setTimeout(() => {
     cases: n, fails, fsFails, hist, runFails, resetLeaks, modeFails, relicFails, oddsFails, stackFails,
     fatal: null
   });
+ } catch (e) {
+  document.title = 'RESULT ' + JSON.stringify({ cases: 0, fails: [], fsFails: [], hist: [1],
+    runFails: [], resetLeaks: [], modeFails: [], relicFails: [], oddsFails: [],
+    stackFails: [{case: 'threw', got: String(e && e.message), want: 'no throw'}],
+    fatal: String((e && e.stack) || e).slice(0, 300) });
+ }
 }, 900));
 </script>
 """
+# A duplicate declaration in TEST used to surface only as a bare "NO RESULT" -- the script
+# fails to parse, so the load listener never registers and nothing ever sets the title.
+_body = TEST.replace('<script>', '').replace('</script>', '')
+open('/tmp/_rt_syntax.js', 'w', encoding='utf-8').write(_body)
+try:
+    _chk = subprocess.run(['node', '--check', '/tmp/_rt_syntax.js'],
+                          capture_output=True, text=True, timeout=20)
+    if _chk.returncode:
+        print('TEST SCRIPT SYNTAX ERROR:'); print(_chk.stderr.strip()[:600]); sys.exit(2)
+except (FileNotFoundError, subprocess.TimeoutExpired):
+    pass                      # no node available: let the browser be the judge
+finally:
+    if os.path.exists('/tmp/_rt_syntax.js'): os.remove('/tmp/_rt_syntax.js')
+
 open('_ut.html','w',encoding='utf-8').write(
     open('index.html',encoding='utf-8').read().replace('</body>', TEST + '</body>'))
 out = subprocess.run(['/Applications/Google Chrome.app/Contents/MacOS/Google Chrome',
@@ -495,6 +547,7 @@ print(f"modes   : {len(res['modeFails'])} fail")
 if res['modeFails']: print('  ', res['modeFails'][:4])
 print(f"stacking: {len(res['stackFails'])} fail")
 if res['stackFails']: print('  ', res['stackFails'][:4])
+if res.get('fatal'): print('  FATAL:', res['fatal'])
 print(f"relics  : {len(res['relicFails'])} fail")
 if res['relicFails']: print('  ', res['relicFails'][:4])
 print(f"run state: {len(res['runFails'])} round-trip fail, {len(res['resetLeaks'])} reset leak")
