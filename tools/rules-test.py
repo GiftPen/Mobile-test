@@ -307,11 +307,16 @@ window.addEventListener('load', () => setTimeout(() => {
   schk('cherry starts at its base', F.fruitScore(0), F.FRUIT_POINTS[0]);
 
   // a stacking relic raises the base by playing, and a recompute must not wipe it
+  // asserted as a relationship, not a number: tuning the increment must not break the test
   F.relics = ['piggy_cherry']; F.applyRelics();
-  for (let i = 0; i < 20; i++) F.notify('onFruitPop', {r:0, c:0, color:0});
-  schk('20 cherries banked +1.0', +F.fruitScore(0).toFixed(2), +(F.FRUIT_POINTS[0] + 1).toFixed(2));
+  const cherry0 = F.fruitScore(0);
+  F.notify('onFruitPop', {r:0, c:0, color:0});
+  const perPop = F.fruitScore(0) - cherry0;
+  schk('one cherry banks a whole number', perPop === Math.round(perPop) && perPop > 0, true);
+  for (let i = 0; i < 19; i++) F.notify('onFruitPop', {r:0, c:0, color:0});
+  schk('20 cherries bank 20x that', F.fruitScore(0), cherry0 + perPop * 20);
   F.applyRelics(); F.applyRelics();
-  schk('recompute keeps the stack', +F.fruitScore(0).toFixed(2), +(F.FRUIT_POINTS[0] + 1).toFixed(2));
+  schk('recompute keeps the stack', F.fruitScore(0), cherry0 + perPop * 20);
   // and only the fruit it names
   schk('other fruit untouched', F.fruitScore(1), F.FRUIT_POINTS[1]);
 
@@ -319,17 +324,28 @@ window.addEventListener('load', () => setTimeout(() => {
   const beforeBest = F.fruitScore(6);
   F.traitOffers = ['concentrate']; F.graftArmed = false;
   F.pickTrait('concentrate');
-  schk('doubles the priciest fruit', +F.fruitScore(6).toFixed(2), +(beforeBest * 2).toFixed(2));
+  schk('doubles the priciest fruit', F.fruitScore(6), beforeBest * 2);
   F.applyRelics();
-  schk('the doubling survives a recompute', +F.fruitScore(6).toFixed(2), +(beforeBest * 2).toFixed(2));
+  schk('the doubling survives a recompute', F.fruitScore(6), beforeBest * 2);
 
   // 증류 adds to every fruit's base, and the graft charge scales it
   F.resetRun(); F.mode = 'rush';
+  const distillAmt = F.TRAITS.distill.effects[0].amount;
   F.traitOffers = ['distill']; F.pickTrait('distill');
-  schk('distill +0.5 on cherry', +F.fruitScore(0).toFixed(2), +(F.FRUIT_POINTS[0] + 0.5).toFixed(2));
+  schk('distill adds its amount', F.fruitScore(0), F.FRUIT_POINTS[0] + distillAmt);
   F.resetRun(); F.mode = 'rush'; F.doubles = 1; F.graftArmed = true;
   F.traitOffers = ['distill']; F.pickTrait('distill');
-  schk('graft doubles distill to +1.0', +F.fruitScore(0).toFixed(2), +(F.FRUIT_POINTS[0] + 1).toFixed(2));
+  schk('graft doubles distill', F.fruitScore(0), F.FRUIT_POINTS[0] + distillAmt * 2);
+
+  // nothing on screen may show a decimal
+  F.resetRun(); F.mode = 'rush';
+  F.relics = ['piggy_cherry','prism']; F.traits = [{id:'cherry_taste', amount:2}];
+  F.applyRelics();
+  for (let i = 0; i < 7; i++) F.notify('onFruitPop', {r:0, c:0, color:0});
+  for (let i = 0; i < 7; i++)
+    if (F.fruitScore(i) !== Math.round(F.fruitScore(i)))
+      stackFails.push({case:'fruit ' + i + ' is a whole number', got:F.fruitScore(i), want:'integer'});
+  F.relics = []; F.traits = []; F.resetRun(); F.mode = 'rush';
 
   // rare relics really are rarer
   F.resetRun(); F.mode = 'rush';

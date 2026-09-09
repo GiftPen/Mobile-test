@@ -454,7 +454,9 @@
   const COLORS = ["#ff5a7a", "#f45b00", "#43d17a", "#ffc93c", "#a66cff", "#ffab8f", "#00b4d8"];
   // per-fruit base points (shared with Star Rush). slot order: 0체리 1오렌지 2키위 3레몬 4포도 5복숭아 6바나나
   // cherry/lemon=1, orange/kiwi=2, grape/peach=3, banana=5
-  const FRUIT_POINTS = [1, 2, 2, 1, 3, 3, 5];
+  // x10 scale on purpose: it lets every stacking relic move a fruit by a WHOLE number.
+  // At the old 1..5 scale a stack had to read "+0.05", which nobody can follow on a board.
+  const FRUIT_POINTS = [10, 20, 20, 10, 30, 30, 50];
   // spawn odds in PERCENT (doc 3-1): rarer fruit is worth more. Arcade stays uniform.
   const BASE_ODDS    = [20, 15, 15, 20, 12, 12, 6];
   const BASE_COLORS = 4;       // colors in play at score 0
@@ -464,7 +466,7 @@
   const SPAWN_MAX = 4;         // cap
   // one staged difficulty step per MILESTONE_STEP points, cycling:
   //   brick(+HP) -> +1 color -> +1 spawn -> brick(+HP) -> ...
-  const MILESTONE_STEP = 100;  // TEST value (now); SHIP = 500 points per difficulty step
+  const MILESTONE_STEP = 1000; // TEST value (now); SHIP = 5000 points per difficulty step
   let MAX_LEVEL = 10;          // auto-computed at boot from where every difficulty knob caps
   const FILL_SEGS = 16;        // segments in the board-fill / danger gauge
   const WAVE_STEP_MS = 83;     // time between chain steps (rings)
@@ -487,7 +489,7 @@
   const BOMB_THRESHOLD = 7;    // group size 7–9    -> a bomb bud (5x5 blast)
   const BOMB_RADIUS = 2;       // bomb blast = 5x5 (Chebyshev 2)
   const STAR_THRESHOLD = 10;   // group size 10+    -> a star bud (color bomb + constellation)
-  const BIRD_SCORE = 2;        // score per fruit a bird eats (small-scale scoring)
+  const BIRD_SCORE = 20;       // score per fruit a bird eats
   const BRICK = -2;            // grid value for a brick (wall; only items can clear it)
   const BRICK_EVERY = 5;       // one brick spawns every N touches once unlocked
   // ---- Star Rush stage curve (DRAFT numbers, meant to be tuned by feel) ----
@@ -499,7 +501,7 @@
   // Quota climbs in two tiers so the profile can be shaped: gentle steps inside a round,
   // a bigger step when a round turns over. A single x1.5 per stage made round 1 free
   // (cleared with 1.8-2.9x to spare) and then walled at 2-1 with 1.02x -- measured.
-  const RUSH_QUOTA_1   = 110;  // 1-1 target
+  const RUSH_QUOTA_1   = 1100; // 1-1 target
   const RUSH_STAGE_MUL = 1.15; // step within a round
   const RUSH_ROUND_MUL = 1.25; // step across a round boundary
   // A whole round advances by its internal steps AND the boundary jump, so the round
@@ -1084,7 +1086,9 @@
 
   // ---- helpers ----
   // the two modes score on completely different scales, so they keep separate records
-  const BEST_KEYS = { arcade: "fruitstar_best_v2", rush: "fruitstar_rush_best_v1" };
+  // scale changed x10, so old records are not comparable -- new keys rather than a wrong
+  // "best" the player can never beat or always beats
+  const BEST_KEYS = { arcade: "fruitstar_best_v3", rush: "fruitstar_rush_best_v2" };
   const loadBest = () => { best = +(localStorage.getItem(BEST_KEYS[mode]) || 0); };
 
   // ---- run state ----
@@ -1257,7 +1261,8 @@
   // (base + what popping it has banked) x banked doublings x the relics you carry
   function fruitScore(colorIdx) {          // one fruit's worth, before chain/streak
     const base = (FRUIT_POINTS[colorIdx] || 1) + (fruitStack[colorIdx] || 0);
-    return base * (fruitBoost[colorIdx] || 1) * (fruitMult[colorIdx] || 1);
+    // rounded here so multipliers can never leak a decimal onto the board
+    return Math.round(base * (fruitBoost[colorIdx] || 1) * (fruitMult[colorIdx] || 1));
   }
   function addScore(amount) {
     if (!(amount > 0)) return 0;
@@ -1308,8 +1313,8 @@
       effects: [{ stat: "boostBest", amount: 2 }],
       desc: () => "지금 가장 비싼 과일의 값어치를 2배로" },
     distill: { name: "증류", icon: "⚗️", scalable: true,
-      effects: [{ stat: "stackAll", amount: 0.5 }],
-      desc: e => `모든 과일의 기본 점수 +${+e[0].amount.toFixed(2)}` },
+      effects: [{ stat: "stackAll", amount: 5 }],
+      desc: e => `모든 과일 점수 +${e[0].amount}` },
     graft: { name: "접붙이기", icon: "✨", scalable: false, once: true,
       effects: [{ stat: "doubles", amount: 1 }],
       desc: () => "다음 특성 선택을 2배로" },
@@ -1391,14 +1396,14 @@
 
     // ---- G. stacking: value that grows with play, not with the shop ----
     piggy_cherry: { name: "체리 저금통", icon: "🐷", price: 15,
-      desc: "체리를 터뜨릴 때마다 체리 기본 점수 +0.05",
-      onFruitPop: p => { if (p.color === 0) fruitStack[0] += 0.05; } },
+      desc: "체리를 터뜨릴 때마다 체리 점수 +1",
+      onFruitPop: p => { if (p.color === 0) fruitStack[0] += 1; } },
     juice_press: { name: "착즙기", icon: "🫗", price: 20,
-      desc: "과일을 터뜨릴 때마다 그 과일의 기본 점수 +0.02",
-      onFruitPop: p => { fruitStack[p.color] += 0.02; } },
+      desc: "과일을 터뜨릴 때마다 그 과일 점수 +1",
+      onFruitPop: p => { fruitStack[p.color] += 1; } },
     banana_cellar: { name: "바나나 저장고", icon: "🏺", price: 18,
-      desc: "바나나를 터뜨릴 때마다 바나나 기본 점수 +0.3",
-      onFruitPop: p => { if (p.color === 6) fruitStack[6] += 0.3; } },
+      desc: "바나나를 터뜨릴 때마다 바나나 점수 +5",
+      onFruitPop: p => { if (p.color === 6) fruitStack[6] += 5; } },
 
     // ---- rare: the ones a build is actually built around ----
     prism: { name: "프리즘", icon: "🔱", price: 34, weight: 0.3,
@@ -1792,7 +1797,7 @@
           glow[br][bc] = { c: 0, t: 0.9 };
           if (hp[br][bc] <= 0) { grid[br][bc] = -1; special[br][bc] = null; burst(br, bc, "#9aa0b5"); broke++; }
         });
-        if (broke) addScore(broke * 3);
+        if (broke) addScore(broke * 30);
         finishBurst(r0, c0, color, popped, chainPopped, placement, pointsPopped, visualEnd);
         return;
       }
@@ -2371,12 +2376,12 @@
       for (const i of FRUIT_TABLE_ORDER) {
         if (i >= p.length) continue;           // arcade runs fewer colours
         const pts = fruitScore(i);
-        const m = pts / (FRUIT_POINTS[i] || 1);   // anything above 1 means something raised it
+        const m = pts / (FRUIT_POINTS[i] || 1);   // above 1 means something raised it
         const d = document.createElement("div"); d.className = "ftab-row";
         const nm = document.createElement("span"); nm.className = "ft-name"; nm.textContent = FRUIT_NAMES[i];
         const sc = document.createElement("span");
         sc.className = "ft-score" + (Math.abs(m - 1) > 0.001 ? " up" : "");
-        sc.textContent = `${+pts.toFixed(2)}점`;
+        sc.textContent = `${pts}점`;
         const od = document.createElement("span");
         od.className = "ft-odds" + (oddsMult[i] > 0 ? " up" : "");
         od.textContent = `${p[i].toFixed(1)}%`;
@@ -2485,10 +2490,9 @@
   // The multiplied total lands separately once the whole chain has finished.
   function popScoreText(r, c, colorIdx) {
     if (!(colorIdx >= 0)) return;
-    const base = FRUIT_POINTS[colorIdx] || 1, m = fruitMult[colorIdx] || 1;
     floats.push({
       x: pad + c * cell + cell / 2, y: pad + r * cell + cell / 2,
-      text: m === 1 ? String(base) : `${base}×${m}`,
+      text: String(fruitScore(colorIdx)),      // the number that actually scores
       color: POP_COLORS[colorIdx] || "#fff", t: 0,
     });
   }
