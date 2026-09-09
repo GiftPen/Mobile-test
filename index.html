@@ -290,9 +290,10 @@
   .inf-body b { display: block; font-size: 13px; font-weight: 800; color: var(--text); }
   .inf-body span { font-size: 11px; color: var(--muted); line-height: 1.35; }
   .inf-num { font-size: 13px; font-weight: 800; color: #ffd23e; white-space: nowrap; }
+  /* green, and a plus sign: this hands coins back, it does not charge for them */
   .inf-drop { margin: 0 0 0 8px; padding: 6px 10px; font-size: 11px; font-weight: 800;
-    border-radius: 999px; background: #33203a; color: #ff9db0; box-shadow: none;
-    font-family: inherit; white-space: nowrap; }
+    border-radius: 999px; background: #1e3328; color: #7ee0a0; box-shadow: none;
+    border: 1px solid rgba(126,224,160,.35); font-family: inherit; white-space: nowrap; }
   .inf-empty { padding: 16px; text-align: center; color: var(--muted); font-size: 13px; }
   /* hold the taller tab's height (7 fruit rows) so switching tabs doesn't resize the card
      under your thumb -- it jumped 537px -> 177px before */
@@ -2284,7 +2285,9 @@
         if (inShop) {
           act = document.createElement("button");
           act.className = "inf-drop";
-          act.textContent = `버리기 🪙${Math.floor(R.price / 2)}`;
+          // "버리기 🪙5" read as though it cost 5. Say what actually happens: you sell it
+          // and money comes back.
+          act.textContent = `팔기 +🪙${Math.floor(R.price / 2)}`;
           act.addEventListener("click", e => { e.stopPropagation(); discardRelic(i); });
         }
         row(R.icon, R.name, inert ? "칸이 모자라 꺼져 있습니다" : R.desc,
