@@ -1463,7 +1463,9 @@
     leisure: { name: "여유", icon: "👆", scalable: true,
       effects: [{ stat: "touchBonus", amount: 2 }],
       desc: e => `스테이지마다 터치 +${e[0].amount}` },
-    keen_eye: { name: "안목", icon: "👀", scalable: true,
+    // once-per-run like 넓은 주머니, its shelf-widening twin -- without it the shop had no
+    // ceiling at all
+    keen_eye: { name: "안목", icon: "👀", scalable: true, once: true,
       effects: [{ stat: "offerBonus", amount: 1 }],
       desc: e => `상점 진열 +${e[0].amount}` },
     big_pocket: { name: "넓은 주머니", icon: "🎒", scalable: true, once: true,
@@ -2443,7 +2445,11 @@
 
   // ---- between-stage shop ----
   const REROLL_COST = 3;
-  const SHOP_OFFERS = 5;      // wider shelf keeps rare grades reachable without making them common
+  // 4 + 안목 (1) + 접붙이기가 그 안목을 2배로 (1 더) = 6, the intended ceiling. 안목 was the
+  // only unbounded stat on the board: it is not once-per-run, so a long run could take it
+  // every round and walk the shelf past 10.
+  const SHOP_OFFERS = 4;
+  const SHOP_OFFERS_MAX = 6;  // the ceiling the numbers above are chosen to land on exactly
   let shopOffers = [], shopReroll = REROLL_COST;
   let shopSold = new Set();   // bought this visit: the card stays put and reads 품절
   const $sh = id => document.getElementById(id);
@@ -2466,8 +2472,12 @@
     }
     return out;
   }
+  // one place decides how wide the shelf is, so the ceiling cannot be bypassed by a future
+  // relic quietly adding to offerBonus
+  const shelfSize = () => Math.min(SHOP_OFFERS_MAX, SHOP_OFFERS + offerBonus);
+
   function openShop() {
-    shopOffers = rollOffers(SHOP_OFFERS + offerBonus);   // the 안목 trait widens it further
+    shopOffers = rollOffers(shelfSize());   // the 안목 trait widens it further
     shopSold = new Set();
     shopReroll = REROLL_COST;
     renderShop();
@@ -3633,7 +3643,7 @@
       openInfo, closeInfo, renderInfo,
       endStageEarly, leftoverCoins, takeCoin, updateHUD, closeStage, gameOver, COIN_FRUIT_CHANCE, COIN_PER_LEFTOVER, COIN_PAYOUT,
       TRAITS, STAGES_PER_ROUND, stageLabel, traitEffects, rollTraits, openTraits, pickTrait, renderTraits,
-      SHOP_OFFERS,
+      SHOP_OFFERS, SHOP_OFFERS_MAX, shelfSize,
       get shopSold() { return shopSold; },
       get traitRerolls() { return traitRerolls; }, set traitRerolls(v) { traitRerolls = v; },
       get traits() { return traits; }, set traits(v) { traits = v; },
@@ -3737,7 +3747,7 @@
     if (coins < shopReroll || !shopOffers.length) return;
     coins -= shopReroll; coinsShown = coins;
     shopReroll += 2;                    // rerolling again in the same shop costs more
-    shopOffers = rollOffers(SHOP_OFFERS + offerBonus);
+    shopOffers = rollOffers(shelfSize());
     shopSold = new Set();
     renderShop();
   });

@@ -279,7 +279,24 @@ window.addEventListener('load', () => setTimeout(() => {
   F.pickTrait('keen_eye');
   chk('graft doubles 안목', F.offerBonus, 2);
   chk('and is spent on it', F.doubles, 0);
-  chk('shop rolls that many more', F.rollOffers(3 + F.offerBonus).length, 5);
+
+  // the shelf has an intended ceiling of 6: base 4, +1 안목, +1 more if that 안목 was grafted
+  chk('a bare shelf is the base', (() => { F.resetRun(); F.mode='rush'; return F.shelfSize(); })(), 4);
+  F.resetRun(); F.mode='rush'; F.graftArmed = false; F.pickTrait('keen_eye');
+  chk('안목 widens it by one', F.shelfSize(), 5);
+  chk('and the shop really rolls that many', F.rollOffers(F.shelfSize()).length, 5);
+  F.resetRun(); F.mode='rush'; F.doubles = 1; F.graftArmed = true; F.pickTrait('keen_eye');
+  chk('a grafted 안목 reaches the ceiling', F.shelfSize(), F.SHOP_OFFERS_MAX);
+  chk('which is 6', F.SHOP_OFFERS_MAX, 6);
+  // 안목 was the one unbounded stat: not once-per-run, so a long run could stack it forever
+  F.resetRun(); F.mode='rush'; F.graftArmed = false;
+  F.pickTrait('keen_eye');
+  const seenKE = []; for (let i = 0; i < 60; i++) seenKE.push(...F.rollTraits(3));
+  chk('안목 is once per run', seenKE.includes('keen_eye'), false);
+  // and even if something else ever feeds offerBonus, the shelf still cannot pass the cap
+  F.resetRun(); F.mode='rush'; F.traits = [{id:'keen_eye', amount:9}]; F.applyRelics();
+  chk('the ceiling holds against anything', F.shelfSize(), F.SHOP_OFFERS_MAX);
+  F.resetRun(); F.mode='rush'; F.graftArmed = false;
 
   const capBase = (() => { F.resetRun(); F.mode = 'rush'; return F.relicCap(); })();
   F.resetRun(); F.mode = 'rush'; F.graftArmed = false;
