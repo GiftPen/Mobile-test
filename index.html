@@ -138,6 +138,7 @@
   #rush-next:disabled { background: #232842; color: #6a7089; cursor: default; }
   #rush-next span { font-weight: 900; opacity: .75; margin-left: 4px; }
   #rush-next:disabled span { opacity: .5; }
+  #dock.hidden { display: none; }
   #dock {
     display: flex; align-items: center; flex-wrap: wrap; justify-content: center;
     gap: 6px; margin-top: 10px; max-width: 520px;
@@ -399,7 +400,7 @@
   <div id="hint">빈 칸을 탭해 과일을 놓으세요</div>
   <button id="rush-next" class="hidden">다음 스테이지 ▶ <span id="rn-coin">🪙 +0</span></button>
 
-  <div id="dock">
+  <div id="dock" class="hidden">
     <span class="dock-label">테스트</span>
     <button class="dock-btn fruit" data-item="fruit0"><img src="assets_new/fruit0.png" onerror="this.onerror=null;this.src='assets/fruit0.png'" alt="체리"></button>
     <button class="dock-btn fruit" data-item="fruit1"><img src="assets_new/fruit1.png" onerror="this.onerror=null;this.src='assets/fruit1.png'" alt="오렌지"></button>
@@ -1793,7 +1794,9 @@
     const rc = cellFromEvent(ev);
     if (!rc) return;
     const [r, c] = rc;
-    if (selectedItem) {                                    // test dock: place item, no turn cost
+    // belt and braces: even with the dock open, a stale selection cannot hijack a placement
+    // once the dock is hidden
+    if (selectedItem && !document.getElementById("dock").classList.contains("hidden")) {
       if (grid[r][c] === -1) placeTestItem(r, c, selectedItem);
       return;
     }
@@ -3493,6 +3496,11 @@
     document.getElementById("pause").classList.add("hidden");
     showMenu();
   });
+
+  // The test dock places pieces straight onto the board and RETURNS before the queue is
+  // read, so an accidental tap on it silently replaces every placement with that item while
+  // the preview keeps showing the real next fruit. Dev-only from here: ?dev=1.
+  if (location.search.includes("dev=1")) document.getElementById("dock").classList.remove("hidden");
 
   loadBest();
   resetRun();       // init the board layers so the render loop is safe before "시작하기"
