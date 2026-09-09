@@ -553,6 +553,86 @@ window.addEventListener('load', () => setTimeout(() => {
     fresh();
   })();
 
+  // ---- bonus zones ----
+  (() => {
+    F.mode = 'rush'; F.resetRun();
+    F.rollZones();
+    schk('no zone relic, no zones', [F.zoneCount(), F.zoneCells.size], [0, 0]);
+    schk('and scoring is untouched', F.fruitScoreAt(0, 0, 0), F.fruitScore(0));
+
+    F.relics.push('hotspot'); F.applyRelics(); F.rollZones();
+    schk('명당 puts zones on the board', F.zoneCells.size, F.ZONE_BASE);
+    // find one marked cell and one plain one, then compare what a pop is worth
+    let inZone = null, outZone = null;
+    for (let r = 0; r < F.ROWS && (!inZone || !outZone); r++)
+      for (let c = 0; c < F.COLS; c++) {
+        if (F.zoneAt(r, c)) inZone = inZone || [r, c]; else outZone = outZone || [r, c];
+      }
+    schk('there is a marked and an unmarked cell', !!inZone && !!outZone, true);
+    schk('a marked cell pays double',
+         F.fruitScoreAt(inZone[0], inZone[1], 0), F.fruitScore(0) * 2);
+    schk('an unmarked one pays normally',
+         F.fruitScoreAt(outZone[0], outZone[1], 0), F.fruitScore(0));
+    schk('and the score stays an integer',
+         Number.isInteger(F.fruitScoreAt(inZone[0], inZone[1], 4)), true);
+
+    F.relics.push('survey'); F.applyRelics(); F.rollZones();
+    schk('측량 marks more of them', F.zoneCells.size, F.ZONE_BASE + 3);
+    schk('every marked cell is on the board',
+         [...F.zoneCells].filter(i => i < 0 || i >= F.ROWS * F.COLS), []);
+    schk('and they are distinct', F.zoneCells.size, new Set([...F.zoneCells]).size);
+
+    // 금맥 alone is enough to put zones out, even with no multiplier
+    F.resetRun(); F.relics.push('gold_vein'); F.applyRelics(); F.rollZones();
+    schk('금맥 alone still marks the board', F.zoneCells.size, F.ZONE_BASE);
+    schk('but does not change what a fruit is worth',
+         F.fruitScoreAt([...F.zoneCells][0] / F.COLS | 0, [...F.zoneCells][0] % F.COLS, 0),
+         F.fruitScore(0));
+
+    // a grown board can be marked anywhere on it
+    F.resetRun(); F.relics.push('hotspot', 'big_reclaim', 'survey');
+    F.applyRelics(); F.rollZones();
+    schk('zones can land on rows 개간 added',
+         [...F.zoneCells].filter(i => i >= F.ROWS * F.COLS), []);
+    F.resetRun();
+    schk('a new run clears the map', F.zoneCells.size, 0);
+  })();
+
+  // ---- board growth: the one derived stat that must never run backwards ----
+  (() => {
+    const rowsOf = () => [F.ROWS, F.grid.length, F.special.length, F.hp.length, F.coinCell.length];
+    F.mode = 'rush'; F.resetRun();
+    schk('a run starts at the base size', rowsOf(), [F.ROWS_BASE, F.ROWS_BASE, F.ROWS_BASE, F.ROWS_BASE, F.ROWS_BASE]);
+    F.grid[F.ROWS - 1][3] = 2; F.grid[0][0] = 5;      // something on the bottom row and the top
+    F.relics.push('reclaim'); F.applyRelics();
+    schk('개간 grows every layer together', rowsOf(),
+         [F.ROWS_BASE + 1, F.ROWS_BASE + 1, F.ROWS_BASE + 1, F.ROWS_BASE + 1, F.ROWS_BASE + 1]);
+    schk('the row width never changes', F.grid[F.ROWS - 1].length, F.COLS);
+    schk('what was on the board stays put', [F.grid[F.ROWS_BASE - 1][3], F.grid[0][0]], [2, 5]);
+    schk('and the new row comes up empty', F.grid[F.ROWS - 1].every(v => v === -1), true);
+    const grown = F.ROWS;
+    F.applyRelics(); F.applyRelics();
+    schk('recomputing does not grow it again', F.ROWS, grown);
+    // losing the relic to the slot cap must not delete the rows it bought
+    F.relics = []; F.applyRelics();
+    schk('the board never shrinks', F.ROWS, grown);
+    F.resetRun();
+    schk('but a new run starts over', F.ROWS, F.ROWS_BASE);
+    F.relics.push('reclaim'); F.relics.push('big_reclaim'); F.applyRelics();
+    schk('they stack', F.ROWS, F.ROWS_BASE + 3);
+    F.resetRun(); F.relics.push('big_reclaim','big_reclaim','big_reclaim'); F.applyRelics();
+    schk('and stop at the ceiling', F.ROWS, F.ROWS_MAX);
+    // a grown board survives a save/load with its contents
+    F.resetRun(); F.relics.push('big_reclaim'); F.applyRelics();
+    F.grid[F.ROWS - 1][2] = 4;
+    const blob = JSON.parse(JSON.stringify(F.serializeRun()));
+    F.resetRun(); F.restoreRun(blob); F.applyRelics();
+    schk('a grown board round-trips', [F.ROWS, F.grid.length, F.grid[F.ROWS - 1][2]],
+         [F.ROWS_BASE + 2, F.ROWS_BASE + 2, 4]);
+    schk('and the extra room is really usable', F.emptyCells().length, F.ROWS * F.COLS - 1);
+    F.resetRun();
+  })();
+
   // ---- the info panel has to show what the shop was the only place to see ----
   (() => {
     F.mode = 'rush'; F.resetRun(); F.graftArmed = false;

@@ -531,6 +531,7 @@
   // and grows ROWS 8 -> 12 via the "개간" relic. Engine must read COLS/ROWS, never a square N.
   const COLS = 8;
   let ROWS = 8;
+  const ROWS_BASE = 8, ROWS_MAX = 12;   // 개간 relics grow the board downward, 8 -> 12
   // full palette (7). Only the first activeColors() are in play, growing with score.
   const COLORS = ["#ff5a7a", "#f45b00", "#43d17a", "#ffc93c", "#a66cff", "#ffab8f", "#00b4d8"];
   // per-fruit base points (shared with Star Rush). slot order: 0체리 1오렌지 2키위 3레몬 4포도 5복숭아 6바나나
@@ -1210,6 +1211,7 @@
     touchBonus = 0; spawnBonus = 0; slotBonus = 0; brickChance = 0; offerBonus = 0;
     chainStep = 0; coinFruitBonus = 0; starCoinMult = 1; payoutMult = 1;
     bombRadiusBonus = 0; itemEase = 0; birdFlock = 1; crossLine = false;
+    zoneMult = 1; zoneCoin = false; zoneBonus = 0; zoneCells = new Set();
     STREAK_STEP = 0.2; STREAK_CAP = 2.0;
     traits = []; doubles = 0;
     coins = 0; coinsShown = 0; coinFly = [];
@@ -1316,6 +1318,29 @@
   // more knobs for relics to turn. All derived: applyRelics() resets them every recompute.
   let chainStep = 0, coinFruitBonus = 0, starCoinMult = 1, payoutMult = 1,
       bombRadiusBonus = 0, itemEase = 0, birdFlock = 1, crossLine = false;
+  // Bonus zones. Marked cells that pay extra when you pop on them -- the map layer the design
+  // called for and nothing had built. They exist only while a zone relic is owned, so a run
+  // without one plays exactly as before. Stored as flat r*COLS+c indices, which stay valid
+  // when 개간 appends a row (COLS is fixed).
+  const ZONE_BASE = 3;
+  let zoneCells = new Set(), zoneMult = 1, zoneCoin = false, zoneBonus = 0;
+  const zoneOn = () => zoneMult > 1 || zoneCoin;
+  const zoneCount = () => zoneOn() ? Math.min(ROWS * COLS, ZONE_BASE + zoneBonus) : 0;
+  const zoneAt = (r, c) => zoneCells.has(r * COLS + c);
+  // a fruit is worth more on a marked cell
+  const fruitScoreAt = (r, c, colorIdx) => {
+    const base = fruitScore(colorIdx);
+    return zoneAt(r, c) ? Math.round(base * zoneMult) : base;
+  };
+  // Rerolled every stage. Pinned for the whole run they would just become "never place there",
+  // and a zone you cannot reach is a zone that never pays.
+  function rollZones() {
+    zoneCells = new Set();
+    const n = zoneCount(); if (!n) return;
+    const all = [];
+    for (let r = 0; r < ROWS; r++) for (let c = 0; c < COLS; c++) all.push(r * COLS + c);
+    for (let i = 0; i < n && all.length; i++) zoneCells.add(all.splice(randInt(all.length), 1)[0]);
+  }
   let traits = [];                         // [{id, amount}] -- amount may have been doubled
   let doubles = 0;                         // unspent "next trait x2" charges
   const RELIC_SLOTS = 8;                   // base carry limit (doc 6)
@@ -1702,6 +1727,25 @@
       desc: "터뜨린 점수 ×2",
       modify: { pop: v => v * 2 } },
 
+    // ---- E. map / zones: the category the design listed and nothing had built ----
+    hotspot: { name: "명당", icon: "🟩", price: 17, tier: "rare",
+      desc: "표시된 칸에서 터뜨리면 그 과일 점수 ×2",
+      apply() { zoneMult += 1; } },
+    gold_vein: { name: "금맥", icon: "🪙", price: 14,
+      desc: "표시된 칸에서 터뜨리면 코인 +1",
+      apply() { zoneCoin = true; } },
+    survey: { name: "측량", icon: "🗺️", price: 12,
+      desc: "표시된 칸 +3",
+      apply() { zoneBonus += 3; } },
+
+    // ---- board growth: the one thing that buys you room instead of points ----
+    // `rows` is read by syncRows(), not applied here -- growing the board is monotonic and
+    // an apply() that mutated it would run again on every recompute.
+    reclaim: { name: "개간", icon: "🌾", price: 21, tier: "rare",
+      desc: "판이 한 줄 넓어집니다", rows: 1 },
+    big_reclaim: { name: "대개간", icon: "🚜", price: 30, tier: "legend",
+      desc: "판이 두 줄 넓어집니다", rows: 2 },
+
     // ---- F. item upgrades ----
     bomb_mod: { name: "폭탄 개조", icon: "💣", price: 19,
       desc: "폭탄이 7×7로 터집니다", apply() { bombRadiusBonus += 1; } },
@@ -1730,6 +1774,31 @@
   // Recomputes every passive effect from scratch, so it is safe to call any time the relic
   // list changes. Applying incrementally would double up a "+3 touches" on every purchase.
   const bombRadius = () => Math.min(BOMB_RADIUS_MAX, BOMB_RADIUS + bombRadiusBonus);
+
+  // Board growth is the one derived stat that must never run backwards. Every other bonus can
+  // be recomputed from scratch, but shrinking the board would delete whatever is standing on
+  // the bottom rows -- so this grows toward the target and stops. Losing a 개간 relic to the
+  // slot cap leaves the land you already cleared.
+  function syncRows() {
+    let want = ROWS_BASE;
+    for (const id of activeRelics()) want += (RELICS[id] && RELICS[id].rows) || 0;
+    for (const t of traits) {
+      const T = TRAITS[t.id]; if (!T) continue;
+      for (const e of traitEffects(T, t.amount)) if (e.stat === "rows") want += e.amount;
+    }
+    want = Math.min(ROWS_MAX, want);
+    if (want <= ROWS) return false;
+    // cell size comes from the width alone, so every existing r/c -> pixel mapping survives
+    // a row being appended; only the canvas gets taller
+    while (ROWS < want) {
+      ROWS++;
+      for (const [lyr, fill] of [[grid,-1],[special,null],[hp,0],[coinCell,0],
+                                 [glow,null],[appear,0],[ghost,null]])
+        if (lyr) lyr.push(Array(COLS).fill(fill));
+    }
+    layout();
+    return true;
+  }
   // a group of 3 is the smallest thing that pops, so eased thresholds stop there -- with a
   // relic and a doubled trait both easing them, 참새 would otherwise trigger on every pop
   const ITEM_NEED_MIN = 3;
@@ -1742,8 +1811,10 @@
     touchBonus = 0; spawnBonus = 0; brickChance = 0; offerBonus = 0;
     chainStep = 0; coinFruitBonus = 0; starCoinMult = 1; payoutMult = 1;
     bombRadiusBonus = 0; itemEase = 0; birdFlock = 1; crossLine = false;
+    zoneMult = 1; zoneCoin = false; zoneBonus = 0;
     STREAK_STEP = 0.2; STREAK_CAP = 2.0;      // relics may raise these; reset first
     slotBonus = settleSlots();                // must be known before activeRelics() is read
+    syncRows();                               // grows the board if a 개간 relic is active
     for (const id of activeRelics()) {
       const a = RELICS[id] && RELICS[id].apply;
       if (a) a();
@@ -2135,7 +2206,10 @@
         ghost[r][c] = vis;                       // ...but it stays on screen until its burst
         const carried = takeCoin(r, c);
         popped++;
-        if (cellColor >= 0) pointsPopped += fruitScore(cellColor);
+        if (cellColor >= 0) {
+          pointsPopped += fruitScoreAt(r, c, cellColor);
+          if (zoneCoin && zoneAt(r, c)) addCoins(1, r, c);   // 금맥: the cell itself pays
+        }
         // item reward = size of YOUR placed color group. Count color-flood pops AND any
         // same-color cell a bomb/line blast consumed mid-chain (incl. a same-color bomb itself),
         // so overlapping items no longer rob the count. (Star's board-wide sweep bypasses this
@@ -2147,7 +2221,7 @@
         setTimeout(() => {
           ghost[r][c] = null;                    // this cell's turn: fruit goes, particles fly
           burst(r, c, vis);
-          popScoreText(r, c, cellColor);
+          popScoreText(r, c, cellColor, fruitScoreAt(r, c, cellColor));
           if (cellColor >= 0) notify("onFruitPop", { r, c, color: cellColor });
           if (carried) addCoins(1, r, c);        // its coin flies when the fruit actually pops
           glow[r][c] = { c: vis, t: 1 };
@@ -2537,6 +2611,7 @@
     busy = false; dirty = true;
     $sh("hint").textContent =
       `${stageLabel(stage)} — 목표 ${rules().quota(stage)}점 · 터치 ${touchesLeft}회`;
+    rollZones();                 // a fresh map each stage
     notify("onStageStart", { stage });
     updateHUD();
   }
@@ -2890,11 +2965,11 @@
 
   // a fruit's own points, at its own cell, in its own colour -- the "ingredients" beat.
   // The multiplied total lands separately once the whole chain has finished.
-  function popScoreText(r, c, colorIdx) {
+  function popScoreText(r, c, colorIdx, pts) {
     if (!(colorIdx >= 0)) return;
     floats.push({
       x: pad + c * cell + cell / 2, y: pad + r * cell + cell / 2,
-      text: fmtShort(fruitScore(colorIdx)),    // the number that actually scores
+      text: fmtShort(pts == null ? fruitScore(colorIdx) : pts),  // the number that actually scores
       color: POP_COLORS[colorIdx] || "#fff", t: 0,
     });
   }
@@ -3221,6 +3296,21 @@
         // empty cell
         ctx.fillStyle = "#262a3d";
         roundRect(x + g, y + g, cell - g*2, cell - g*2, cell*0.22); ctx.fill();
+
+        // bonus zone — drawn on the empty cell, under the fruit, so it reads as the board
+        // being marked rather than as another piece sitting on it
+        if (zoneCells.size && zoneAt(r, c)) {
+          ctx.save();
+          const pulse = 0.5 + 0.5 * Math.sin(frame * 0.05 + (r * 3 + c * 5));
+          ctx.fillStyle = zoneCoin ? "#c9a227" : "#3fae6a";
+          ctx.globalAlpha = 0.20 + 0.10 * pulse;
+          roundRect(x + g, y + g, cell - g*2, cell - g*2, cell*0.22); ctx.fill();
+          ctx.globalAlpha = 0.55 + 0.25 * pulse;
+          ctx.strokeStyle = zoneCoin ? "#ffd23e" : "#6ee7a0";
+          ctx.lineWidth = Math.max(1, cell * 0.045);
+          roundRect(x + g*1.6, y + g*1.6, cell - g*3.2, cell - g*3.2, cell*0.20); ctx.stroke();
+          ctx.restore();
+        }
 
         // glow (wave passing)
         const gl = glow[r][c];
@@ -3702,6 +3792,12 @@
       get chainStep() { return chainStep; }, get coinFruitBonus() { return coinFruitBonus; },
       get starCoinMult() { return starCoinMult; }, get payoutMult() { return payoutMult; },
       bombRadius, BOMB_RADIUS_MAX, itemNeed, ITEM_NEED_MIN,
+      syncRows, ROWS_BASE, ROWS_MAX, layout, COLS,
+      rollZones, zoneAt, zoneCount, fruitScoreAt, ZONE_BASE,
+      get zoneCells() { return zoneCells; }, get zoneMult() { return zoneMult; },
+      get zoneCoin() { return zoneCoin; }, get zoneBonus() { return zoneBonus; },
+      emptyCells, get grid() { return grid; }, get special() { return special; },
+      get hp() { return hp; }, get coinCell() { return coinCell; },
       BIRD_THRESHOLD, LINE_THRESHOLD, BOMB_THRESHOLD, STAR_THRESHOLD,
       get bombRadiusBonus() { return bombRadiusBonus; }, get itemEase() { return itemEase; },
       get STREAK_CAP() { return STREAK_CAP; }, get STREAK_STEP() { return STREAK_STEP; },
