@@ -399,6 +399,42 @@ window.addEventListener('load', () => setTimeout(() => {
   schk('something is buyable on the first payout', cheapest <= firstPayout + 2, true);
   F.resetRun(); F.mode = 'arcade';
 
+  // ---- shop shelf, sold-in-place, and the free trait reroll ----
+  F.resetRun(); F.mode = 'rush'; F.coins = 500;
+  F.openShop();
+  schk('shelf is SHOP_OFFERS wide', F.shopOffers.length, F.SHOP_OFFERS);
+  const shelf = F.shopOffers.slice();
+  const buyMe = shelf.find(id => F.RELICS[id].price <= 500);
+  F.buyRelic(buyMe);
+  schk('bought relic stays on the shelf', F.shopOffers.length, F.SHOP_OFFERS);
+  schk('same cards, same order', F.shopOffers, shelf);
+  schk('and it is marked sold', F.shopSold.has(buyMe), true);
+  schk('buying it twice does nothing', (F.buyRelic(buyMe), F.relics.filter(x => x === buyMe).length), 1);
+  F.closeShop();
+
+  // the 안목 trait widens the shelf further
+  F.resetRun(); F.mode = 'rush';
+  F.traits = [{id:'keen_eye', amount:1}]; F.applyRelics();
+  F.openShop();
+  schk('keen eye adds one', F.shopOffers.length, F.SHOP_OFFERS + 1);
+  F.closeShop();
+
+  // one free trait reroll per screen
+  F.resetRun(); F.mode = 'rush';
+  F.openTraits();
+  schk('a free reroll is granted', F.traitRerolls, 1);
+  const before = F.traitOffers.slice();
+  document.getElementById('tr-reroll').click();
+  schk('reroll spent', F.traitRerolls, 0);
+  schk('and it is disabled after', document.getElementById('tr-reroll').disabled, true);
+  document.getElementById('tr-reroll').click();
+  schk('a second click does nothing', F.traitRerolls, 0);
+  F.pickTrait(F.traitOffers[0]);
+  F.openTraits();
+  schk('the next screen grants a fresh one', F.traitRerolls, 1);
+  document.getElementById('traits').classList.add('hidden');
+  F.resetRun(); F.mode = 'arcade';
+
   // ---- grades: rarer tiers really do show up less ----
   F.resetRun(); F.mode = 'rush';
   const tierSeen = {common:0, uncommon:0, rare:0, legend:0};

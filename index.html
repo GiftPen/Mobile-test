@@ -253,6 +253,28 @@
     background: #1c2032; color: var(--text); box-shadow: none; font-family: inherit;
     cursor: pointer; text-align: center; }
   .offer.off { opacity: .42; cursor: default; }
+  .offer.sold { opacity: .3; cursor: default; filter: grayscale(1); }
+  .offer.sold .of-price { color: #8a93ad; }
+  /* rare and legendary announce themselves -- a slow breathing glow, not a flash */
+  .offer.shine { position: relative; overflow: hidden; }
+  .offer.shine::after {
+    content: ""; position: absolute; inset: 0; pointer-events: none; border-radius: inherit;
+    background: linear-gradient(115deg, transparent 35%, rgba(255,255,255,.16) 50%, transparent 65%);
+    transform: translateX(-120%); animation: sheen 2.6s ease-in-out infinite;
+  }
+  .offer.shine-rare   { box-shadow: 0 0 0 1px rgba(196,139,255,.5), 0 0 18px rgba(196,139,255,.28);
+    animation: pulseRare 2.4s ease-in-out infinite; }
+  .offer.shine-legend { box-shadow: 0 0 0 1px rgba(255,201,60,.6), 0 0 22px rgba(255,201,60,.36);
+    animation: pulseLegend 2.1s ease-in-out infinite; }
+  .offer.sold.shine::after { animation: none; }
+  .offer.sold.shine-rare, .offer.sold.shine-legend { box-shadow: none; animation: none; }
+  @keyframes sheen { 0% { transform: translateX(-120%); } 55%, 100% { transform: translateX(120%); } }
+  @keyframes pulseRare {
+    0%, 100% { box-shadow: 0 0 0 1px rgba(196,139,255,.5), 0 0 14px rgba(196,139,255,.22); }
+    50%      { box-shadow: 0 0 0 1px rgba(196,139,255,.8), 0 0 26px rgba(196,139,255,.45); } }
+  @keyframes pulseLegend {
+    0%, 100% { box-shadow: 0 0 0 1px rgba(255,201,60,.55), 0 0 16px rgba(255,201,60,.28); }
+    50%      { box-shadow: 0 0 0 2px rgba(255,201,60,.95), 0 0 32px rgba(255,201,60,.6); } }
   .of-tier { font-size: 10px; font-weight: 800; letter-spacing: 1px; }
   .of-name { font-size: 14px; font-weight: 800; }
   .of-ic { font-size: 40px; line-height: 1.1; }
@@ -332,6 +354,7 @@
         <span class="shop-title">특성 선택</span>
         <span>
           <button id="tr-info" class="ghost-btn">📜</button>
+          <button id="tr-reroll" class="ghost-btn">🔄 무료</button>
           <button id="tr-double" class="ghost-btn hidden">✨ 2배 <b id="tr-double-n">1</b></button>
         </span>
       </div>
@@ -2247,7 +2270,9 @@
 
   // ---- between-stage shop ----
   const REROLL_COST = 3;
+  const SHOP_OFFERS = 5;      // wider shelf keeps rare grades reachable without making them common
   let shopOffers = [], shopReroll = REROLL_COST;
+  let shopSold = new Set();   // bought this visit: the card stays put and reads 품절
   const $sh = id => document.getElementById(id);
 
   // weighted draw: a relic can declare `weight` below 1 to show up rarely. The build-defining
@@ -2265,7 +2290,8 @@
     return out;
   }
   function openShop() {
-    shopOffers = rollOffers(3 + offerBonus);   // the 안목 trait widens the shelf
+    shopOffers = rollOffers(SHOP_OFFERS + offerBonus);   // the 안목 trait widens it further
+    shopSold = new Set();
     shopReroll = REROLL_COST;
     renderShop();
     $sh("shop").classList.remove("hidden");
@@ -2300,10 +2326,14 @@
     const full = relics.length >= relicCap();
     for (const id of shopOffers) {
       const R = RELICS[id];
+      const sold = shopSold.has(id);
       const poor = coins < R.price;
       const card = document.createElement("button");
-      card.className = "offer" + (poor || full ? " off" : "");
-      card.disabled = poor || full;
+      const grade = relicTier(R);
+      card.className = "offer"
+        + (sold ? " sold" : (poor || full ? " off" : ""))
+        + (grade === "rare" || grade === "legend" ? " shine shine-" + grade : "");
+      card.disabled = sold || poor || full;
       const tier = TIERS[relicTier(R)];
       card.style.borderColor = tier.color + "66";
       const gr = document.createElement("span");
@@ -2316,7 +2346,7 @@
       const pr = document.createElement("span");
       pr.className = "of-price" + (full ? " nofit" : "");
       const life = R.life ? ` · ${R.life.amount}${lifeUnitLabel(R.life.unit)}` : "";
-      pr.textContent = full ? `🪙 ${R.price} · 칸 없음` : `🪙 ${R.price}${life}`;
+      pr.textContent = sold ? "품절" : full ? `🪙 ${R.price} · 칸 없음` : `🪙 ${R.price}${life}`;
       card.append(gr, nm, ic, ds, pr);
       card.addEventListener("click", () => buyRelic(id));
       wrap.appendChild(card);
@@ -2324,19 +2354,21 @@
   }
   function buyRelic(id) {
     const R = RELICS[id];
-    if (!R || coins < R.price || relics.length >= relicCap()) return;
+    // the sold card stays on the shelf now, so "already owned" has to be refused here rather
+    // than relying on the button being disabled
+    if (!R || relics.includes(id) || coins < R.price || relics.length >= relicCap()) return;
     coins -= R.price; coinsShown = coins;
     relics.push(id);
     if (R.life) relicLife[id] = R.life.amount;   // starts its clock on purchase
     applyRelics();                      // recompute, so buying mid-run matches a fresh run
     touchesLeft = Math.max(touchesLeft, stageTouches());   // a touch relic pays out this stage
-    shopOffers = shopOffers.filter(x => x !== id);
+    shopSold.add(id);                   // leave the card in place rather than reflowing the shop
     renderShop();
   }
 
   // ---- trait picks, every couple of stages ----
   // shop runs after every stage; traits only when a round has just ended (…-3 cleared)
-  let traitOffers = [], graftArmed = false;
+  let traitOffers = [], graftArmed = false, traitRerolls = 0;
 
   function rollTraits(n = 3) {
     const owned = new Set(traits.map(t => t.id));
@@ -2348,10 +2380,15 @@
   function openTraits() {
     traitOffers = rollTraits();
     graftArmed = false;
+    traitRerolls = 1;                   // one free look at a different three
+
     renderTraits();
     $sh("traits").classList.remove("hidden");
   }
   function renderTraits() {
+    const rr = $sh("tr-reroll");
+    rr.disabled = traitRerolls <= 0;
+    rr.textContent = traitRerolls > 0 ? "🔄 무료" : "🔄 사용함";
     const btn = $sh("tr-double");
     // the charge only means anything if something on offer can actually be scaled
     const anyScalable = traitOffers.some(id => TRAITS[id].scalable);
@@ -3395,6 +3432,9 @@
       openInfo, closeInfo, renderInfo,
       endStageEarly, leftoverCoins, takeCoin, updateHUD, closeStage, gameOver, COIN_FRUIT_CHANCE, COIN_PER_LEFTOVER, COIN_PAYOUT,
       TRAITS, STAGES_PER_ROUND, stageLabel, traitEffects, rollTraits, openTraits, pickTrait, renderTraits,
+      SHOP_OFFERS,
+      get shopSold() { return shopSold; },
+      get traitRerolls() { return traitRerolls; }, set traitRerolls(v) { traitRerolls = v; },
       get traits() { return traits; }, set traits(v) { traits = v; },
       get doubles() { return doubles; }, set doubles(v) { doubles = v; },
       get offerBonus() { return offerBonus; },
@@ -3473,6 +3513,13 @@
   document.getElementById("sh-next").addEventListener("click", closeShop);
   document.getElementById("sh-info").addEventListener("click", () => openInfo("relics"));
   document.getElementById("tr-info").addEventListener("click", () => openInfo("fruits"));
+  document.getElementById("tr-reroll").addEventListener("click", () => {
+    if (traitRerolls <= 0) return;
+    traitRerolls--;
+    traitOffers = rollTraits();
+    graftArmed = false;                 // a fresh three, so the charge starts unarmed again
+    renderTraits();
+  });
   document.getElementById("tr-double").addEventListener("click", () => {
     if (doubles <= 0) return;
     graftArmed = !graftArmed;           // armed, not spent -- picking an unscalable trait keeps it
@@ -3486,7 +3533,8 @@
     if (coins < shopReroll || !shopOffers.length) return;
     coins -= shopReroll; coinsShown = coins;
     shopReroll += 2;                    // rerolling again in the same shop costs more
-    shopOffers = rollOffers(3 + offerBonus);
+    shopOffers = rollOffers(SHOP_OFFERS + offerBonus);
+    shopSold = new Set();
     renderShop();
   });
 
