@@ -289,17 +289,42 @@
   }
   .offer.shine-rare   { box-shadow: 0 0 0 1px rgba(196,139,255,.5), 0 0 18px rgba(196,139,255,.28);
     animation: pulseRare 2.4s ease-in-out infinite; }
-  .offer.shine-legend { box-shadow: 0 0 0 1px rgba(255,201,60,.6), 0 0 22px rgba(255,201,60,.36);
+  /* rare's sweep hangs back so legendary's has somewhere to go */
+  .offer.shine-rare::after { animation-duration: 3.4s; opacity: .5; }
+
+  /* Legendary is a 1% draw, so it reads as a different KIND of card rather than a brighter
+     rare: gold body, doubled rim, a fast bright sweep, a breathing icon and a shimmering
+     label. Same glow in two colours was landing as the same grade at a glance. */
+  .offer.shine-legend { border-width: 2px;
+    background: linear-gradient(155deg, rgba(84,64,16,.55) 0%, #1c2032 58%);
+    box-shadow: 0 0 0 1px rgba(255,201,60,.6), 0 0 22px rgba(255,201,60,.36);
     animation: pulseLegend 2.1s ease-in-out infinite; }
+  .offer.shine-legend::after { animation-duration: 1.9s;
+    background: linear-gradient(115deg, transparent 30%, rgba(255,233,160,.34) 50%, transparent 70%); }
+  .offer.shine-legend .of-ic { animation: legendIcon 2.1s ease-in-out infinite; }
+  .offer.shine-legend .of-tier {
+    background: linear-gradient(90deg, #ffc93c 0%, #fff8d6 45%, #ffc93c 90%);
+    background-size: 220% 100%; -webkit-background-clip: text; background-clip: text;
+    -webkit-text-fill-color: transparent; animation: tierShimmer 2.4s linear infinite; }
   .offer.sold.shine::after { animation: none; }
   .offer.sold.shine-rare, .offer.sold.shine-legend { box-shadow: none; animation: none; }
+  /* sold is sold: grayscale alone left the gold body and the moving parts alive */
+  .offer.sold.shine-legend { background: #1c2032; border-width: 1px; }
+  .offer.sold.shine-legend .of-ic { animation: none; }
+  .offer.sold.shine-legend .of-tier { animation: none; -webkit-text-fill-color: currentColor; }
   @keyframes sheen { 0% { transform: translateX(-120%); } 55%, 100% { transform: translateX(120%); } }
   @keyframes pulseRare {
     0%, 100% { box-shadow: 0 0 0 1px rgba(196,139,255,.5), 0 0 14px rgba(196,139,255,.22); }
     50%      { box-shadow: 0 0 0 1px rgba(196,139,255,.8), 0 0 26px rgba(196,139,255,.45); } }
   @keyframes pulseLegend {
-    0%, 100% { box-shadow: 0 0 0 1px rgba(255,201,60,.55), 0 0 16px rgba(255,201,60,.28); }
-    50%      { box-shadow: 0 0 0 2px rgba(255,201,60,.95), 0 0 32px rgba(255,201,60,.6); } }
+    0%, 100% { box-shadow: 0 0 0 1px rgba(255,201,60,.55), 0 0 16px rgba(255,201,60,.28);
+               transform: scale(1); }
+    50%      { box-shadow: 0 0 0 2px rgba(255,201,60,1), 0 0 40px rgba(255,201,60,.75);
+               transform: scale(1.022); } }
+  @keyframes legendIcon {
+    0%, 100% { transform: scale(1);    filter: drop-shadow(0 0 3px rgba(255,201,60,.45)); }
+    50%      { transform: scale(1.12); filter: drop-shadow(0 0 12px rgba(255,201,60,.95)); } }
+  @keyframes tierShimmer { 0% { background-position: 120% 0; } 100% { background-position: -120% 0; } }
   .of-tier { font-size: 10px; font-weight: 800; letter-spacing: 1px; }
   .of-name { font-size: 14px; font-weight: 800; }
   .of-ic { font-size: 40px; line-height: 1.1; }

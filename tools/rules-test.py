@@ -435,6 +435,48 @@ window.addEventListener('load', () => setTimeout(() => {
   document.getElementById('traits').classList.add('hidden');
   F.resetRun(); F.mode = 'arcade';
 
+  // ---- legendary must not read as "rare, but yellow" ----
+  (() => {
+    const byTier = {};
+    for (const id of Object.keys(F.RELICS)) {
+      const t = F.relicTier(F.RELICS[id]);
+      (byTier[t] = byTier[t] || []).push(id);
+    }
+    const legends = byTier.legend || [], rares = byTier.rare || [];
+    schk('there are legendaries to show', legends.length > 0, true);
+    schk('there are rares to show', rares.length > 0, true);
+    F.mode = 'rush'; F.resetRun(); F.coins = 9999;
+    F.openShop();
+    F.shopOffers = [rares[0], legends[0]].concat(legends[1] ? [legends[1]] : []);
+    if (legends[1]) F.shopSold.add(legends[1]);   // getter-only: mutate, do not reassign
+    F.renderShop();
+    const cards = [...document.querySelectorAll('.offer')];
+    const rare = cards[0], leg = cards[1], soldLeg = cards[2];
+    const cs = (el, pseudo) => getComputedStyle(el, pseudo || null);
+    schk('rare is tagged rare',   rare.classList.contains('shine-rare'), true);
+    schk('legend is tagged legend', leg.classList.contains('shine-legend'), true);
+    // the difference has to be structural, not just a different hue
+    schk('legend has a tinted body, rare does not',
+         cs(leg).backgroundImage !== 'none' && cs(rare).backgroundImage === 'none', true);
+    schk('legend has the thicker rim',
+         parseFloat(cs(leg).borderTopWidth) > parseFloat(cs(rare).borderTopWidth), true);
+    schk('legend sweeps faster than rare',
+         parseFloat(cs(leg, '::after').animationDuration) < parseFloat(cs(rare, '::after').animationDuration), true);
+    schk('and brighter',
+         parseFloat(cs(leg, '::after').opacity) > parseFloat(cs(rare, '::after').opacity), true);
+    schk('only legend animates its icon',
+         cs(leg.querySelector('.of-ic')).animationName !== 'none' &&
+         cs(rare.querySelector('.of-ic')).animationName === 'none', true);
+    if (soldLeg) {
+      schk('a sold legendary stops shouting',
+           cs(soldLeg).animationName === 'none' &&
+           cs(soldLeg.querySelector('.of-ic')).animationName === 'none' &&
+           cs(soldLeg.querySelector('.of-tier')).animationName === 'none' &&
+           cs(soldLeg).backgroundImage === 'none', true);
+    }
+    F.closeShop();
+  })();
+
   // ---- number display: compact only where precision is decoration ----
   schk('full digits get separators',        F.fmtNum(1234567).replace(/\u00a0/g,','), '1,234,567');
   schk('fmtNum rounds',                     F.fmtNum(1234.6), '1,235');
