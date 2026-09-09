@@ -19,9 +19,14 @@ window.addEventListener('load', () => setTimeout(() => {
   if (!F) { document.title = 'RESULT {"fatal":"no test hook"}'; return; }
   const fails = []; let n = 0;
   F.score = 0;                        // score is undefined until start(); seed it
-  // reference = the inline formula as it stood BEFORE the addScore/scorePop chokepoint
-  const refStreak = s => Math.min(1 + s * 0.2, 2.0);
-  const refPop = (base, cleared, s) => Math.round(base * (1 + (cleared - 1) * 0.15) * refStreak(s));
+  // Reference for the chokepoint. It reads the STEP constants (they are tuning, and pinning
+  // them here just means retuning breaks the suite) but re-implements the 0.1 grid rounding
+  // independently -- so forgetting to round, or applying chain and streak in the wrong order,
+  // still fails.
+  const grid1 = v => Math.round(v * 10) / 10;
+  const refStreak = s => grid1(Math.min(1 + s * F.STREAK_STEP_BASE, 2.0));
+  const refPop = (base, cleared, s) =>
+    Math.round(base * grid1(1 + (cleared - 1) * F.CHAIN_STEP) * refStreak(s));
   for (let s = 0; s <= 12; s++) {
     F.streak = s;
     for (let base = 0; base <= 60; base++) {
@@ -35,6 +40,69 @@ window.addEventListener('load', () => setTimeout(() => {
       }
     }
   }
+  // Multipliers must live on a 0.1 grid -- the value, not just the printed form. This is the
+  // whole point of the change, so it is asserted directly rather than inferred from scores.
+  const offGrid = [];
+  for (let cleared = 1; cleared <= 30; cleared++) {
+    const v = F.chainBonus(cleared);
+    if (Math.abs(v * 10 - Math.round(v * 10)) > 1e-9) offGrid.push({ kind: 'chain', cleared, v });
+  }
+  for (let s2 = 0; s2 <= 30; s2++) {
+    F.streak = s2;
+    const v = F.streakMult();
+    if (Math.abs(v * 10 - Math.round(v * 10)) > 1e-9) offGrid.push({ kind: 'combo', streak: s2, v });
+  }
+  // ...and with every relic that moves those steps stacked on top
+  F.mode = 'rush'; F.resetRun();
+  F.relics.push('whetstone', 'chain_fan', 'first_step', 'elastic', 'bell', 'frenzy', 'streak_step');
+  F.applyRelics();
+  for (let cleared = 1; cleared <= 30; cleared++) {
+    const v = F.chainBonus(cleared);
+    if (Math.abs(v * 10 - Math.round(v * 10)) > 1e-9) offGrid.push({ kind: 'chain+relics', cleared, v });
+  }
+  for (let s2 = 0; s2 <= 40; s2++) {
+    F.streak = s2;
+    const v = F.streakMult();
+    if (Math.abs(v * 10 - Math.round(v * 10)) > 1e-9) offGrid.push({ kind: 'combo+relics', streak: s2, v });
+  }
+  if (offGrid.length) fails.push({ case: 'a multiplier left the 0.1 grid', e: offGrid.slice(0, 4) });
+
+  // combo must climb in 0.1 steps, not 0.2
+  F.resetRun(); F.mode = 'rush';
+  F.streak = 1; const c1 = F.streakMult();
+  F.streak = 2; const c2 = F.streakMult();
+  if (+(c1).toFixed(4) !== 1.1 || +(c2).toFixed(4) !== 1.2)
+    fails.push({ case: 'combo climbs by 0.1', got: [c1, c2], want: [1.1, 1.2] });
+
+  // gridMult must actually round. The grid check above cannot see this: it reads values that
+  // have already been through gridMult, so it holds even if gridMult is the identity.
+  if (F.gridMult(1.24) !== 1.2 || F.gridMult(1.26) !== 1.3 || F.gridMult(1.25) !== 1.3)
+    fails.push({ case: 'gridMult does not snap to 0.1',
+                 got: [F.gridMult(1.24), F.gridMult(1.26), F.gridMult(1.25)] });
+
+  // and the label must clamp too -- fed an off-grid value it still prints one decimal
+  const lbl = F.multLabel(1.25, 1.25).map(x => x[1]).join(' ');
+  if (/\d\.\d\d/.test(lbl)) fails.push({ case: 'label shows two decimals', got: lbl });
+
+  // Every relic that moves a step must move it by a multiple of 0.1. Rounding the OUTPUT
+  // hides a 0.05 step, but it still makes two purchases land unevenly -- one does nothing
+  // visible, the next jumps 0.1.
+  const stepOff = [];
+  for (const id of Object.keys(F.RELICS)) {
+    F.resetRun(); F.mode = 'rush';
+    const step0 = F.STREAK_STEP, chain0 = F.chainStep, cap0 = F.STREAK_CAP;
+    F.relics.push(id); F.applyRelics();
+    for (const [what, before, after] of [['combo step', step0, F.STREAK_STEP],
+                                        ['chain step', chain0, F.chainStep],
+                                        ['combo cap', cap0, F.STREAK_CAP]]) {
+      const d = Math.abs(after - before);
+      if (d > 1e-9 && Math.abs(d * 10 - Math.round(d * 10)) > 1e-9)
+        stepOff.push({ id, what, delta: +d.toFixed(4) });
+    }
+  }
+  if (stepOff.length) fails.push({ case: 'a relic moves a step off the 0.1 grid', e: stepOff });
+  F.resetRun(); F.mode = 'arcade'; F.streak = 0; F.score = 0;
+
   // fruitScore must equal the old raw FRUIT_POINTS while every multiplier is 1.0
   const fsFails = [];
   for (let c = 0; c < 7; c++)

@@ -563,9 +563,16 @@
   const BURST_RADIUS = 1;      // 1 = 3x3 burst (Chebyshev). items can raise this later
   // streak multiplier: +0.2 per consecutive success, capped at ×2.0 (1.2/1.4/1.6/1.8/2.0)
   // Star Rush: relics can raise STREAK_STEP and/or STREAK_CAP.
-  let STREAK_STEP = 0.2;
+  // Multipliers live on a 0.1 grid, value included -- not just where they are printed.
+  // 0.15 chain steps read as ×1.45 mid-chain, and 0.1 increments in floating point land on
+  // 1.4000000000000001, so rounding at the source is the only way a second decimal can never
+  // exist. Every relic that moves these must move them by a multiple of 0.1.
+  const MULT_GRID = 10;
+  const gridMult = v => Math.round(v * MULT_GRID) / MULT_GRID;
+  const STREAK_STEP_BASE = 0.1;
+  let STREAK_STEP = STREAK_STEP_BASE;
   let STREAK_CAP  = 2.0;
-  function streakMult() { return Math.min(1 + streak * STREAK_STEP, STREAK_CAP); }
+  function streakMult() { return gridMult(Math.min(1 + streak * STREAK_STEP, STREAK_CAP)); }
   const BIRD_THRESHOLD = 4;    // group size 4      -> a bird
   const LINE_THRESHOLD = 5;    // group size 5–6    -> a line bud (clears a row/col)
   const BOMB_THRESHOLD = 7;    // group size 7–9    -> a bomb bud (5x5 blast)
@@ -1212,7 +1219,7 @@
     chainStep = 0; coinFruitBonus = 0; starCoinMult = 1; payoutMult = 1;
     bombRadiusBonus = 0; itemEase = 0; birdFlock = 1; crossLine = false;
     zoneMult = 1; zoneCoin = false; zoneBonus = 0; zoneCells = new Set();
-    STREAK_STEP = 0.2; STREAK_CAP = 2.0;
+    STREAK_STEP = STREAK_STEP_BASE; STREAK_CAP = 2.0;
     traits = []; doubles = 0;
     coins = 0; coinsShown = 0; coinFly = [];
     oddsMult = [0, 0, 0, 0, 0, 0, 0];
@@ -1384,9 +1391,14 @@
   // Every point earned flows through addScore(), and pop scoring is assembled from the
   // named terms of the Star Rush formula (doc 3-2). Relics bend a term here instead of
   // patching scattered `score +=` sites -- which is how a relic quietly misses a path.
-  const CHAIN_STEP = 0.15;                 // chain-size bonus per extra cleared cell
+  // 0.2, not the 0.15 it was: halving the combo step to land it on the 0.1 grid cost about
+  // half a run's reach, and this is the only lever that gives it back without leaving the
+  // grid. Measured over 6 bot runs the median stage came back to where it was.
+  const CHAIN_STEP = 0.2;                  // chain-size bonus per extra cleared cell
   let fruitMult = [1, 1, 1, 1, 1, 1, 1];   // per-colour multiplier; all 1.0 today
-  function chainBonus(cleared) { return 1 + Math.max(0, cleared - 1) * (CHAIN_STEP + chainStep); }
+  function chainBonus(cleared) {
+    return gridMult(1 + Math.max(0, cleared - 1) * (CHAIN_STEP + chainStep));
+  }
   // (base + what popping it has banked) x banked doublings x the relics you carry
   function fruitScore(colorIdx) {          // one fruit's worth, before chain/streak
     const base = (FRUIT_POINTS[colorIdx] || 1) + (fruitStack[colorIdx] || 0)
@@ -1602,11 +1614,11 @@
 
     // ---- B. score ----
     chain_master: { name: "연쇄 광", icon: "🔗", price: 17,
-      desc: "연쇄 보너스 +0.15 (0.15 → 0.30)", apply() { chainStep += 0.15; } },
+      desc: `연쇄 보너스 +0.2 (${CHAIN_STEP} → ${gridMult(CHAIN_STEP + 0.2)})`, apply() { chainStep += 0.2; } },
     streak_amp: { name: "불꽃 증폭", icon: "🔥", price: 16,
       desc: "콤보 배율 상한 ×2.0 → ×2.8", apply() { STREAK_CAP += 0.8; } },
     streak_step: { name: "탄력", icon: "📈", price: 13,
-      desc: "콤보 증가폭 +0.1 (0.2 → 0.3)", apply() { STREAK_STEP += 0.1; } },
+      desc: `콤보 증가폭 +0.2 (${STREAK_STEP_BASE} → ${gridMult(STREAK_STEP_BASE + 0.2)})`, apply() { STREAK_STEP += 0.2; } },
     golden_banana: { name: "황금 바나나", icon: "🏆", price: 20,
       desc: "바나나 점수 배율 +1.0", apply() { fruitMult[6] += 1; } },
     sweet_tooth: { name: "단맛 애호", icon: "🍬", price: 15,
@@ -1645,7 +1657,7 @@
     one_cherry: { name: "체리 한 알", icon: "🍒", price: 4,
       desc: "체리 점수 +8", apply() { fruitFlat[0] += 8; } },
     whetstone: { name: "숫돌", icon: "🪨", price: 6,
-      desc: "연쇄 보너스 +0.05 (0.15 → 0.20)", apply() { chainStep += 0.05; } },
+      desc: `연쇄 보너스 +0.1 (${CHAIN_STEP} → ${gridMult(CHAIN_STEP + 0.1)})`, apply() { chainStep += 0.1; } },
 
     // ---- temporary: strong, cheap, and on a clock ----
     focus: { name: "단기 집중", icon: "⚡", price: 9, life: { unit: "stages", amount: 2 },
@@ -1680,7 +1692,7 @@
     kiwi_slice: { name: "키위 한 쪽", icon: "🥝", price: 5,
       desc: "키위 점수 +10", apply() { fruitFlat[2] += 10; } },
     first_step: { name: "첫걸음", icon: "📈", price: 5,
-      desc: "콤보 증가폭 +0.05 (0.2 → 0.25)", apply() { STREAK_STEP += 0.05; } },
+      desc: `콤보 증가폭 +0.1 (${STREAK_STEP_BASE} → ${gridMult(STREAK_STEP_BASE + 0.1)})`, apply() { STREAK_STEP += 0.1; } },
     clover: { name: "네잎클로버", icon: "🍀", price: 5,
       desc: "코인 달린 과일 확률 +2%p", apply() { coinFruitBonus += 0.02; } },
     sprout: { name: "떡잎", icon: "🌱", price: 5,
@@ -1812,7 +1824,7 @@
     chainStep = 0; coinFruitBonus = 0; starCoinMult = 1; payoutMult = 1;
     bombRadiusBonus = 0; itemEase = 0; birdFlock = 1; crossLine = false;
     zoneMult = 1; zoneCoin = false; zoneBonus = 0;
-    STREAK_STEP = 0.2; STREAK_CAP = 2.0;      // relics may raise these; reset first
+    STREAK_STEP = STREAK_STEP_BASE; STREAK_CAP = 2.0;      // relics may raise these; reset first
     slotBonus = settleSlots();                // must be known before activeRelics() is read
     syncRows();                               // grows the board if a 개간 relic is active
     for (const id of activeRelics()) {
@@ -3027,7 +3039,7 @@
   // which multipliers turned the ingredients into the total
   function multLabel(cb, sm) {
     const p = [];
-    if (cb > 1.001) p.push(["gp-chain", `×${+cb.toFixed(2)} 연쇄`]);
+    if (cb > 1.001) p.push(["gp-chain", `×${+cb.toFixed(1)} 연쇄`]);
     if (sm > 1.001) p.push(["gp-combo", `×${+sm.toFixed(1)} 콤보`]);
     return p;
   }
@@ -3792,6 +3804,7 @@
       get chainStep() { return chainStep; }, get coinFruitBonus() { return coinFruitBonus; },
       get starCoinMult() { return starCoinMult; }, get payoutMult() { return payoutMult; },
       bombRadius, BOMB_RADIUS_MAX, itemNeed, ITEM_NEED_MIN,
+      gridMult, MULT_GRID, STREAK_STEP_BASE, CHAIN_STEP, multLabel,
       syncRows, ROWS_BASE, ROWS_MAX, layout, COLS,
       rollZones, zoneAt, zoneCount, fruitScoreAt, ZONE_BASE,
       get zoneCells() { return zoneCells; }, get zoneMult() { return zoneMult; },
