@@ -440,14 +440,36 @@ window.addEventListener('load', () => setTimeout(() => {
   const tierSeen = {common:0, uncommon:0, rare:0, legend:0};
   const tierPool = {common:0, uncommon:0, rare:0, legend:0};
   for (const id of Object.keys(F.RELICS)) tierPool[F.relicTier(F.RELICS[id])]++;
-  for (let i = 0; i < 900; i++)
-    for (const id of F.rollOffers(3)) tierSeen[F.relicTier(F.RELICS[id])]++;
+  const SHOPS = 4000;
+  for (let i = 0; i < SHOPS; i++)
+    for (const id of F.rollOffers(F.SHOP_OFFERS)) tierSeen[F.relicTier(F.RELICS[id])]++;
   // per-relic appearance rate has to fall as the grade rises
-  const rate = t => (tierPool[t] ? tierSeen[t] / tierPool[t] : 0);
-  schk('common beats uncommon', rate('common') > rate('uncommon'), true);
-  schk('uncommon beats rare',   rate('uncommon') > rate('rare'), true);
-  schk('rare beats legend',     rate('rare') > rate('legend'), true);
+  // grade odds are declared, so the measured slot share must match TIERS[t].odds -- and must
+  // NOT depend on how many relics that grade holds
+  const slots = SHOPS * F.SHOP_OFFERS;
+  for (const t of F.TIER_KEYS) {
+    const got = tierSeen[t] / slots * 100, want = F.TIERS[t].odds;
+    if (Math.abs(got - want) > Math.max(0.6, want * 0.08))
+      stackFails.push({case: 'grade share ' + t, got: +got.toFixed(2), want});
+  }
   schk('every grade is reachable', Math.min(...Object.values(tierSeen)) > 0, true);
+
+  // the point of drawing grade-first: growing the pool must NOT move the grade odds
+  const legendShare = () => {
+    let hits = 0, N = 4000;
+    for (let i = 0; i < N; i++)
+      for (const id of F.rollOffers(F.SHOP_OFFERS))
+        if (F.relicTier(F.RELICS[id]) === 'legend') hits++;
+    return hits / (N * F.SHOP_OFFERS) * 100;
+  };
+  const beforePool = legendShare();
+  for (let i = 0; i < 40; i++)            // forty more commons, as the pool keeps growing
+    F.RELICS['pad_' + i] = { name: 'pad' + i, icon: '·', price: 5, desc: 'x' };
+  const afterPool = legendShare();
+  for (let i = 0; i < 40; i++) delete F.RELICS['pad_' + i];
+  if (Math.abs(afterPool - beforePool) > 0.5)
+    stackFails.push({case: 'grade odds survive a bigger pool',
+                     got: +afterPool.toFixed(2), want: +beforePool.toFixed(2)});
 
   // ---- the item-effect relics ----
   F.resetRun(); F.mode = 'rush';

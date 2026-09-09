@@ -1360,15 +1360,19 @@
 
   // Grade sets how often a relic is offered. Derived from price by default so 40 relics do
   // not each need tagging, but `tier` can be set explicitly where price lies about power.
+  // Odds are per GRADE, not per relic. Drawing over one weighted pool meant adding twelve
+  // common relics quietly pushed rare from 72% a shop down to 55% -- every addition diluted
+  // every other grade. Pick the grade first, then a relic inside it, and the pool can grow
+  // without moving these numbers: only WHICH legendary changes, never how often one appears.
   const TIERS = {
-    common:   { name: "일반", weight: 1,    color: "#8a93ad" },
-    uncommon: { name: "고급", weight: 0.55, color: "#5fa8ff" },
-    rare:     { name: "희귀", weight: 0.28, color: "#c48bff" },
-    legend:   { name: "전설", weight: 0.12, color: "#ffc93c" },
+    common:   { name: "일반", odds: 50, color: "#8a93ad" },
+    uncommon: { name: "고급", odds: 33, color: "#5fa8ff" },
+    rare:     { name: "희귀", odds: 16, color: "#c48bff" },
+    legend:   { name: "전설", odds:  1, color: "#ffc93c" },
   };
   const relicTier = R => R.tier ||
     (R.price >= 25 ? "legend" : R.price >= 16 ? "rare" : R.price >= 8 ? "uncommon" : "common");
-  const relicWeight = R => (R.weight != null ? R.weight : TIERS[relicTier(R)].weight);
+  const TIER_KEYS = ["common", "uncommon", "rare", "legend"];
 
   // id -> { name, icon, desc, price, apply?, modify?, ...events }
   // apply() may only set derived state (oddsMult / fruitMult / *Bonus); applyRelics wipes
@@ -1479,6 +1483,33 @@
     banana_cellar: { name: "바나나 저장고", icon: "🏺", price: 18,
       desc: "바나나를 터뜨릴 때마다 바나나 점수 +5",
       onFruitPop: p => { if (p.color === 6) fruitStack[6] += 5; } },
+
+    // ---- 일반: cheap, modest, always worth something ----
+    dust: { name: "티끌", icon: "🪙", price: 3,
+      desc: "스테이지 정산 코인 +2", apply() { payoutMult += 2 / 4; } },
+    lemon_slice: { name: "레몬 한 조각", icon: "🍋", price: 4,
+      desc: "레몬 점수 +8", apply() { fruitFlat[3] += 8; } },
+    orange_piece: { name: "오렌지 한 알", icon: "🍊", price: 5,
+      desc: "오렌지 점수 +10", apply() { fruitFlat[1] += 10; } },
+    kiwi_slice: { name: "키위 한 쪽", icon: "🥝", price: 5,
+      desc: "키위 점수 +10", apply() { fruitFlat[2] += 10; } },
+    first_step: { name: "첫걸음", icon: "📈", price: 5,
+      desc: "콤보가 조금 빨리 오릅니다", apply() { STREAK_STEP += 0.05; } },
+    clover: { name: "네잎클로버", icon: "🍀", price: 5,
+      desc: "코인 달린 과일이 조금 더 나옵니다", apply() { coinFruitBonus += 0.02; } },
+    sprout: { name: "떡잎", icon: "🌱", price: 5,
+      desc: "체리·레몬이 조금 더 등장", apply() { oddsMult[0] += 0.5; oddsMult[3] += 0.5; } },
+    grape_bunch: { name: "포도 한 송이", icon: "🍇", price: 6,
+      desc: "포도 점수 +14", apply() { fruitFlat[4] += 14; } },
+    bell: { name: "종소리", icon: "🔔", price: 6,
+      desc: "콤보 상한 ×2.0 → ×2.3", apply() { STREAK_CAP += 0.3; } },
+    basket: { name: "바구니", icon: "🧺", price: 6,
+      desc: "스테이지를 시작할 때 과일 3개가 더 놓입니다",
+      onStageStart: () => spawnBuds(3) },
+    peach_half: { name: "복숭아 반쪽", icon: "🍑", price: 7,
+      desc: "복숭아 점수 +14", apply() { fruitFlat[5] += 14; } },
+    banana_bite: { name: "바나나 한 입", icon: "🍌", price: 7,
+      desc: "바나나 점수 +20", apply() { fruitFlat[6] += 20; } },
 
     // ---- item upgrades the player asked for ----
     flock: { name: "참새떼", icon: "🐦", price: 22,
@@ -2275,17 +2306,21 @@
   let shopSold = new Set();   // bought this visit: the card stays put and reads 품절
   const $sh = id => document.getElementById(id);
 
-  // weighted draw: a relic can declare `weight` below 1 to show up rarely. The build-defining
-  // ones have to be rare or every run converges on the same three.
+  // grade first, then a relic within that grade
   function rollOffers(n = 3) {
-    const pool = Object.keys(RELICS).filter(id => !relics.includes(id));
+    const byTier = {};
+    for (const t of TIER_KEYS) byTier[t] = [];
+    for (const id of Object.keys(RELICS)) if (!relics.includes(id)) byTier[relicTier(RELICS[id])].push(id);
     const out = [];
-    while (out.length < n && pool.length) {
+    while (out.length < n) {
+      const live = TIER_KEYS.filter(t => byTier[t].length);
+      if (!live.length) break;
       let total = 0;
-      for (const id of pool) total += relicWeight(RELICS[id]);
-      let t = Math.random() * total, k = 0;
-      for (; k < pool.length; k++) { t -= relicWeight(RELICS[pool[k]]); if (t < 0) break; }
-      out.push(pool.splice(Math.min(k, pool.length - 1), 1)[0]);
+      for (const t of live) total += TIERS[t].odds;
+      let r = Math.random() * total, pick = live[live.length - 1];
+      for (const t of live) { r -= TIERS[t].odds; if (r < 0) { pick = t; break; } }
+      const bucket = byTier[pick];
+      out.push(bucket.splice(randInt(bucket.length), 1)[0]);
     }
     return out;
   }
@@ -2306,6 +2341,7 @@
     busy = false; dirty = true;
     $sh("hint").textContent =
       `${stageLabel(stage)} — 목표 ${rules().quota(stage)}점 · 터치 ${touchesLeft}회`;
+    notify("onStageStart", { stage });
     updateHUD();
   }
   function renderShop() {
@@ -3424,7 +3460,7 @@
       resetRun, serializeRun, restoreRun, FRUIT_POINTS, COLS,
       MODES, activeColors, spawnCount, brickHpLevel, computeMaxLevel,
       RELICS, notify, modify, applyRelics, activeRelics, relicCap, stageTouches, RELIC_SLOTS,
-      settleSlots, tickRelicLife, lifeUnitLabel, TIERS, relicTier, relicWeight,
+      settleSlots, tickRelicLife, lifeUnitLabel, TIERS, TIER_KEYS, relicTier,
       get birdFlock() { return birdFlock; }, get crossLine() { return crossLine; },
       get relicLife() { return relicLife; }, set relicLife(v) { relicLife = v; },
       get fruitFlat() { return fruitFlat; },
