@@ -272,13 +272,34 @@ window.addEventListener('load', () => setTimeout(() => {
   chk('graft doubles the amount', +F.fruitMult[0].toFixed(2), +(base0 + 0.8).toFixed(2));
   chk('graft charge spent', F.doubles, 0);
 
-  // ...but an unscalable trait cannot use it, so the charge is kept
+  // graft is the high-ceiling pick, so anything a doubling MEANS something for must take it.
+  // 넓은 주머니 and 안목 were marked unscalable and silently ignored an armed charge.
   F.resetRun(); F.mode = 'rush'; F.doubles = 1;
   F.traitOffers = ['keen_eye']; F.graftArmed = true;
   F.pickTrait('keen_eye');
-  chk('unscalable trait keeps the charge', F.doubles, 1);
-  chk('keen_eye widens the shop', F.offerBonus, 1);
-  chk('shop rolls one more', F.rollOffers(3 + F.offerBonus).length, 4);
+  chk('graft doubles 안목', F.offerBonus, 2);
+  chk('and is spent on it', F.doubles, 0);
+  chk('shop rolls that many more', F.rollOffers(3 + F.offerBonus).length, 5);
+
+  const capBase = (() => { F.resetRun(); F.mode = 'rush'; return F.relicCap(); })();
+  F.resetRun(); F.mode = 'rush'; F.graftArmed = false;
+  F.pickTrait('big_pocket');
+  chk('넓은 주머니 adds a slot', F.relicCap(), capBase + 1);
+  F.resetRun(); F.mode = 'rush'; F.doubles = 1; F.graftArmed = true;
+  F.pickTrait('big_pocket');
+  chk('graft doubles 넓은 주머니', F.relicCap(), capBase + 2);
+  chk('and is spent on it too', F.doubles, 0);
+
+  // a charge with nothing scalable to spend it on is kept, not burned
+  F.resetRun(); F.mode = 'rush'; F.doubles = 1; F.graftArmed = true;
+  F.pickTrait('graft');
+  chk('an unscalable pick keeps the charge', F.doubles, 2);
+
+  // an armed flag with no charge behind it must not double anything for free
+  F.resetRun(); F.mode = 'rush'; F.graftArmed = true;   // doubles is 0 after a reset
+  F.pickTrait('cherry_taste');
+  chk('armed without a charge does nothing', +F.fruitMult[0].toFixed(2), +(base0 + 0.4).toFixed(2));
+  F.graftArmed = false;
 
   // graft grants a charge, and recomputing must not hand out another
   F.resetRun(); F.mode = 'rush';
@@ -296,7 +317,12 @@ window.addEventListener('load', () => setTimeout(() => {
   // multi-effect traits scale every part
   const cit = F.traitEffects(F.TRAITS.citrus, 2);
   chk('citrus doubles both fruits', cit.map(e => e.amount), [2, 2]);
-  chk('unscalable ignores the multiplier', F.traitEffects(F.TRAITS.keen_eye, 2)[0].amount, 1);
+  chk('unscalable ignores the multiplier', F.traitEffects(F.TRAITS.graft, 2)[0].amount, 1);
+  // every trait a player can carry should be doublable -- graft is the charge itself
+  chk('only the charge is unscalable',
+      Object.keys(F.TRAITS).filter(id => !F.TRAITS[id].scalable), ['graft']);
+  // ...and the charge does not sit in the carried list pretending to be one
+  chk('graft is marked as a charge', !!F.TRAITS.graft.meta, true);
   F.resetRun(); F.mode = 'arcade';
 
   // shop offers never repeat something already owned
@@ -434,6 +460,34 @@ window.addEventListener('load', () => setTimeout(() => {
   schk('the next screen grants a fresh one', F.traitRerolls, 1);
   document.getElementById('traits').classList.add('hidden');
   F.resetRun(); F.mode = 'arcade';
+
+  // ---- the info panel has to show what the shop was the only place to see ----
+  (() => {
+    F.mode = 'rush'; F.resetRun(); F.graftArmed = false;
+    const ids = Object.keys(F.RELICS).slice(0, 2);
+    for (const id of ids) F.relics.push(id);
+    F.pickTrait('big_pocket');                 // widens the shelf after the shop has closed
+    F.openInfo('relics');
+    const cnt = document.querySelector('.inf-count');
+    schk('the relic tab states the shelf', !!cnt, true);
+    schk('and counts what is on it', /2/.test(cnt.textContent), true);
+    schk('and the cap the trait just widened',
+         cnt.textContent.includes(String(F.relicCap())), true);
+
+    // graft is a charge; having TAKEN it must not also put it in the standing list
+    F.pickTrait('graft');                      // now it really is in `traits`
+    schk('graft was taken', F.traits.some(t => t.id === 'graft'), true);
+    const listed = () => { F.openInfo('traits');
+      return [...document.querySelectorAll('#info-body .inf-body b')].map(b => b.textContent); };
+    const withCharge = listed();
+    schk('넓은 주머니 is listed', withCharge.some(n => n.startsWith('넓은 주머니')), true);
+    schk('an unspent charge shows exactly once',
+         withCharge.filter(n => n.startsWith('접붙이기')).length, 1);
+    F.doubles = 0;                             // spent it
+    schk('and vanishes once spent',
+         listed().filter(n => n.startsWith('접붙이기')).length, 0);
+    F.closeInfo(); F.resetRun();
+  })();
 
   // ---- legendary must not read as "rare, but yellow" ----
   (() => {

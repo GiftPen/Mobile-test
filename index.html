@@ -369,6 +369,8 @@
     border-radius: 999px; background: #1e3328; color: #7ee0a0; box-shadow: none;
     border: 1px solid rgba(126,224,160,.35); font-family: inherit; white-space: nowrap; }
   .inf-empty { padding: 16px; text-align: center; color: var(--muted); font-size: 13px; }
+  .inf-count { padding: 2px 2px 8px; font-size: 12px; font-weight: 800; color: var(--muted);
+    letter-spacing: .5px; }
   /* hold the taller tab's height (7 fruit rows) so switching tabs doesn't resize the card
      under your thumb -- it jumped 537px -> 177px before */
   #info-body { min-height: 406px; }   /* = 7 fruit rows */
@@ -404,7 +406,7 @@
         <span class="shop-title">특성 선택</span>
         <span>
           <button id="tr-info" class="ghost-btn">📜</button>
-          <button id="tr-reroll" class="ghost-btn">🔄 무료</button>
+          <button id="tr-reroll" class="ghost-btn">🔄 1</button>
           <button id="tr-double" class="ghost-btn hidden">✨ 2배 <b id="tr-double-n">1</b></button>
         </span>
       </div>
@@ -1461,19 +1463,22 @@
     leisure: { name: "여유", icon: "👆", scalable: true,
       effects: [{ stat: "touchBonus", amount: 2 }],
       desc: e => `스테이지마다 터치 +${e[0].amount}` },
-    keen_eye: { name: "안목", icon: "👀", scalable: false,
+    keen_eye: { name: "안목", icon: "👀", scalable: true,
       effects: [{ stat: "offerBonus", amount: 1 }],
-      desc: () => "상점 진열 +1" },
-    big_pocket: { name: "넓은 주머니", icon: "🎒", scalable: false, once: true,
+      desc: e => `상점 진열 +${e[0].amount}` },
+    big_pocket: { name: "넓은 주머니", icon: "🎒", scalable: true, once: true,
       effects: [{ stat: "slotBonus", amount: 1 }],
-      desc: () => "유물 칸 +1" },
-    concentrate: { name: "농축", icon: "🔮", scalable: false,
+      desc: e => `유물 칸 +${e[0].amount}` },
+    concentrate: { name: "농축", icon: "🔮", scalable: true,
       effects: [{ stat: "boostBest", amount: 2 }],
-      desc: () => "지금 가장 비싼 과일의 값어치를 2배로" },
+      desc: e => `지금 가장 비싼 과일의 값어치를 ${e[0].amount}배로` },
     distill: { name: "증류", icon: "⚗️", scalable: true,
       effects: [{ stat: "stackAll", amount: 5 }],
       desc: e => `모든 과일 점수 +${e[0].amount}` },
-    graft: { name: "접붙이기", icon: "✨", scalable: false, once: true,
+    // meta: it is a charge you spend, not something you carry. It still lands in `traits`
+    // so `once` can keep it from being offered twice, but the list renders the charge
+    // instead -- "접붙이기" sitting there next to a live "접붙이기 1회" read as two things.
+    graft: { name: "접붙이기", icon: "✨", scalable: false, once: true, meta: true,
       effects: [{ stat: "doubles", amount: 1 }],
       desc: () => "다음 특성 선택을 2배로" },
   };
@@ -2561,7 +2566,7 @@
   function renderTraits() {
     const rr = $sh("tr-reroll");
     rr.disabled = traitRerolls <= 0;
-    rr.textContent = traitRerolls > 0 ? "🔄 무료" : "🔄 사용함";
+    rr.textContent = `🔄 ${traitRerolls}`;   // a count, like the shop's price -- "사용함" was blunt
     const btn = $sh("tr-double");
     // the charge only means anything if something on offer can actually be scaled
     const anyScalable = traitOffers.some(id => TRAITS[id].scalable);
@@ -2575,7 +2580,7 @@
     wrap.textContent = "";
     for (const id of traitOffers) {
       const T = TRAITS[id];
-      const scaled = graftArmed && T.scalable;
+      const scaled = graftArmed && doubles > 0 && T.scalable;
       const eff = traitEffects(T, scaled ? 2 : 1);
       const b = document.createElement("button");
       b.className = "trait-row" + (scaled ? " boost" : "");
@@ -2591,8 +2596,10 @@
   }
   function pickTrait(id) {
     const T = TRAITS[id]; if (!T) return;
-    const scaled = graftArmed && T.scalable;
-    if (scaled) doubles = Math.max(0, doubles - 1);
+    // armed is a UI flag; the charge is the truth. Without the doubles check an armed flag
+    // left over from a previous screen would double a trait for free.
+    const scaled = graftArmed && doubles > 0 && T.scalable;
+    if (scaled) doubles--;
     // These land ONCE, into accumulated state, because they act on what you have already
     // built. applyRelics ignores their stats, so recomputing can never re-apply them.
     for (const e of traitEffects(T, scaled ? 2 : 1)) {
@@ -2647,9 +2654,17 @@
       body.appendChild(d);
     };
     if (infoTab === "relics") {
+      // the shelf count only existed in the shop, so a trait that widened it (넓은 주머니)
+      // changed nothing you could see -- the shop had already closed by then
+      const cnt = document.createElement("div");
+      cnt.className = "inf-count";
+      const capNow = relicCap();
+      cnt.textContent = `유물 ${relics.length} / ${capNow}칸`;
+      if (relics.length > capNow) cnt.textContent += ` · ${relics.length - capNow}개 비활성`;
+      body.appendChild(cnt);
       if (!relics.length) {
         const e = document.createElement("div");
-        e.className = "inf-empty"; e.textContent = `아직 유물이 없습니다 (0 / ${relicCap()}칸)`;
+        e.className = "inf-empty"; e.textContent = "아직 유물이 없습니다";
         body.appendChild(e);
         return;
       }
@@ -2673,14 +2688,15 @@
             inert, act);
       });
     } else if (infoTab === "traits") {
-      if (!traits.length && doubles <= 0) {
+      const standing = traits.filter(t => TRAITS[t.id] && !TRAITS[t.id].meta);
+      if (!standing.length && doubles <= 0) {
         const e = document.createElement("div");
         e.className = "inf-empty"; e.textContent = "아직 특성이 없습니다";
         body.appendChild(e);
         return;
       }
-      for (const t of traits) {
-        const T = TRAITS[t.id]; if (!T) continue;
+      for (const t of standing) {
+        const T = TRAITS[t.id];
         row(T.icon, T.name + (t.amount > 1 ? " ✨2배" : ""), T.desc(traitEffects(T, t.amount)), "", false);
       }
       if (doubles > 0) row("✨", "접붙이기", "다음 특성 선택을 2배로", `${doubles}회`, false);
