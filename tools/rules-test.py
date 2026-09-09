@@ -212,6 +212,26 @@ window.addEventListener('load', () => setTimeout(() => {
   chk('satchel: cap 5 -> 7', F.relicCap(), F.RELIC_SLOTS + 2);
   chk('satchel: occupies a slot', F.relics.length, 1);
 
+  // reported: 넓은 주머니 took slots to 6, then a satchel bought into that 6th slot cut
+  // itself off and its +2 never applied -- the cap stayed at 6 instead of 8
+  F.resetRun(); F.mode = 'rush'; F.coins = 500;
+  F.traits = [{id:'big_pocket', amount:1}]; F.applyRelics();
+  chk('trait: cap 5 -> 6', F.relicCap(), F.RELIC_SLOTS + 1);
+  F.relics = ['storm','stamina','mint','tycoon','endurance'];   // fills all 5 base slots
+  F.applyRelics();
+  chk('five owned, cap still 6', [F.relics.length, F.relicCap()], [5, 6]);
+  F.buyRelic('satchel');                       // lands in the 6th slot
+  chk('satchel bought', F.relics.length, 6);
+  chk('satchel in the last slot still grants +2', F.relicCap(), F.RELIC_SLOTS + 3);
+  chk('so nothing is inert', F.activeRelics().length, 6);
+  // a satchel beyond even the widened cap must NOT bootstrap itself in
+  F.resetRun(); F.mode = 'rush';
+  F.relics = ['storm','stamina','mint','tycoon','endurance','avalanche','satchel'];
+  F.applyRelics();
+  chk('satchel past the cap stays inert', F.relicCap(), F.RELIC_SLOTS);
+  chk('only five active', F.activeRelics().length, 5);
+  F.resetRun(); F.mode = 'rush';
+
   // cannot buy without the coins, or without a slot
   F.resetRun(); F.mode = 'rush'; F.coins = 0;
   F.buyRelic('storm');

@@ -267,7 +267,7 @@
   .info-card { width: 100%; max-width: 380px; max-height: 88vh; overflow-y: auto;
     background: #161926; border-radius: 20px; padding: 14px; border: 1px solid #262b40; }
   .info-tabs { display: flex; gap: 6px; margin-bottom: 10px; }
-  .itab { flex: 1; margin: 0; padding: 9px 6px; font-size: 13px; font-weight: 800; border-radius: 12px;
+  .itab { flex: 1; margin: 0; padding: 9px 4px; font-size: 12px; font-weight: 800; border-radius: 12px;
     background: #1c2032; color: var(--muted); box-shadow: none; font-family: inherit; }
   .itab.on { background: #2a2f4d; color: var(--text); }
   .inf-row { display: flex; align-items: center; gap: 10px; padding: 9px 10px; margin-bottom: 6px;
@@ -315,8 +315,9 @@
   <div id="info" class="hidden">
     <div class="info-card">
       <div class="info-tabs">
-        <button class="itab on" data-tab="fruits">🍊 과일 확률</button>
+        <button class="itab on" data-tab="fruits">🍊 확률</button>
         <button class="itab" data-tab="relics">📜 유물</button>
+        <button class="itab" data-tab="traits">✨ 특성</button>
       </div>
       <div id="info-body"></div>
       <button id="info-close" class="ghost-btn">닫기</button>
@@ -1318,7 +1319,7 @@
     },
     storm: {                                                    // D. risk
       name: "폭풍 스폰", icon: "🌊", price: 11,
-      desc: "매 턴 과일 +1 (판도 빨리 참)",
+      desc: "매 턴 과일 +1",
       apply() { spawnBonus += 1; },
     },
     brick_deal: {                                               // D. risk
@@ -1343,7 +1344,7 @@
     streak_amp: { name: "불꽃 증폭", icon: "🔥", price: 16,
       desc: "콤보 배율 상한 ×2.0 → ×2.8", apply() { STREAK_CAP += 0.8; } },
     streak_step: { name: "탄력", icon: "📈", price: 13,
-      desc: "콤보가 더 빨리 오릅니다 (+0.2 → +0.3)", apply() { STREAK_STEP += 0.1; } },
+      desc: "콤보가 더 빨리 오릅니다", apply() { STREAK_STEP += 0.1; } },
     golden_banana: { name: "황금 바나나", icon: "🏆", price: 20,
       desc: "바나나 점수 배율 +1.0", apply() { fruitMult[6] += 1; } },
     sweet_tooth: { name: "단맛 애호", icon: "🍬", price: 15,
@@ -1360,13 +1361,13 @@
     mint: { name: "별 조폐국", icon: "🪙", price: 15,
       desc: "별이 주는 코인 두 배", apply() { starCoinMult += 1; } },
     lucky_coin: { name: "행운의 주머니", icon: "🍀", price: 12,
-      desc: "코인 달린 과일이 훨씬 자주 나옵니다", apply() { coinFruitBonus += 0.08; } },
+      desc: "코인 달린 과일이 자주 나옵니다", apply() { coinFruitBonus += 0.08; } },
     tycoon: { name: "거상", icon: "💰", price: 14,
       desc: "스테이지 정산 코인 +50%", apply() { payoutMult += 0.5; } },
 
     // ---- D. risk ----
     avalanche: { name: "쏟아짐", icon: "⛰️", price: 18,
-      desc: "매 턴 과일 +2 (판이 훨씬 빨리 참)", apply() { spawnBonus += 2; } },
+      desc: "매 턴 과일 +2", apply() { spawnBonus += 2; } },
     quarry: { name: "채석장", icon: "⛏️", price: 16,
       desc: "터뜨린 점수 +60% · 새 과일의 30%가 벽돌",
       apply() { brickChance += 0.30; }, modify: { pop: v => v * 1.6 } },
@@ -1379,8 +1380,8 @@
 
     satchel: {                                                  // capacity (doc 6)
       name: "보따리", icon: "🎒", price: 10,
-      desc: "유물 칸 +2 (한 칸 차지)",
-      apply() { slotBonus += 2; },
+      desc: "유물 칸 +2",
+      slots: 2,          // declared, not applied: the cap has to settle before anything else
     },
   };
   function notify(event, payload) {
@@ -1401,10 +1402,11 @@
   function applyRelics() {
     oddsMult = [0, 0, 0, 0, 0, 0, 0];
     fruitMult = [1, 1, 1, 1, 1, 1, 1];
-    touchBonus = 0; spawnBonus = 0; slotBonus = 0; brickChance = 0; offerBonus = 0;
+    touchBonus = 0; spawnBonus = 0; brickChance = 0; offerBonus = 0;
     chainStep = 0; coinFruitBonus = 0; starCoinMult = 1; payoutMult = 1;
     bombRadiusBonus = 0; itemEase = 0;
     STREAK_STEP = 0.2; STREAK_CAP = 2.0;      // relics may raise these; reset first
+    slotBonus = settleSlots();                // must be known before activeRelics() is read
     for (const id of activeRelics()) {
       const a = RELICS[id] && RELICS[id].apply;
       if (a) a();
@@ -1417,11 +1419,34 @@
         else if (e.stat === "oddsMult")   oddsMult[e.target]  += e.amount;
         else if (e.stat === "touchBonus") touchBonus += e.amount;
         else if (e.stat === "spawnBonus") spawnBonus += e.amount;
-        else if (e.stat === "slotBonus")  slotBonus  += e.amount;
+        else if (e.stat === "slotBonus")  { /* handled by settleSlots() */ }
         else if (e.stat === "offerBonus") offerBonus += e.amount;
       }
     }
   }
+  // The carry limit is circular: which relics are active depends on the cap, and a relic can
+  // raise the cap. Resolving it in the same pass made a satchel in the last slot cut itself
+  // off and never grant its +2. Settle it to a fixed point first, then apply everything else.
+  function settleSlots() {
+    let fromTraits = 0;
+    for (const t of traits) {
+      const T = TRAITS[t.id]; if (!T) continue;
+      for (const e of traitEffects(T, t.amount)) if (e.stat === "slotBonus") fromTraits += e.amount;
+    }
+    let bonus = fromTraits;
+    for (let pass = 0; pass < relics.length + 2; pass++) {
+      let fromRelics = 0;
+      for (const id of relics.slice(0, RELIC_SLOTS + bonus)) {
+        const R = RELICS[id];
+        if (R && R.slots) fromRelics += R.slots;
+      }
+      const next = fromTraits + fromRelics;
+      if (next === bonus) break;              // stable
+      bonus = next;
+    }
+    return bonus;
+  }
+
   // a trait's effects at a given scale (x2 when a graft charge is spent on it)
   function traitEffects(T, mult = 1) {
     const m = T.scalable ? mult : 1;
@@ -2244,9 +2269,9 @@
       body.appendChild(d);
     };
     if (infoTab === "relics") {
-      if (!relics.length && !traits.length) {
+      if (!relics.length) {
         const e = document.createElement("div");
-        e.className = "inf-empty"; e.textContent = `아직 없습니다 (0 / ${relicCap()}칸)`;
+        e.className = "inf-empty"; e.textContent = `아직 유물이 없습니다 (0 / ${relicCap()}칸)`;
         body.appendChild(e);
         return;
       }
@@ -2265,9 +2290,16 @@
         row(R.icon, R.name, inert ? "칸이 모자라 꺼져 있습니다" : R.desc,
             inert ? "비활성" : "", inert, act);
       });
-      for (const t of traits) {                 // traits have no slot limit, so they follow
+    } else if (infoTab === "traits") {
+      if (!traits.length && doubles <= 0) {
+        const e = document.createElement("div");
+        e.className = "inf-empty"; e.textContent = "아직 특성이 없습니다";
+        body.appendChild(e);
+        return;
+      }
+      for (const t of traits) {
         const T = TRAITS[t.id]; if (!T) continue;
-        row(T.icon, T.name + (t.amount > 1 ? " ✨2배" : ""), T.desc(traitEffects(T, t.amount)), "특성", false);
+        row(T.icon, T.name + (t.amount > 1 ? " ✨2배" : ""), T.desc(traitEffects(T, t.amount)), "", false);
       }
       if (doubles > 0) row("✨", "접붙이기", "다음 특성 선택을 2배로", `${doubles}회`, false);
     } else {
@@ -3181,6 +3213,7 @@
       resetRun, serializeRun, restoreRun, FRUIT_POINTS, COLS,
       MODES, activeColors, spawnCount, brickHpLevel, computeMaxLevel,
       RELICS, notify, modify, applyRelics, activeRelics, relicCap, stageTouches, RELIC_SLOTS,
+      settleSlots,
       openShop, closeShop, buyRelic, discardRelic, renderShop, rollOffers,
       openInfo, closeInfo, renderInfo,
       endStageEarly, leftoverCoins, takeCoin, updateHUD, closeStage, gameOver, COIN_FRUIT_CHANCE, COIN_PER_LEFTOVER, COIN_PAYOUT,
