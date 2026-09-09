@@ -489,6 +489,8 @@ window.addEventListener('load', () => setTimeout(() => {
       score: F.FRUIT_POINTS.map((_, i) => F.fruitScore(i)),
       touch: F.touchBonus, spawn: F.spawnBonus, offer: F.offerBonus,
       cap: F.relicCap(), st: F.stageTouches(),
+      // the item knobs too, or the traits that move them sit outside the invariant
+      bombR: F.bombRadius(), ease: F.itemEase, birds: F.birdFlock, starC: F.starCoinMult,
     });
     const fresh = () => { F.resetRun(); F.mode = 'rush'; F.graftArmed = false; F.doubles = 0; };
     const mismatched = [];
@@ -500,6 +502,21 @@ window.addEventListener('load', () => setTimeout(() => {
       if (grafted !== snap() || charge !== 0) mismatched.push(id);
     }
     schk('grafted once == picked twice, every trait', mismatched, []);
+    // and the invariant is only worth anything if it covers every trait there is
+    schk('every trait was actually compared',
+         Object.keys(F.TRAITS).filter(id => F.TRAITS[id].scalable).length,
+         Object.keys(F.TRAITS).length - 1);   // all but the charge itself
+
+    // item knobs stay inside their guards no matter how much is stacked on them
+    fresh(); F.traits = [{id:'blast', amount:9}]; F.applyRelics();
+    schk('bomb radius is capped', F.bombRadius() <= 4, true);
+    fresh(); F.traits = [{id:'knack', amount:9}]; F.applyRelics();
+    schk('easing really moves the threshold', F.itemNeed(F.STAR_THRESHOLD) < F.STAR_THRESHOLD, true);
+    schk('but no threshold drops below the floor',
+         [F.BIRD_THRESHOLD, F.LINE_THRESHOLD, F.BOMB_THRESHOLD, F.STAR_THRESHOLD]
+           .filter(t => F.itemNeed(t) < F.ITEM_NEED_MIN), []);
+    fresh();
+    schk('unmodified thresholds are untouched', F.itemNeed(F.BIRD_THRESHOLD), F.BIRD_THRESHOLD);
 
     // a charge arrives armed: the description promises it just happens
     fresh(); F.doubles = 1; F.openTraits();
