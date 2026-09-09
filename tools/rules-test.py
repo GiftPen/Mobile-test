@@ -435,6 +435,30 @@ window.addEventListener('load', () => setTimeout(() => {
   document.getElementById('traits').classList.add('hidden');
   F.resetRun(); F.mode = 'arcade';
 
+  // ---- number display: compact only where precision is decoration ----
+  schk('full digits get separators',        F.fmtNum(1234567).replace(/\u00a0/g,','), '1,234,567');
+  schk('fmtNum rounds',                     F.fmtNum(1234.6), '1,235');
+  schk('below the threshold stays exact',   F.fmtShort(9999), F.fmtNum(9999));
+  schk('threshold is 10,000, not 1,000',    F.fmtShort(1100), F.fmtNum(1100));
+  schk('at the threshold it compacts',      F.fmtShort(10000) !== F.fmtNum(10000), true);
+  schk('and stays compacted above it',      F.fmtShort(2489158).length < F.fmtNum(2489158).length, true);
+  schk('no 천: 1,100 never shortens',       !/\uCC9C|K/.test(F.fmtShort(1100)), true);
+  schk('COMPACT_FROM is the only knob',     F.COMPACT_FROM, 10000);
+
+  // the goal chip trades digits for legibility, never the other way round
+  (() => {
+    const q = document.getElementById('rb-quota');
+    const cellW = () => q.parentElement.clientWidth;
+    document.getElementById('rush').classList.remove('hidden');
+    F.setQuota(q, 682, 1100);
+    schk('a small goal keeps every digit', q.textContent, F.fmtNum(682) + '/' + F.fmtNum(1100));
+    F.setQuota(q, 2489158, 4014771);
+    schk('a big goal still shows both sides', q.textContent.split('/').length === 2, true);
+    schk('and never overflows its box', q.scrollWidth <= cellW() + 1, true);
+    schk('nor shrinks past legible', parseFloat(getComputedStyle(q).fontSize) >= 13, true);
+    document.getElementById('rush').classList.add('hidden');
+  })();
+
   // ---- how far you got is a record too ----
   try { localStorage.removeItem(F.BEST_STAGE_KEY); } catch (e) {}
   F.resetRun(); F.mode = 'rush'; F.bestStage = 0;

@@ -71,6 +71,17 @@
   #rush.hidden { display: none; }
   .rb-row { display: flex; align-items: flex-end; gap: 12px; flex-wrap: wrap; }
   .rb-cell { display: flex; flex-direction: column; align-items: center; }
+  /* the goal takes every spare pixel instead of being sized by its own text. Measured: as the
+     score gained digits the 남은 터치 cell slid 149.7 -> 278.3px, live, on every touch -- and
+     by round 10 the chips collided and the row was one ⚠️ away from wrapping the board down.
+     Absorbing the slack here pins everything to its right. */
+  /* overflow:hidden is what actually decouples the box from its text -- with flex alone the
+     cell still crept 251 -> 271px on a 10-digit goal and shoved the chips */
+  /* max-width also clamps the cell's intrinsic contribution, which is what stops a 10-digit
+     goal from widening the whole page -- body here is shrink-to-fit, so without a cap the
+     text propagates all the way up. fitVal shrinks the font to match. */
+  #rb-quota-cell { flex: 1 1 0; min-width: 0; max-width: 232px; overflow: hidden; }
+  #rb-quota { white-space: nowrap; max-width: 100%; }
   .rb-val { font-size: clamp(21px, 6.4vw, 28px); font-weight: 800; line-height: 1;
     letter-spacing: -.5px; white-space: nowrap; }
   /* fixed line box: the ✓ in "목표 달성 ✓" sits taller than the Korean glyphs and grew the
@@ -1337,6 +1348,63 @@
     return amount;
   }
   // basePts = summed fruitScore of everything credited; cleared = group size for the bonus
+  // Number display. Two jobs, two rules -- and the split is the whole point.
+  //   HUD goal/score : every digit. This is the readout you check to decide "one more touch
+  //                    or bank it", so "2.4만/3.9만" is useless -- the gap is what you read.
+  //   fruit pops     : compact past 10,000. Precision there is decoration, the space is one
+  //                    cell, and a dozen land at once.
+  // Locale picks the suffix, so K-vs-만 is not a design choice: ko gives 만/억, en gives K/M,
+  // ja/zh group by four digits like ko. The threshold is ours, not Intl's -- Intl compacts
+  // Korean from 1,000 as 천, and "1.1천" reads worse than "1,100"; nobody says it. Starting
+  // at 10,000 skips 천 entirely and lands straight on 만.
+  const NUM_LOCALE = (navigator.languages && navigator.languages[0]) || navigator.language || "ko";
+  const fmtNum = n => Math.round(n).toLocaleString(NUM_LOCALE);
+  const COMPACT_FROM = 10000;
+  // old WebViews accept `notation` and silently ignore it, so prove it actually compacts
+  const mkCompact = digits => {
+    try {
+      const f = new Intl.NumberFormat(NUM_LOCALE, { notation: "compact", maximumFractionDigits: digits });
+      if (f.format(12345) !== (12345).toLocaleString(NUM_LOCALE)) return f;
+    } catch (e) {}
+    return null;                     // unsupported: full digits everywhere, still readable
+  };
+  const compactFmt = mkCompact(1), compactFmt0 = mkCompact(0);
+  const fmtShort = n => {
+    n = Math.round(n);
+    return compactFmt && Math.abs(n) >= COMPACT_FROM ? compactFmt.format(n) : fmtNum(n);
+  };
+
+  // a fixed box still has to hold a number that keeps growing, so shrink to fit rather than
+  // clip. Runs once per touch, not per frame.
+  // Returns false if fitting would push the text below `floor`.
+  function fitVal(el, floor) {
+    el.style.fontSize = "";                    // measure at the CSS size, not last turn's
+    const box = el.parentElement.clientWidth, w = el.scrollWidth;
+    if (!box || !w || w <= box) return true;
+    const base = parseFloat(getComputedStyle(el).fontSize) || 21;
+    const want = base * box / w;
+    el.style.fontSize = Math.max(floor, want) + "px";
+    return want >= floor;
+  }
+
+  // Full digits are worth real estate here -- the goal chip is what you read to decide "one
+  // more touch or bank it", and 2.4만/3.9만 hides exactly the gap you are judging. But on a
+  // 320px phone `99,994/161,280` only fits by dropping to 14px, which is not readable. So:
+  // full digits while they fit legibly, compact the moment they do not. Big screens keep the
+  // precision, small ones stay readable, and the locale picks 만 or K on its own.
+  const QUOTA_MIN_PX = 18;
+  function setQuota(el, cur, goal) {
+    el.textContent = `${fmtNum(cur)}/${fmtNum(goal)}`;
+    if (fitVal(el, QUOTA_MIN_PX)) return;
+    el.textContent = `${fmtShort(cur)}/${fmtShort(goal)}`;
+    if (fitVal(el, QUOTA_MIN_PX) || !compactFmt0) return;
+    // last resort, and it is a real case: round 10 on a 320px phone. Dropping the decimal
+    // buys back more width than any font step can -- 248.9만/401.5만 -> 249만/402만.
+    const c0 = n => Math.abs(n) >= COMPACT_FROM ? compactFmt0.format(Math.round(n)) : fmtNum(n);
+    el.textContent = `${c0(cur)}/${c0(goal)}`;
+    fitVal(el, 13);
+  }
+
   function scorePop(basePts, cleared) {
     const raw = basePts * chainBonus(cleared) * streakMult();
     return addScore(Math.round(modify("pop", raw, { basePts, cleared })));
@@ -1795,8 +1863,8 @@
   }
 
   function updateHUD() {
-    document.getElementById("score").textContent = score;
-    document.getElementById("best").textContent = best;
+    document.getElementById("score").textContent = fmtNum(score);
+    document.getElementById("best").textContent = fmtNum(best);
     updateStreakBadge();
 
     // arcade shows the difficulty ramp; rush shows the stage contract. Swap whole blocks
@@ -1810,12 +1878,12 @@
       const q = rules().quota(stage);
       const met = stageScore >= q;
       // once met, keep counting past the quota -- the overflow is the reward for playing on
-      document.getElementById("rb-quota").textContent = `${stageScore}/${q}`;
+      setQuota(document.getElementById("rb-quota"), stageScore, q);
       document.getElementById("rb-quota-cell").classList.toggle("met", met);
       document.getElementById("rb-quota-lab").textContent = met ? "목표 달성 ✓" : "목표";
       document.getElementById("rb-touch").textContent = touchesLeft;
-      document.getElementById("rb-score").textContent = score;
-      document.getElementById("rb-best").textContent = best;
+      document.getElementById("rb-score").textContent = fmtNum(score);
+      document.getElementById("rb-best").textContent = fmtNum(best);
       const tc = document.getElementById("rb-touch-cell");
       tc.classList.toggle("warn", touchesLeft <= 5 && touchesLeft > 3);
       tc.classList.toggle("low", touchesLeft <= 3);
@@ -2390,7 +2458,7 @@
   }
   function renderShop() {
     $sh("sh-stage").textContent = stageLabel(stage);
-    $sh("sh-coin").textContent = coins;
+    $sh("sh-coin").textContent = fmtNum(coins);
     $sh("sh-slots").textContent = `${relics.length}/${relicCap()}`;
     $sh("sh-reroll-cost").textContent = shopReroll;
     $sh("sh-reroll").disabled = coins < shopReroll || !shopOffers.length;
@@ -2693,11 +2761,11 @@
     recordStage();
     const why = reason === "touches" ? "터치 소진" : reason === "board" ? "판이 가득 참" : "";
     document.getElementById("ov-msg").innerHTML = rules().touchBudget
-      ? `<b>${stageLabel(stage)}</b> 도달 · 점수 <b>${score.toLocaleString()}</b>` +
+      ? `<b>${stageLabel(stage)}</b> 도달 · 점수 <b>${fmtNum(score)}</b>` +
         `<br><span class="ov-best">최고 <b>${stageLabel(bestStage || 1)}</b>` +
-        ` · <b>${best.toLocaleString()}</b>점</span>` +
+        ` · <b>${fmtNum(best)}</b>점</span>` +
         (why ? `<br><span class="ov-why">${why}</span>` : "")
-      : `점수 <b>${score.toLocaleString()}</b> · 최고 <b>${best.toLocaleString()}</b>`;
+      : `점수 <b>${fmtNum(score)}</b> · 최고 <b>${fmtNum(best)}</b>`;
     document.getElementById("menu").classList.add("hidden");     // show the game-over view
     document.getElementById("gameover").classList.remove("hidden");
     document.getElementById("overlay").classList.remove("hidden");
@@ -2727,7 +2795,7 @@
     if (!(colorIdx >= 0)) return;
     floats.push({
       x: pad + c * cell + cell / 2, y: pad + r * cell + cell / 2,
-      text: String(fruitScore(colorIdx)),      // the number that actually scores
+      text: fmtShort(fruitScore(colorIdx)),    // the number that actually scores
       color: POP_COLORS[colorIdx] || "#fff", t: 0,
     });
   }
@@ -2794,7 +2862,7 @@
     const wrap = document.getElementById("stage-wrap");
     const el = document.createElement("div");
     el.className = "gain-pop";
-    el.textContent = "+" + gained;
+    el.textContent = "+" + fmtNum(gained);
     // the total is the payoff, so it has to outweigh the per-fruit numbers (~20px) -- and it
     // grows with the hit, so a big chain is felt before it is read. sqrt keeps 350 from
     // dwarfing 50 the way a linear scale would.
@@ -2814,7 +2882,11 @@
     wrap.appendChild(el);
     // the multiplier pills are wide; keep the whole pop inside the board or a pop in
     // column 0 or 7 gets clipped by the viewport
-    const w = el.offsetWidth;
+    let w = el.offsetWidth;
+    if (w > boardPx - 8) {                     // 7-digit totals outgrew the board
+      el.style.fontSize = (parseFloat(el.style.fontSize) * (boardPx - 8) / w) + "px";
+      w = el.offsetWidth;
+    }
     if (w) {
       const cx = pad + c * cell + cell / 2;
       el.style.left = Math.max(w / 2 + 4, Math.min(boardPx - w / 2 - 4, cx)) + "px";
@@ -3550,6 +3622,7 @@
       get touchesLeft() { return touchesLeft; }, set touchesLeft(v) { touchesLeft = v; },
       get coins()       { return coins; },       set coins(v)       { coins = v; },
       get bestStage()   { return bestStage; },   set bestStage(v)   { bestStage = v; },
+      fitVal, setQuota, fmtNum, fmtShort, NUM_LOCALE, COMPACT_FROM,
       recordStage, BEST_STAGE_KEY,
       addCoins, COIN_PAYOUT,
       rushQuota, RUSH_TOUCHES, RUSH_SPAWNS, RUSH_BUDS, RUSH_QUOTA_1,
