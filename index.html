@@ -79,6 +79,17 @@
     white-space: nowrap; line-height: 13px; height: 13px; }
   .rb-div { width: 1px; align-self: stretch; margin: 3px 0 6px; background: #2b3048; }
   .rb-chips { margin-left: auto; display: flex; align-items: center; gap: 6px; }
+  /* timed relics have to be readable without opening a panel -- they are gone in a stage or
+     two and that is exactly when you need to know */
+  /* its own row with a reserved height: slipping these into the chip row wrapped the band
+     and shoved the board 42px down the moment a timed relic was bought */
+  #rs-timed { display: flex; align-items: center; gap: 4px; height: 22px; margin-top: 4px;
+    overflow: hidden; }
+  .chip.timed { padding: 3px 7px; font-size: 12px; font-weight: 800; color: #ffd6a0;
+    background: rgba(255,180,60,.14); border: 1px solid rgba(255,180,60,.4); }
+  .chip.timed.last { color: #ff9db0; background: rgba(255,90,110,.16);
+    border-color: rgba(255,110,130,.55); animation: lastPulse 1s ease-in-out infinite; }
+  @keyframes lastPulse { 0%,100% { opacity: 1; } 50% { opacity: .55; } }
   .rb-stage { font-size: 15px; font-weight: 800; color: var(--text); letter-spacing: .3px; }
   .rb-stage b { color: #ffd23e; }
   #rb-quota-cell.met .rb-val { color: #ffd23e; }
@@ -414,6 +425,7 @@
         <span id="danger-label2" class="hidden">⚠️</span>
       </div>
     </div>
+    <div id="rs-timed"></div>
   </div>
   <div id="fillgauge" aria-label="판 채움/위험도"></div>
 
@@ -1416,11 +1428,11 @@
 
     // ---- B. score ----
     chain_master: { name: "연쇄 광", icon: "🔗", price: 17,
-      desc: "연쇄 보너스가 두 배로 커집니다", apply() { chainStep += 0.15; } },
+      desc: "연쇄 보너스 +0.15 (0.15 → 0.30)", apply() { chainStep += 0.15; } },
     streak_amp: { name: "불꽃 증폭", icon: "🔥", price: 16,
       desc: "콤보 배율 상한 ×2.0 → ×2.8", apply() { STREAK_CAP += 0.8; } },
     streak_step: { name: "탄력", icon: "📈", price: 13,
-      desc: "콤보가 더 빨리 오릅니다", apply() { STREAK_STEP += 0.1; } },
+      desc: "콤보 증가폭 +0.1 (0.2 → 0.3)", apply() { STREAK_STEP += 0.1; } },
     golden_banana: { name: "황금 바나나", icon: "🏆", price: 20,
       desc: "바나나 점수 배율 +1.0", apply() { fruitMult[6] += 1; } },
     sweet_tooth: { name: "단맛 애호", icon: "🍬", price: 15,
@@ -1435,9 +1447,9 @@
     endurance: { name: "끈기", icon: "💪", price: 9,
       desc: "스테이지마다 터치 +2", apply() { touchBonus += 2; } },
     mint: { name: "별 조폐국", icon: "🪙", price: 15,
-      desc: "별이 주는 코인 두 배", apply() { starCoinMult += 1; } },
+      desc: "별이 과일당 코인 1개 → 2개", apply() { starCoinMult += 1; } },
     lucky_coin: { name: "행운의 주머니", icon: "🍀", price: 12,
-      desc: "코인 달린 과일이 자주 나옵니다", apply() { coinFruitBonus += 0.08; } },
+      desc: "코인 달린 과일 확률 +8%p", apply() { coinFruitBonus += 0.08; } },
     tycoon: { name: "거상", icon: "💰", price: 14,
       desc: "스테이지 정산 코인 +50%", apply() { payoutMult += 0.5; } },
 
@@ -1459,7 +1471,7 @@
     one_cherry: { name: "체리 한 알", icon: "🍒", price: 4,
       desc: "체리 점수 +8", apply() { fruitFlat[0] += 8; } },
     whetstone: { name: "숫돌", icon: "🪨", price: 6,
-      desc: "연쇄 보너스가 조금 커집니다", apply() { chainStep += 0.05; } },
+      desc: "연쇄 보너스 +0.05 (0.15 → 0.20)", apply() { chainStep += 0.05; } },
 
     // ---- temporary: strong, cheap, and on a clock ----
     focus: { name: "단기 집중", icon: "⚡", price: 9, life: { unit: "stages", amount: 2 },
@@ -1467,7 +1479,7 @@
     frenzy: { name: "폭주", icon: "🌪️", price: 7, life: { unit: "stages", amount: 1 },
       desc: "매 턴 과일 +3", apply() { spawnBonus += 3; } },
     bonanza: { name: "노다지", icon: "💎", price: 7, life: { unit: "touches", amount: 15 },
-      desc: "코인 달린 과일이 쏟아집니다", apply() { coinFruitBonus += 0.3; } },
+      desc: "코인 달린 과일 확률 +30%p", apply() { coinFruitBonus += 0.3; } },
     heat: { name: "열기", icon: "🔥", price: 8, life: { unit: "stages", amount: 2 },
       desc: "콤보 상한 ×2.0 → ×4.0", apply() { STREAK_CAP += 2; } },
     sugar_rush: { name: "설탕 폭발", icon: "🍬", price: 8, life: { unit: "touches", amount: 20 },
@@ -1494,11 +1506,11 @@
     kiwi_slice: { name: "키위 한 쪽", icon: "🥝", price: 5,
       desc: "키위 점수 +10", apply() { fruitFlat[2] += 10; } },
     first_step: { name: "첫걸음", icon: "📈", price: 5,
-      desc: "콤보가 조금 빨리 오릅니다", apply() { STREAK_STEP += 0.05; } },
+      desc: "콤보 증가폭 +0.05 (0.2 → 0.25)", apply() { STREAK_STEP += 0.05; } },
     clover: { name: "네잎클로버", icon: "🍀", price: 5,
-      desc: "코인 달린 과일이 조금 더 나옵니다", apply() { coinFruitBonus += 0.02; } },
+      desc: "코인 달린 과일 확률 +2%p", apply() { coinFruitBonus += 0.02; } },
     sprout: { name: "떡잎", icon: "🌱", price: 5,
-      desc: "체리·레몬이 조금 더 등장", apply() { oddsMult[0] += 0.5; oddsMult[3] += 0.5; } },
+      desc: "체리·레몬 0.5만큼 더 등장", apply() { oddsMult[0] += 0.5; oddsMult[3] += 0.5; } },
     grape_bunch: { name: "포도 한 송이", icon: "🍇", price: 6,
       desc: "포도 점수 +14", apply() { fruitFlat[4] += 14; } },
     bell: { name: "종소리", icon: "🔔", price: 6,
@@ -1794,6 +1806,23 @@
       tc.classList.toggle("low", touchesLeft <= 3);
       document.getElementById("rs-stage").textContent = stageLabel(stage);
       document.getElementById("rs-spawn").textContent = spawnCount();
+
+      const timed = document.getElementById("rs-timed");
+      timed.textContent = "";
+      const running_ = relics.filter(id => relicLife[id]);
+      for (const id of running_.slice(0, 4)) {
+        const R = RELICS[id], left = relicLife[id];
+        const sp = document.createElement("span");
+        sp.className = "chip timed" + (left <= 1 ? " last" : "");
+        sp.textContent = `${R.icon}${left}`;
+        sp.title = `${R.name} — ${left}${lifeUnitLabel(R.life.unit)} 남음`;
+        timed.appendChild(sp);
+      }
+      if (running_.length > 4) {                 // the rest are in the relic panel
+        const more = document.createElement("span");
+        more.className = "chip timed"; more.textContent = `+${running_.length - 4}`;
+        timed.appendChild(more);
+      }
     }
     // The button holds its place for the whole stage and only enables once the quota is met:
     // appearing on demand pushed everything below it down mid-play.
