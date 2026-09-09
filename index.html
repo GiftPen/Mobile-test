@@ -1117,14 +1117,15 @@
     fruitMult = [1, 1, 1, 1, 1, 1, 1];
     fruitStack = [0, 0, 0, 0, 0, 0, 0];
     fruitBoost = [1, 1, 1, 1, 1, 1, 1];
-    relics = [];
+    fruitFlat  = [0, 0, 0, 0, 0, 0, 0];
+    relics = []; relicLife = {};
     layout();                              // ROWS may have changed -> resize the board
   }
   function serializeRun() {
     return { v: RUN_VERSION, mode, rows: ROWS, grid, special, hp, coinCell,
              nextColor, nextColor2, score, streak, touchCount,
              stage, stageScore, touchesLeft, coins, oddsMult, fruitMult,
-             fruitStack, fruitBoost, relics, traits, doubles };
+             fruitStack, fruitBoost, relics, relicLife, traits, doubles };
   }
   function restoreRun(o) {
     if (!o || o.v !== RUN_VERSION) return false;   // unknown/older save -> caller starts fresh
@@ -1132,7 +1133,7 @@
     ROWS = o.rows;
     ({ grid, special, hp, coinCell, nextColor, nextColor2, score, streak, touchCount,
        stage, stageScore, touchesLeft, coins, oddsMult, fruitMult,
-       fruitStack, fruitBoost, relics, traits, doubles } = o);
+       fruitStack, fruitBoost, relics, relicLife, traits, doubles } = o);
     coinsShown = coins; coinFly = [];
     glow = layer(null); appear = layer(0); ghost = layer(null);
     layout(); dirty = true;
@@ -1206,7 +1207,10 @@
   // fruitMult which applyRelics() rebuilds from the owned relics every time.
   let fruitStack = [0, 0, 0, 0, 0, 0, 0];  // base points earned by popping that fruit
   let fruitBoost = [1, 1, 1, 1, 1, 1, 1];  // "double its current value" effects, banked
+  let fruitFlat  = [0, 0, 0, 0, 0, 0, 0];  // flat points from relics -- derived, so selling
+                                           // one (or letting it expire) takes them back
   let relics = [];                         // ids of the relics owned this run
+  let relicLife = {};                      // id -> charges left, for the ones that expire
   // derived from the owned relics -- never written directly, always recomputed by applyRelics()
   let touchBonus = 0, spawnBonus = 0, slotBonus = 0, brickChance = 0, offerBonus = 0;
   // more knobs for relics to turn. All derived: applyRelics() resets them every recompute.
@@ -1260,7 +1264,8 @@
   function chainBonus(cleared) { return 1 + Math.max(0, cleared - 1) * (CHAIN_STEP + chainStep); }
   // (base + what popping it has banked) x banked doublings x the relics you carry
   function fruitScore(colorIdx) {          // one fruit's worth, before chain/streak
-    const base = (FRUIT_POINTS[colorIdx] || 1) + (fruitStack[colorIdx] || 0);
+    const base = (FRUIT_POINTS[colorIdx] || 1) + (fruitStack[colorIdx] || 0)
+               + (fruitFlat[colorIdx] || 0);
     // rounded here so multipliers can never leak a decimal onto the board
     return Math.round(base * (fruitBoost[colorIdx] || 1) * (fruitMult[colorIdx] || 1));
   }
@@ -1394,6 +1399,31 @@
       desc: "터뜨린 점수 +60% · 새 과일의 30%가 벽돌",
       apply() { brickChance += 0.30; }, modify: { pop: v => v * 1.6 } },
 
+    // ---- cheap enough for the very first shop ----
+    pinch: { name: "한 줌", icon: "🥄", price: 5,
+      desc: "모든 과일 점수 +2",
+      apply() { for (let i = 0; i < fruitFlat.length; i++) fruitFlat[i] += 2; } },
+    breather: { name: "한 숨", icon: "🫁", price: 5,
+      desc: "스테이지마다 터치 +1", apply() { touchBonus += 1; } },
+    change_purse: { name: "잔돈주머니", icon: "👛", price: 4,
+      desc: "스테이지 정산 코인 +3", apply() { payoutMult += 3 / 4; } },
+    one_cherry: { name: "체리 한 알", icon: "🍒", price: 4,
+      desc: "체리 점수 +8", apply() { fruitFlat[0] += 8; } },
+    whetstone: { name: "숫돌", icon: "🪨", price: 6,
+      desc: "연쇄 보너스가 조금 커집니다", apply() { chainStep += 0.05; } },
+
+    // ---- temporary: strong, cheap, and on a clock ----
+    focus: { name: "단기 집중", icon: "⚡", price: 9, life: { unit: "stages", amount: 2 },
+      desc: "터뜨린 점수 ×2", modify: { pop: v => v * 2 } },
+    frenzy: { name: "폭주", icon: "🌪️", price: 7, life: { unit: "stages", amount: 1 },
+      desc: "매 턴 과일 +3", apply() { spawnBonus += 3; } },
+    bonanza: { name: "노다지", icon: "💎", price: 7, life: { unit: "touches", amount: 15 },
+      desc: "코인 달린 과일이 쏟아집니다", apply() { coinFruitBonus += 0.3; } },
+    heat: { name: "열기", icon: "🔥", price: 8, life: { unit: "stages", amount: 2 },
+      desc: "콤보 상한 ×2.0 → ×4.0", apply() { STREAK_CAP += 2; } },
+    sugar_rush: { name: "설탕 폭발", icon: "🍬", price: 8, life: { unit: "touches", amount: 20 },
+      desc: "모든 과일 점수 +25", apply() { for (let i = 0; i < fruitFlat.length; i++) fruitFlat[i] += 25; } },
+
     // ---- G. stacking: value that grows with play, not with the shop ----
     piggy_cherry: { name: "체리 저금통", icon: "🐷", price: 15,
       desc: "체리를 터뜨릴 때마다 체리 점수 +1",
@@ -1443,6 +1473,7 @@
   function applyRelics() {
     oddsMult = [0, 0, 0, 0, 0, 0, 0];
     fruitMult = [1, 1, 1, 1, 1, 1, 1];
+    fruitFlat = [0, 0, 0, 0, 0, 0, 0];
     touchBonus = 0; spawnBonus = 0; brickChance = 0; offerBonus = 0;
     chainStep = 0; coinFruitBonus = 0; starCoinMult = 1; payoutMult = 1;
     bombRadiusBonus = 0; itemEase = 0;
@@ -2097,6 +2128,7 @@
         if (bLvl >= 1 && touchCount % BRICK_EVERY === 0) spawnBrick(bLvl);
         pickNext();
         notify("onTurn", { touchCount, score });
+        tickRelicLife("touches");
         if (rules().touchBudget) touchesLeft--;
         updateHUD();
         dirty = true;
@@ -2138,6 +2170,28 @@
       setTimeout(whenSettled, Math.max(0, visualEnd - performance.now()) + SPAWN_SETTLE_MS);
     } else {
       endTurn();
+    }
+  }
+
+  // Temporary relics are cheap because they run out. Their clock ticks in whichever unit
+  // they were written in -- stages, or placements -- and they leave when it hits zero.
+  const lifeUnitLabel = u => (u === "touches" ? "터치" : "스테이지");
+  function tickRelicLife(unit) {
+    let expired = null;
+    for (const id of Object.keys(relicLife)) {
+      const R = RELICS[id];
+      if (!R || !R.life || R.life.unit !== unit) continue;
+      relicLife[id] -= 1;
+      if (relicLife[id] > 0) continue;
+      delete relicLife[id];
+      const at = relics.indexOf(id);
+      if (at >= 0) relics.splice(at, 1);
+      expired = R;
+    }
+    if (expired) {
+      applyRelics();
+      document.getElementById("hint").textContent = `${expired.icon} ${expired.name} 효과가 끝났습니다`;
+      updateHUD();
     }
   }
 
@@ -2207,7 +2261,8 @@
       const ds = document.createElement("span"); ds.className = "of-desc"; ds.textContent = R.desc;
       const pr = document.createElement("span");
       pr.className = "of-price" + (full ? " nofit" : "");
-      pr.textContent = full ? `🪙 ${R.price} · 칸 없음` : `🪙 ${R.price}`;
+      const life = R.life ? ` · ${R.life.amount}${lifeUnitLabel(R.life.unit)}` : "";
+      pr.textContent = full ? `🪙 ${R.price} · 칸 없음` : `🪙 ${R.price}${life}`;
       card.append(nm, ic, ds, pr);
       card.addEventListener("click", () => buyRelic(id));
       wrap.appendChild(card);
@@ -2218,6 +2273,7 @@
     if (!R || coins < R.price || relics.length >= relicCap()) return;
     coins -= R.price; coinsShown = coins;
     relics.push(id);
+    if (R.life) relicLife[id] = R.life.amount;   // starts its clock on purchase
     applyRelics();                      // recompute, so buying mid-run matches a fresh run
     touchesLeft = Math.max(touchesLeft, stageTouches());   // a touch relic pays out this stage
     shopOffers = shopOffers.filter(x => x !== id);
@@ -2347,8 +2403,10 @@
           act.textContent = `팔기 +🪙${Math.floor(R.price / 2)}`;
           act.addEventListener("click", e => { e.stopPropagation(); discardRelic(i); });
         }
+        const left = relicLife[id];
         row(R.icon, R.name, inert ? "칸이 모자라 꺼져 있습니다" : R.desc,
-            inert ? "비활성" : "", inert, act);
+            inert ? "비활성" : (left ? `${left}${lifeUnitLabel(R.life.unit)} 남음` : ""),
+            inert, act);
       });
     } else if (infoTab === "traits") {
       if (!traits.length && doubles <= 0) {
@@ -2394,6 +2452,7 @@
     const id = relics[i], R = RELICS[id];
     if (!R || $sh("shop").classList.contains("hidden")) return;
     relics.splice(i, 1);
+    delete relicLife[id];
     coins += Math.floor(R.price / 2);          // half back -- never enough to churn for profit
     coinsShown = coins;
     applyRelics();
@@ -2444,6 +2503,7 @@
   function stageClear() {
     // fly the payout from the middle of the board -- awarding it position-less meant the
     // counter just ticked up silently, which read as "the coin effect isn't working"
+    tickRelicLife("stages");             // the stage that just ended counts against them
     addCoins(Math.round(COIN_PAYOUT(stage) * payoutMult), (ROWS - 1) / 2, (COLS - 1) / 2);
     stage++;
     stageScore = 0;
@@ -3273,7 +3333,9 @@
       resetRun, serializeRun, restoreRun, FRUIT_POINTS, COLS,
       MODES, activeColors, spawnCount, brickHpLevel, computeMaxLevel,
       RELICS, notify, modify, applyRelics, activeRelics, relicCap, stageTouches, RELIC_SLOTS,
-      settleSlots,
+      settleSlots, tickRelicLife, lifeUnitLabel,
+      get relicLife() { return relicLife; }, set relicLife(v) { relicLife = v; },
+      get fruitFlat() { return fruitFlat; },
       openShop, closeShop, buyRelic, discardRelic, renderShop, rollOffers,
       openInfo, closeInfo, renderInfo,
       endStageEarly, leftoverCoins, takeCoin, updateHUD, closeStage, gameOver, COIN_FRUIT_CHANCE, COIN_PER_LEFTOVER, COIN_PAYOUT,

@@ -347,6 +347,50 @@ window.addEventListener('load', () => setTimeout(() => {
       stackFails.push({case:'fruit ' + i + ' is a whole number', got:F.fruitScore(i), want:'integer'});
   F.relics = []; F.traits = []; F.resetRun(); F.mode = 'rush';
 
+  // ---- temporary relics run out ----
+  F.resetRun(); F.mode = 'rush'; F.coins = 200;
+  const spawn0 = F.spawnCount(0);
+  F.buyRelic('frenzy');                      // 1 stage of +3 spawns
+  schk('temp relic works while it lasts', F.spawnCount(0), spawn0 + 3);
+  schk('its clock is set', F.relicLife.frenzy, F.RELICS.frenzy.life.amount);
+  F.tickRelicLife('touches');                // wrong unit: must not touch it
+  schk('the wrong unit does not tick it', F.relicLife.frenzy, F.RELICS.frenzy.life.amount);
+  F.tickRelicLife('stages');
+  schk('expired: gone from the list', F.relics.includes('frenzy'), false);
+  schk('expired: effect withdrawn', F.spawnCount(0), spawn0);
+  schk('expired: clock cleared', F.relicLife.frenzy, undefined);
+
+  // a two-stage one survives the first stage
+  F.resetRun(); F.mode = 'rush'; F.coins = 200; F.streak = 0;
+  F.buyRelic('focus');                       // 2 stages of x2 pop score
+  F.score = 0; F.scorePop(10, 1); const withFocus = F.score;
+  F.tickRelicLife('stages');
+  schk('still held after one stage', F.relics.includes('focus'), true);
+  F.tickRelicLife('stages');
+  schk('gone after the second', F.relics.includes('focus'), false);
+  F.score = 0; F.scorePop(10, 1);
+  schk('and its doubling is gone', withFocus, F.score * 2);
+
+  // selling one stops its clock too
+  F.resetRun(); F.mode = 'rush'; F.coins = 200;
+  F.buyRelic('bonanza'); F.openShop(); F.discardRelic(0); F.closeShop();
+  schk('sold: clock cleared', F.relicLife.bonanza, undefined);
+
+  // flat points from a relic are derived, so they leave with it
+  F.resetRun(); F.mode = 'rush'; F.coins = 200;
+  const cherryBase = F.fruitScore(0);
+  F.buyRelic('one_cherry');
+  const withFlat = F.fruitScore(0);
+  schk('flat points apply', withFlat > cherryBase, true);
+  F.openShop(); F.discardRelic(0); F.closeShop();
+  schk('flat points leave with it', F.fruitScore(0), cherryBase);
+
+  // the first shop has to be affordable on a first-stage payout
+  const firstPayout = F.COIN_PAYOUT(1);
+  const cheapest = Math.min(...Object.keys(F.RELICS).map(id => F.RELICS[id].price));
+  schk('something is buyable on the first payout', cheapest <= firstPayout + 2, true);
+  F.resetRun(); F.mode = 'arcade';
+
   // rare relics really are rarer
   F.resetRun(); F.mode = 'rush';
   let crowns = 0, common = 0;
