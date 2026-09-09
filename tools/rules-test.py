@@ -435,6 +435,20 @@ window.addEventListener('load', () => setTimeout(() => {
   document.getElementById('traits').classList.add('hidden');
   F.resetRun(); F.mode = 'arcade';
 
+  // ---- how far you got is a record too ----
+  try { localStorage.removeItem(F.BEST_STAGE_KEY); } catch (e) {}
+  F.resetRun(); F.mode = 'rush'; F.bestStage = 0;
+  F.stage = 4; F.recordStage();
+  schk('reaching a new best records it', F.bestStage, 4);
+  F.stage = 2; F.recordStage();
+  schk('a worse run does not overwrite it', F.bestStage, 4);
+  F.stage = 9; F.recordStage();
+  schk('a better one does', F.bestStage, 9);
+  schk('and it persists', +localStorage.getItem(F.BEST_STAGE_KEY), 9);
+  F.mode = 'arcade'; F.stage = 30; F.recordStage();
+  schk('arcade has no stages to record', F.bestStage, 9);
+  F.mode = 'rush'; F.resetRun(); F.mode = 'arcade';
+
   // ---- grades: rarer tiers really do show up less ----
   F.resetRun(); F.mode = 'rush';
   const tierSeen = {common:0, uncommon:0, rare:0, legend:0};

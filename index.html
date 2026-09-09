@@ -220,6 +220,9 @@
   .ver { position: fixed; bottom: 14px; left: 0; right: 0; color: #555; font-size: 12px; }
   /* ---- game over ---- */
   #gameover { display: flex; flex-direction: column; align-items: center; gap: 12px; }
+  .ov-best { font-size: 15px; color: #ffd23e; }
+  .ov-best b { color: #ffe9a0; }
+  .ov-why { font-size: 14px; opacity: .7; }
   .go-title { font-size: 40px; margin: 0; font-weight: 900;
     background: linear-gradient(90deg,#ff5a7a,#ffc93c,#43d17a,#4d8bff);
     -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent; }
@@ -1134,7 +1137,19 @@
   // scale changed x10, so old records are not comparable -- new keys rather than a wrong
   // "best" the player can never beat or always beats
   const BEST_KEYS = { arcade: "fruitstar_best_v3", rush: "fruitstar_rush_best_v2" };
-  const loadBest = () => { best = +(localStorage.getItem(BEST_KEYS[mode]) || 0); };
+  // how far you got is the point of a run, so it is a record in its own right -- score alone
+  // was the only thing being kept
+  const BEST_STAGE_KEY = "fruitstar_rush_beststage_v1";
+  let bestStage = 0;
+  const loadBest = () => {
+    best = +(localStorage.getItem(BEST_KEYS[mode]) || 0);
+    bestStage = +(localStorage.getItem(BEST_STAGE_KEY) || 0);
+  };
+  function recordStage() {
+    if (!rules().touchBudget || stage <= bestStage) return;
+    bestStage = stage;
+    localStorage.setItem(BEST_STAGE_KEY, bestStage);
+  }
 
   // ---- run state ----
   // One run's worth of state, declared in one place. Everything listed in serializeRun()
@@ -2659,6 +2674,7 @@
   function stageClear() {
     // fly the payout from the middle of the board -- awarding it position-less meant the
     // counter just ticked up silently, which read as "the coin effect isn't working"
+    recordStage();                       // reaching it counts even if the run is abandoned
     tickRelicLife("stages");             // the stage that just ended counts against them
     addCoins(Math.round(COIN_PAYOUT(stage) * payoutMult), (ROWS - 1) / 2, (COLS - 1) / 2);
     stage++;
@@ -2674,11 +2690,14 @@
 
   function gameOver(reason) {
     running = false; busy = false;
+    recordStage();
     const why = reason === "touches" ? "터치 소진" : reason === "board" ? "판이 가득 참" : "";
     document.getElementById("ov-msg").innerHTML = rules().touchBudget
-      ? `<b>${stageLabel(stage)}</b> 도달 · 점수 <b>${score}</b> · 최고 <b>${best}</b>` +
-        (why ? `<br><span style="font-size:14px;opacity:.7">${why}</span>` : "")
-      : `점수 <b>${score}</b> · 최고 <b>${best}</b>`;
+      ? `<b>${stageLabel(stage)}</b> 도달 · 점수 <b>${score.toLocaleString()}</b>` +
+        `<br><span class="ov-best">최고 <b>${stageLabel(bestStage || 1)}</b>` +
+        ` · <b>${best.toLocaleString()}</b>점</span>` +
+        (why ? `<br><span class="ov-why">${why}</span>` : "")
+      : `점수 <b>${score.toLocaleString()}</b> · 최고 <b>${best.toLocaleString()}</b>`;
     document.getElementById("menu").classList.add("hidden");     // show the game-over view
     document.getElementById("gameover").classList.remove("hidden");
     document.getElementById("overlay").classList.remove("hidden");
@@ -3530,6 +3549,8 @@
       get stageScore()  { return stageScore; },  set stageScore(v)  { stageScore = v; },
       get touchesLeft() { return touchesLeft; }, set touchesLeft(v) { touchesLeft = v; },
       get coins()       { return coins; },       set coins(v)       { coins = v; },
+      get bestStage()   { return bestStage; },   set bestStage(v)   { bestStage = v; },
+      recordStage, BEST_STAGE_KEY,
       addCoins, COIN_PAYOUT,
       rushQuota, RUSH_TOUCHES, RUSH_SPAWNS, RUSH_BUDS, RUSH_QUOTA_1,
       RUSH_STAGE_MUL, RUSH_ROUND_MUL, RUSH_ROUND_ACCEL, roundSpan, roundMul, rules,
