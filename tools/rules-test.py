@@ -299,6 +299,46 @@ window.addEventListener('load', () => setTimeout(() => {
   chk('offers are unique', new Set(offers).size, offers.length);
   F.resetRun(); F.mode = 'arcade';
 
+  // ---- stacking value, and doubling what you already built ----
+  const stackFails = [];
+  const schk = (c, got, want) => { if (JSON.stringify(got) !== JSON.stringify(want))
+                                     stackFails.push({case:c, got, want}); };
+  F.resetRun(); F.mode = 'rush';
+  schk('cherry starts at its base', F.fruitScore(0), F.FRUIT_POINTS[0]);
+
+  // a stacking relic raises the base by playing, and a recompute must not wipe it
+  F.relics = ['piggy_cherry']; F.applyRelics();
+  for (let i = 0; i < 20; i++) F.notify('onFruitPop', {r:0, c:0, color:0});
+  schk('20 cherries banked +1.0', +F.fruitScore(0).toFixed(2), +(F.FRUIT_POINTS[0] + 1).toFixed(2));
+  F.applyRelics(); F.applyRelics();
+  schk('recompute keeps the stack', +F.fruitScore(0).toFixed(2), +(F.FRUIT_POINTS[0] + 1).toFixed(2));
+  // and only the fruit it names
+  schk('other fruit untouched', F.fruitScore(1), F.FRUIT_POINTS[1]);
+
+  // 농축 doubles whatever is worth most right now
+  const beforeBest = F.fruitScore(6);
+  F.traitOffers = ['concentrate']; F.graftArmed = false;
+  F.pickTrait('concentrate');
+  schk('doubles the priciest fruit', +F.fruitScore(6).toFixed(2), +(beforeBest * 2).toFixed(2));
+  F.applyRelics();
+  schk('the doubling survives a recompute', +F.fruitScore(6).toFixed(2), +(beforeBest * 2).toFixed(2));
+
+  // 증류 adds to every fruit's base, and the graft charge scales it
+  F.resetRun(); F.mode = 'rush';
+  F.traitOffers = ['distill']; F.pickTrait('distill');
+  schk('distill +0.5 on cherry', +F.fruitScore(0).toFixed(2), +(F.FRUIT_POINTS[0] + 0.5).toFixed(2));
+  F.resetRun(); F.mode = 'rush'; F.doubles = 1; F.graftArmed = true;
+  F.traitOffers = ['distill']; F.pickTrait('distill');
+  schk('graft doubles distill to +1.0', +F.fruitScore(0).toFixed(2), +(F.FRUIT_POINTS[0] + 1).toFixed(2));
+
+  // rare relics really are rarer
+  F.resetRun(); F.mode = 'rush';
+  let crowns = 0, common = 0;
+  for (let i = 0; i < 400; i++) { const o = F.rollOffers(3);
+    if (o.includes('crown')) crowns++; if (o.includes('storm')) common++; }
+  schk('rare shows up less than common', crowns < common, true);
+  F.resetRun(); F.mode = 'arcade';
+
   // ---- run-state round trip ----
   // This list is the TEST's own idea of what belongs to a run. If serializeRun()
   // forgets a field, restore leaves it at its reset value and the compare fails.
@@ -315,6 +355,8 @@ window.addEventListener('load', () => setTimeout(() => {
   F.relics = ['relic_a','relic_b'];
   F.traits = [{id:'cherry_taste', amount:2}];
   F.doubles = 3;
+  F.fruitStack = [0.5,0,0,0,0,0,2.5];
+  F.fruitBoost = [1,1,1,1,1,1,4];
   F.stage = 4; F.stageScore = 42; F.touchesLeft = 9; F.coins = 23;
   F.score = 1234; F.streak = 3; F.touchCount = 77;
   F.oddsMult = [0,0,0,2,0,0,3];
@@ -323,7 +365,8 @@ window.addEventListener('load', () => setTimeout(() => {
                 score:1234, streak:3, touchCount:77, oddsMult:[0,0,0,2,0,0,3],
                 fruitMult:[1,1.5,2,1,1,1,3], relics:['relic_a','relic_b'],
                 stage:4, stageScore:42, touchesLeft:9, coins:23,
-                traits:[{id:'cherry_taste', amount:2}], doubles:3};
+                traits:[{id:'cherry_taste', amount:2}], doubles:3,
+                fruitStack:[0.5,0,0,0,0,0,2.5], fruitBoost:[1,1,1,1,1,1,4]};
   const snap = JSON.parse(JSON.stringify(F.serializeRun()));
 
   F.resetRun();                                   // reset must wipe it all
@@ -362,7 +405,7 @@ window.addEventListener('load', () => setTimeout(() => {
   F.resetRun();
 
   document.title = 'RESULT ' + JSON.stringify({
-    cases: n, fails, fsFails, hist, runFails, resetLeaks, modeFails, relicFails, oddsFails,
+    cases: n, fails, fsFails, hist, runFails, resetLeaks, modeFails, relicFails, oddsFails, stackFails,
     fatal: null
   });
 }, 900));
@@ -380,7 +423,7 @@ if not m:
     print('NO RESULT'); sys.exit(1)
 res = json.loads(m.group(1))
 ok = (not res['fails'] and not res['fsFails'] and res['cases'] > 0
-      and not res['runFails'] and not res['resetLeaks'] and not res['modeFails'] and not res['relicFails'] and not res['oddsFails'])
+      and not res['runFails'] and not res['resetLeaks'] and not res['modeFails'] and not res['relicFails'] and not res['oddsFails'] and not res['stackFails'])
 active = sum(1 for h in res['hist'] if h > 0)
 spread = (max(res['hist']) - min(h for h in res['hist'] if h > 0)) / max(res['hist'])
 print(f"scoring : {res['cases']} cases, {len(res['fails'])} fail")
@@ -390,6 +433,8 @@ print(f"odds    : {len(res['oddsFails'])} fail")
 if res['oddsFails']: print('  ', res['oddsFails'][:4])
 print(f"modes   : {len(res['modeFails'])} fail")
 if res['modeFails']: print('  ', res['modeFails'][:4])
+print(f"stacking: {len(res['stackFails'])} fail")
+if res['stackFails']: print('  ', res['stackFails'][:4])
 print(f"relics  : {len(res['relicFails'])} fail")
 if res['relicFails']: print('  ', res['relicFails'][:4])
 print(f"run state: {len(res['runFails'])} round-trip fail, {len(res['resetLeaks'])} reset leak")

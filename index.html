@@ -1111,20 +1111,24 @@
     coins = 0; coinsShown = 0; coinFly = [];
     oddsMult = [0, 0, 0, 0, 0, 0, 0];
     fruitMult = [1, 1, 1, 1, 1, 1, 1];
+    fruitStack = [0, 0, 0, 0, 0, 0, 0];
+    fruitBoost = [1, 1, 1, 1, 1, 1, 1];
     relics = [];
     layout();                              // ROWS may have changed -> resize the board
   }
   function serializeRun() {
     return { v: RUN_VERSION, mode, rows: ROWS, grid, special, hp, coinCell,
              nextColor, nextColor2, score, streak, touchCount,
-             stage, stageScore, touchesLeft, coins, oddsMult, fruitMult, relics, traits, doubles };
+             stage, stageScore, touchesLeft, coins, oddsMult, fruitMult,
+             fruitStack, fruitBoost, relics, traits, doubles };
   }
   function restoreRun(o) {
     if (!o || o.v !== RUN_VERSION) return false;   // unknown/older save -> caller starts fresh
     mode = MODES[o.mode] ? o.mode : "arcade";     // a saved rush run must come back as rush
     ROWS = o.rows;
     ({ grid, special, hp, coinCell, nextColor, nextColor2, score, streak, touchCount,
-       stage, stageScore, touchesLeft, coins, oddsMult, fruitMult, relics, traits, doubles } = o);
+       stage, stageScore, touchesLeft, coins, oddsMult, fruitMult,
+       fruitStack, fruitBoost, relics, traits, doubles } = o);
     coinsShown = coins; coinFly = [];
     glow = layer(null); appear = layer(0); ghost = layer(null);
     layout(); dirty = true;
@@ -1194,6 +1198,10 @@
   // fruits shrink proportionally to pay for it. Stating it in multiples rather than
   // percentage points is what lets a relic just say "바나나가 1만큼 더 등장합니다" -- the
   // exact percentage belongs in the fruit table, not in every relic's description.
+  // ACCUMULATED, not derived: these grow through play and must survive a recompute, unlike
+  // fruitMult which applyRelics() rebuilds from the owned relics every time.
+  let fruitStack = [0, 0, 0, 0, 0, 0, 0];  // base points earned by popping that fruit
+  let fruitBoost = [1, 1, 1, 1, 1, 1, 1];  // "double its current value" effects, banked
   let relics = [];                         // ids of the relics owned this run
   // derived from the owned relics -- never written directly, always recomputed by applyRelics()
   let touchBonus = 0, spawnBonus = 0, slotBonus = 0, brickChance = 0, offerBonus = 0;
@@ -1246,8 +1254,10 @@
   const CHAIN_STEP = 0.15;                 // chain-size bonus per extra cleared cell
   let fruitMult = [1, 1, 1, 1, 1, 1, 1];   // per-colour multiplier; all 1.0 today
   function chainBonus(cleared) { return 1 + Math.max(0, cleared - 1) * (CHAIN_STEP + chainStep); }
+  // (base + what popping it has banked) x banked doublings x the relics you carry
   function fruitScore(colorIdx) {          // one fruit's worth, before chain/streak
-    return (FRUIT_POINTS[colorIdx] || 1) * (fruitMult[colorIdx] || 1);
+    const base = (FRUIT_POINTS[colorIdx] || 1) + (fruitStack[colorIdx] || 0);
+    return base * (fruitBoost[colorIdx] || 1) * (fruitMult[colorIdx] || 1);
   }
   function addScore(amount) {
     if (!(amount > 0)) return 0;
@@ -1294,6 +1304,12 @@
     big_pocket: { name: "넓은 주머니", icon: "🎒", scalable: false, once: true,
       effects: [{ stat: "slotBonus", amount: 1 }],
       desc: () => "유물 칸 +1" },
+    concentrate: { name: "농축", icon: "🔮", scalable: false,
+      effects: [{ stat: "boostBest", amount: 2 }],
+      desc: () => "지금 가장 비싼 과일의 값어치를 2배로" },
+    distill: { name: "증류", icon: "⚗️", scalable: true,
+      effects: [{ stat: "stackAll", amount: 0.5 }],
+      desc: e => `모든 과일의 기본 점수 +${+e[0].amount.toFixed(2)}` },
     graft: { name: "접붙이기", icon: "✨", scalable: false, once: true,
       effects: [{ stat: "doubles", amount: 1 }],
       desc: () => "다음 특성 선택을 2배로" },
@@ -1372,6 +1388,25 @@
     quarry: { name: "채석장", icon: "⛏️", price: 16,
       desc: "터뜨린 점수 +60% · 새 과일의 30%가 벽돌",
       apply() { brickChance += 0.30; }, modify: { pop: v => v * 1.6 } },
+
+    // ---- G. stacking: value that grows with play, not with the shop ----
+    piggy_cherry: { name: "체리 저금통", icon: "🐷", price: 15,
+      desc: "체리를 터뜨릴 때마다 체리 기본 점수 +0.05",
+      onFruitPop: p => { if (p.color === 0) fruitStack[0] += 0.05; } },
+    juice_press: { name: "착즙기", icon: "🫗", price: 20,
+      desc: "과일을 터뜨릴 때마다 그 과일의 기본 점수 +0.02",
+      onFruitPop: p => { fruitStack[p.color] += 0.02; } },
+    banana_cellar: { name: "바나나 저장고", icon: "🏺", price: 18,
+      desc: "바나나를 터뜨릴 때마다 바나나 기본 점수 +0.3",
+      onFruitPop: p => { if (p.color === 6) fruitStack[6] += 0.3; } },
+
+    // ---- rare: the ones a build is actually built around ----
+    prism: { name: "프리즘", icon: "🔱", price: 34, weight: 0.3,
+      desc: "모든 과일 점수 배율 +1.0",
+      apply() { for (let i = 0; i < fruitMult.length; i++) fruitMult[i] += 1; } },
+    crown: { name: "왕관", icon: "👑", price: 40, weight: 0.25,
+      desc: "터뜨린 점수 ×2",
+      modify: { pop: v => v * 2 } },
 
     // ---- F. item upgrades ----
     bomb_mod: { name: "폭탄 개조", icon: "💣", price: 19,
@@ -1789,6 +1824,7 @@
           ghost[r][c] = null;                    // this cell's turn: fruit goes, particles fly
           burst(r, c, vis);
           popScoreText(r, c, cellColor);
+          if (cellColor >= 0) notify("onFruitPop", { r, c, color: cellColor });
           if (carried) addCoins(1, r, c);        // its coin flies when the fruit actually pops
           glow[r][c] = { c: vis, t: 1 };
           if (mode === "color") flashBox(r, c, R, vis);   // ripple its 3x3 burst range
@@ -2105,10 +2141,18 @@
   let shopOffers = [], shopReroll = REROLL_COST;
   const $sh = id => document.getElementById(id);
 
+  // weighted draw: a relic can declare `weight` below 1 to show up rarely. The build-defining
+  // ones have to be rare or every run converges on the same three.
   function rollOffers(n = 3) {
     const pool = Object.keys(RELICS).filter(id => !relics.includes(id));
     const out = [];
-    while (out.length < n && pool.length) out.push(pool.splice(randInt(pool.length), 1)[0]);
+    while (out.length < n && pool.length) {
+      let total = 0;
+      for (const id of pool) total += RELICS[id].weight || 1;
+      let t = Math.random() * total, k = 0;
+      for (; k < pool.length; k++) { t -= RELICS[pool[k]].weight || 1; if (t < 0) break; }
+      out.push(pool.splice(Math.min(k, pool.length - 1), 1)[0]);
+    }
     return out;
   }
   function openShop() {
@@ -2224,9 +2268,17 @@
     const T = TRAITS[id]; if (!T) return;
     const scaled = graftArmed && T.scalable;
     if (scaled) doubles = Math.max(0, doubles - 1);
-    // graft grants a charge instead of a passive; applyRelics ignores the "doubles" stat, so
-    // recomputing the build can never hand it out a second time
-    for (const e of T.effects) if (e.stat === "doubles") doubles += e.amount;
+    // These land ONCE, into accumulated state, because they act on what you have already
+    // built. applyRelics ignores their stats, so recomputing can never re-apply them.
+    for (const e of traitEffects(T, scaled ? 2 : 1)) {
+      if (e.stat === "doubles") doubles += e.amount;
+      else if (e.stat === "stackAll") for (let i = 0; i < fruitStack.length; i++) fruitStack[i] += e.amount;
+      else if (e.stat === "boostBest") {
+        let best = 0;
+        for (let i = 1; i < FRUIT_POINTS.length; i++) if (fruitScore(i) > fruitScore(best)) best = i;
+        fruitBoost[best] *= e.amount;
+      }
+    }
     traits.push({ id, amount: scaled ? 2 : 1 });
     applyRelics();
     touchesLeft = Math.max(touchesLeft, stageTouches());
@@ -2318,12 +2370,12 @@
       body.appendChild(head);
       for (const i of FRUIT_TABLE_ORDER) {
         if (i >= p.length) continue;           // arcade runs fewer colours
-        const m = fruitMult[i] || 1;
-        const pts = FRUIT_POINTS[i] * m;
+        const pts = fruitScore(i);
+        const m = pts / (FRUIT_POINTS[i] || 1);   // anything above 1 means something raised it
         const d = document.createElement("div"); d.className = "ftab-row";
         const nm = document.createElement("span"); nm.className = "ft-name"; nm.textContent = FRUIT_NAMES[i];
         const sc = document.createElement("span");
-        sc.className = "ft-score" + (m !== 1 ? " up" : "");
+        sc.className = "ft-score" + (Math.abs(m - 1) > 0.001 ? " up" : "");
         sc.textContent = `${+pts.toFixed(2)}점`;
         const od = document.createElement("span");
         od.className = "ft-odds" + (oddsMult[i] > 0 ? " up" : "");
@@ -3000,6 +3052,7 @@
         const nd = nodes[L.reached];
         if (nd) {
           burst(nd[0], nd[1], L.color); popScoreText(nd[0], nd[1], L.color);
+          notify("onFruitPop", { r: nd[0], c: nd[1], color: L.color });
           addCoins(starCoinMult + (nd[2] || 0), nd[0], nd[1]);   // ⭐ signature + carried coin
         }
       }
@@ -3266,6 +3319,9 @@
       get oddsMult()    { return oddsMult; },    set oddsMult(v)    { oddsMult = v; },
       colorOdds, BASE_ODDS,
       get fruitMult()   { return fruitMult; },   set fruitMult(v)   { fruitMult = v; },
+      get fruitStack()  { return fruitStack; },  set fruitStack(v)  { fruitStack = v; },
+      get fruitBoost()  { return fruitBoost; },  set fruitBoost(v)  { fruitBoost = v; },
+      fruitScore,
     };
 
   // ---- boot ----
