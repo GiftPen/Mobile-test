@@ -621,6 +621,70 @@ window.addEventListener('load', () => setTimeout(() => {
     fresh();
   })();
 
+  // ---- item shop: coins in, an item on the board, and NOTHING else moved ----
+  (() => {
+    F.mode = 'rush'; F.resetRun();
+    const emptyRC = () => { for (let r=0;r<F.ROWS;r++) for (let c=0;c<F.COLS;c++)
+                              if (F.grid[r][c] === -1) return [r,c]; return null; };
+    F.running = true; F.busy = false; F.paused = false;
+    F.coins = 0;
+    schk('broke, so nothing is buyable', F.canBuyItem('bird'), false);
+    F.coins = F.ITEM_PRICES.bird;
+    schk('exactly enough is enough', F.canBuyItem('bird'), true);
+    schk('but the dearer one is still out of reach', F.canBuyItem('star'), false);
+    F.coins = F.ITEM_PRICES.star - 1;
+    schk('one coin short is short', F.canBuyItem('star'), false);
+    F.coins = 200;
+
+    // arming is a toggle and does not spend anything
+    F.armItem('bomb');
+    schk('arming selects', F.armedItem, 'bomb');
+    schk('and costs nothing yet', F.coins, 200);
+    F.armItem('bomb');
+    schk('tapping it again cancels', F.armedItem, null);
+
+    // buying deducts exactly the price and leaves the turn untouched
+    F.armItem('bomb');
+    const [r0, c0] = emptyRC();
+    const before = { coins: F.coins, touch: F.touchCount, left: F.touchesLeft,
+                     next: F.nextColor, filled: F.filledCount() };
+    schk('the cell is empty first', F.grid[r0][c0], -1);
+    F.placeBoughtItem(r0, c0);
+    schk('an item is now there', F.special[r0][c0], 'bomb');
+    schk('and it cost exactly its price', before.coins - F.coins, F.ITEM_PRICES.bomb);
+    schk('no touch was spent', [F.touchCount, F.touchesLeft], [before.touch, before.left]);
+    // the old dock bug: buying must not disturb the queued fruit
+    schk('the queued fruit is untouched', F.nextColor, before.next);
+    schk('exactly one cell was filled', F.filledCount(), before.filled + 1);
+    schk('and the arm is cleared', F.armedItem, null);
+
+    // an armed buy aimed at an occupied cell spends nothing
+    F.armItem('bird');
+    const coinsWas = F.coins;
+    F.placeBoughtItem(r0, c0);                    // still holds the bomb
+    schk('a blocked placement is refused', F.coins, coinsWas);
+    schk('and disarms rather than lingering', F.armedItem, null);
+
+    // cannot arm what you cannot afford
+    F.coins = 5;
+    F.armItem('star');
+    schk('too poor to arm', F.armedItem, null);
+
+    // a full board has nowhere to put one
+    F.resetRun(); F.running = true; F.coins = 500;
+    for (let r=0;r<F.ROWS;r++) for (let c=0;c<F.COLS;c++) F.grid[r][c] = 0;
+    schk('a full board blocks the purchase', F.canBuyItem('bird'), false);
+
+    // arcade gets the same sink -- that was the whole point
+    F.resetRun(); F.mode = 'arcade'; F.running = true; F.coins = 100;
+    schk('arcade can buy too', F.canBuyItem('bird'), true);
+    F.armItem('bird');
+    const [r1, c1] = emptyRC();
+    F.placeBoughtItem(r1, c1);
+    schk('and it lands', F.special[r1][c1], 'bird');
+    F.running = false; F.resetRun(); F.mode = 'rush';
+  })();
+
   // ---- bonus zones ----
   (() => {
     F.mode = 'rush'; F.resetRun();

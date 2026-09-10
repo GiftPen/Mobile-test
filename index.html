@@ -160,6 +160,20 @@
   #rush-next:disabled { background: #232842; color: #6a7089; cursor: default; }
   #rush-next span { font-weight: 900; opacity: .75; margin-left: 4px; }
   #rush-next:disabled span { opacity: .5; }
+  /* height is fixed and the row is always present: this sits directly under the board, and
+     anything that resized with affordability would shove the board on every coin gained */
+  #ishop { display: flex; justify-content: center; gap: 8px; height: 54px; margin-top: 8px;
+    width: 100%; max-width: 520px; }
+  #ishop.hidden { display: none; }
+  .ib { margin: 0; width: 62px; display: flex; flex-direction: column; align-items: center;
+    justify-content: center; gap: 2px; padding: 0; border-radius: 13px; border: 1px solid #2b3048;
+    background: #1c2032; color: var(--text); box-shadow: none; font-family: inherit; }
+  .ib-ic { font-size: 21px; line-height: 1; }
+  .ib-p  { font-size: 11px; font-weight: 800; color: #ffd23e; line-height: 1; }
+  .ib:disabled { opacity: .38; }
+  .ib:disabled .ib-p { color: #8a93ad; }
+  .ib.armed { border-color: #ffd23e; background: #3a3316; }
+  .ib.armed .ib-ic { transform: scale(1.12); }
   #dock.hidden { display: none; }
   #dock {
     display: flex; align-items: center; flex-wrap: wrap; justify-content: center;
@@ -472,6 +486,12 @@
 
   <div id="stage-wrap">
     <canvas id="game"></canvas>
+  </div>
+  <div id="ishop">
+    <button class="ib" data-item="bird"><span class="ib-ic">🐦</span><span class="ib-p">🪙10</span></button>
+    <button class="ib" data-item="line"><span class="ib-ic">↔️</span><span class="ib-p">🪙15</span></button>
+    <button class="ib" data-item="bomb"><span class="ib-ic">💣</span><span class="ib-p">🪙30</span></button>
+    <button class="ib" data-item="star"><span class="ib-ic">🌟</span><span class="ib-p">🪙70</span></button>
   </div>
   <div id="hint">빈 칸을 탭해 과일을 놓으세요</div>
   <button id="rush-next" class="hidden">다음 스테이지 ▶ <span id="rn-coin">🪙 +0</span></button>
@@ -1220,7 +1240,7 @@
     bombRadiusBonus = 0; itemEase = 0; birdFlock = 1; crossLine = false;
     zoneMult = 1; zoneCoin = false; zoneBonus = 0; zoneCells = new Set();
     STREAK_STEP = STREAK_STEP_BASE; STREAK_CAP = 2.0;
-    traits = []; doubles = 0;
+    traits = []; doubles = 0; armedItem = null;
     coins = 0; coinsShown = 0; coinFly = [];
     oddsMult = [0, 0, 0, 0, 0, 0, 0];
     fruitMult = [1, 1, 1, 1, 1, 1, 1];
@@ -2087,6 +2107,7 @@
     document.getElementById("st-touch").textContent = touchCount;
     document.getElementById("st-spawn").textContent = spawnCount();
 
+    renderItemShop();                      // affordability moves with every coin
     // segmented board-fill / danger gauge
     buildGauge();
     const ratio = filledCount() / (ROWS * COLS);          // fill vs the whole board
@@ -2125,10 +2146,55 @@
       if (grid[r][c] === -1) placeTestItem(r, c, selectedItem);
       return;
     }
+    if (armedItem) {                       // a bought item goes down instead of a fruit
+      placeBoughtItem(r, c);
+      return;
+    }
     if (grid[r][c] === -1) plant(r, c, nextColor);        // empty -> place next color
     else if (special[r][c]) tapItem(r, c);                // item bud -> trigger it
     // normal fruit or brick -> nothing
   });
+
+  // ---- item shop: the coin sink both modes were missing ----
+  // Arcade earned coins with nothing to spend them on; Star Rush had only relics, so coins
+  // past the last shop were dead weight. Buying an item costs coins and NOT a touch -- the
+  // same rule the game already uses for tapping an item that is already on the board.
+  const ITEM_PRICES = { bird: 10, line: 15, bomb: 30, star: 70 };
+  let armedItem = null;
+  function canBuyItem(kind) {
+    return running && !busy && !paused && ITEM_PRICES[kind] != null
+           && coins >= ITEM_PRICES[kind] && emptyCells().length > 0;
+  }
+  function armItem(kind) {
+    armedItem = armedItem === kind ? null : (canBuyItem(kind) ? kind : null);
+    renderItemShop();
+  }
+  function placeBoughtItem(r, c) {
+    const kind = armedItem;
+    if (!kind || !canBuyItem(kind) || grid[r][c] !== -1) { armedItem = null; renderItemShop(); return false; }
+    coins -= ITEM_PRICES[kind]; coinsShown = coins;
+    const color = pickColor();
+    grid[r][c] = color; special[r][c] = kind;
+    appear[r][c] = 1;
+    armedItem = null;
+    dirty = true; renderItemShop(); updateHUD();
+    return true;
+  }
+  function renderItemShop() {
+    const bar = document.getElementById("ishop");
+    if (!bar) return;
+    for (const b of bar.querySelectorAll(".ib")) {
+      const kind = b.dataset.item;
+      const affordable = canBuyItem(kind);
+      b.disabled = !affordable && armedItem !== kind;
+      b.classList.toggle("armed", armedItem === kind);
+    }
+    const h = document.getElementById("hint");
+    if (armedItem) h.textContent = "빈 칸을 탭해 놓으세요 (다시 누르면 취소)";
+    else if (h.textContent.startsWith("빈 칸을 탭해 놓으세요")) h.textContent = "";
+  }
+  for (const b of document.querySelectorAll("#ishop .ib"))
+    b.addEventListener("click", () => armItem(b.dataset.item));
 
   // ---- test item dock: place items freely without spending a turn ----
   let selectedItem = null;
@@ -3812,7 +3878,10 @@
       rollZones, zoneAt, zoneCount, fruitScoreAt, ZONE_BASE,
       get zoneCells() { return zoneCells; }, get zoneMult() { return zoneMult; },
       get zoneCoin() { return zoneCoin; }, get zoneBonus() { return zoneBonus; },
-      emptyCells, get grid() { return grid; }, get special() { return special; },
+      emptyCells, ITEM_PRICES, canBuyItem, armItem, placeBoughtItem, renderItemShop,
+      filledCount, get paused() { return paused; }, set paused(v) { paused = v; },
+      get armedItem() { return armedItem; }, set armedItem(v) { armedItem = v; },
+      get grid() { return grid; }, get special() { return special; },
       get hp() { return hp; }, get coinCell() { return coinCell; },
       BIRD_THRESHOLD, LINE_THRESHOLD, BOMB_THRESHOLD, STAR_THRESHOLD,
       get bombRadiusBonus() { return bombRadiusBonus; }, get itemEase() { return itemEase; },
