@@ -3040,7 +3040,7 @@
   // TEMPORARY (?word=1): the size multiplier's name is still being chosen. 연쇄/체인 both
   // promise a sequence, but this number counts how many popped at once. Tap to cycle and
   // judge it on a phone -- delete this block and hardcode the winner once picked.
-  const CHAIN_WORDS = ["연쇄", "다발", "묶음", "덩어리", "대량", "박스", "모둠", "멀티"];
+  const CHAIN_WORDS = ["연쇄", "덩어리", "뭉치", "묶음", "다발", "대량", "박스", "모둠", "멀티"];
   let CHAIN_WORD = CHAIN_WORDS[0];
   if (/[?&]word=1/.test(location.search)) {
     try { CHAIN_WORD = localStorage.getItem("fs_chainword") || CHAIN_WORDS[0]; } catch (e) {}
