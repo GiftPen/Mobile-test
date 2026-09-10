@@ -2225,7 +2225,9 @@
     // A cluster is the main event, so the ceiling has to fit one. At 14 a pop (two voices)
     // filled it after seven fruit and every later pop went silent -- the bigger the cluster
     // the quieter it got, leaving only the combo accent audible.
-    const MAX_VOICES = 26;
+    // 33, not 26: the 3-layer pop style would otherwise only fit 8 at once. Simple oscillator
+    // + gain + filter nodes are cheap; the cluster is what this game is about.
+    const MAX_VOICES = 33;
     // ...and pops must never be starved by a coin or a combo blip, so accents get less room
     const ACCENT_VOICES = 14;
     try { muted = localStorage.getItem("fs_mute") === "1"; } catch (e) {}
@@ -2313,6 +2315,36 @@
     const FRUIT_NOTE = [0, 2, 3, 1, 4, 5, 6];   // fruit index -> rung, by FRUIT_POINTS order
     const hz = semi => 330 * Math.pow(2, semi / 12);
 
+    // Five takes on "과즙이 터진다". The physical reference matters: a bubble or droplet
+    // collapsing sweeps its resonance UP, not down -- a falling sweep reads as a thud. The
+    // first version here swept down, which is most of why it did not sound wet.
+    const POP_STYLES = {
+      drop: { name: "물방울", play(f) {          // bubble collapse: sine, sweeping up, fast decay
+        tone({ f: f * 0.55, f2: f * 1.9, dur: 0.075, vol: 0.55, type: "sine", lead: true });
+        noise({ f: f * 6, dur: 0.012, vol: 0.16, filter: "highpass", lead: true });
+      } },
+      splat: { name: "과즙", play(f) {           // wet squish: resonant lowpass slamming shut
+        noise({ f: 6500, f2: f * 0.8, dur: 0.09, vol: 0.42, filter: "lowpass", q: 7, lead: true });
+        tone({ f: f * 0.8, f2: f * 0.45, dur: 0.09, vol: 0.30, type: "sine", lead: true });
+      } },
+      cork: { name: "뽁", play(f) {              // cork out of a bottle: tight resonant blip
+        noise({ f: f * 1.6, dur: 0.035, vol: 0.40, filter: "bandpass", q: 9, lead: true });
+        tone({ f: f * 0.5, f2: f * 1.4, dur: 0.055, vol: 0.42, type: "sine", lead: true });
+      } },
+      burst: { name: "톡+과즙", play(f) {        // click, rising body, wet tail
+        noise({ f: f * 8, dur: 0.01, vol: 0.22, filter: "highpass", lead: true });
+        tone({ f: f * 0.6, f2: f * 2.1, dur: 0.07, vol: 0.5, type: "sine", lead: true });
+        noise({ f: 3000, f2: f, dur: 0.06, vol: 0.20, filter: "lowpass", q: 4, lead: true });
+      } },
+      old: { name: "이전(하강)", play(f) {
+        tone({ f: f * 1.5, f2: f * 0.92, dur: 0.13, vol: 0.52, type: "triangle", lead: true });
+        noise({ f: f * 3.2, f2: f * 1.1, dur: 0.055, vol: 0.26, filter: "bandpass", q: 1.2, lead: true });
+      } },
+    };
+    const POP_KEYS = Object.keys(POP_STYLES);
+    let popStyle = POP_KEYS[0];
+    try { const p = localStorage.getItem("fs_pop"); if (POP_STYLES[p]) popStyle = p; } catch (e) {}
+
     const S = {
       tap:    () => tone({ f: 520, f2: 380, dur: 0.05, vol: 0.10, type: "triangle" }),
       // putting a fruit down is half the feel of the game: a soft thud with a little body
@@ -2320,14 +2352,9 @@
         tone({ f: 300, f2: 165, dur: 0.10, vol: 0.42, type: "triangle", lead: true });
         noise({ f: 800, f2: 260, dur: 0.05, vol: 0.16, filter: "lowpass", lead: true });
       },
-      // the main sound. A sine was too polite to be heard over anything -- juice needs a wet
-      // transient and a body with harmonics, not a pure tone.
-      pop: i => {
-        const n = PENTA[FRUIT_NOTE[i] == null ? 0 : FRUIT_NOTE[i]];
-        const f = hz(n) * 2;
-        tone({ f: f * 1.5, f2: f * 0.92, dur: 0.13, vol: 0.52, type: "triangle", lead: true });
-        noise({ f: f * 3.2, f2: f * 1.1, dur: 0.055, vol: 0.26, filter: "bandpass", q: 1.2, lead: true });
-      },
+      // The main sound, and still being chosen -- see POP_STYLES. ?pop=1 cycles them on a
+      // phone, because this is the one thing that cannot be judged from the code.
+      pop: i => POP_STYLES[popStyle].play(hz(PENTA[FRUIT_NOTE[i] == null ? 0 : FRUIT_NOTE[i]]) * 2),
       gain: size => {                       // the payoff, fuller with the cluster but under it
         const k = Math.min(1, size / 12);
         tone({ f: 330, dur: 0.20 + k * 0.12, vol: 0.11 + k * 0.10, type: "triangle" });
@@ -2377,12 +2404,48 @@
       try { localStorage.setItem("fs_vol", String(volume)); } catch (e) {}
       if (master && !muted) master.gain.value = volume;
     }
+    function setPopStyle(k) {
+      if (!POP_STYLES[k]) return;
+      popStyle = k;
+      try { localStorage.setItem("fs_pop", k); } catch (e) {}
+    }
     return { play, unlock, setMuted, setVolume, names: Object.keys(S),
+             POP_STYLES, POP_KEYS, setPopStyle, get popStyle() { return popStyle; },
              get voices() { return voices; }, get MAX_VOICES() { return MAX_VOICES; },
              get state() { return ctx ? ctx.state : "none"; },
              get muted() { return muted; }, get volume() { return volume; },
              get armed() { return armed; } };
   })();
+  // TEMPORARY (?pop=1): the juice sound is the one thing that cannot be judged from code, so
+  // it gets picked on a phone. Tapping a chip switches the style AND plays it across three
+  // fruits, which is how you actually hear whether a cluster will sound right.
+  if (/[?&]pop=1/.test(location.search)) {
+    window.addEventListener("load", () => {
+      const bar = document.createElement("div");
+      bar.style.cssText = "position:fixed;left:0;right:0;bottom:0;z-index:99;display:flex;" +
+        "gap:6px;justify-content:center;flex-wrap:wrap;padding:8px 10px;" +
+        "background:rgba(8,9,15,.94);backdrop-filter:blur(6px)";
+      const paint = () => {
+        bar.textContent = "";
+        for (const k of SFX.POP_KEYS) {
+          const b = document.createElement("button");
+          const on = k === SFX.popStyle;
+          b.textContent = SFX.POP_STYLES[k].name;
+          b.style.cssText = "font:800 13px/1 inherit;padding:10px 12px;border-radius:11px;" +
+            "border:1px solid " + (on ? "#ffd23e" : "#2b3048") + ";" +
+            "background:" + (on ? "#3a3316" : "#1c2032") + ";color:" + (on ? "#ffd23e" : "#8a93ad");
+          b.addEventListener("click", () => {
+            SFX.unlock(); SFX.setPopStyle(k); paint();
+            [0, 4, 6].forEach((fruit, n) => setTimeout(() => SFX.play("pop", fruit), n * 110));
+          });
+          bar.appendChild(b);
+        }
+      };
+      paint();
+      document.body.appendChild(bar);
+    });
+  }
+
   // any first gesture wakes the context; harmless to fire more than once
   for (const ev of ["pointerdown", "touchstart", "keydown"])
     window.addEventListener(ev, () => SFX.unlock(), { passive: true });

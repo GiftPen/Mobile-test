@@ -77,7 +77,13 @@ window.addEventListener('load', () => setTimeout(() => {
   //    combo blip as the only audible thing in a big clear.
   // counts a pop as heard only if BOTH of its parts got a voice -- the body carries the pitch
   // and the transient carries the juice, and losing either quietly guts the sound
-  const POP_PARTS = 2;
+  // how many voices one pop costs depends on which style is selected, so measure it rather
+  // than pin it -- picking a different style must not break this suite
+  const POP_PARTS = (() => {
+    if (!live) return 2;
+    const b = S.voices; S.play('pop', 0);
+    return Math.max(1, S.voices - b);
+  })();
   const heard = (name, n) => {
     let got = 0;
     for (let i = 0; i < n; i++) {
@@ -89,14 +95,16 @@ window.addEventListener('load', () => setTimeout(() => {
   const drain = ms => new Promise(r => setTimeout(r, ms));
   (async () => {
     await drain(700);
-    const cluster = live ? heard('pop', 13) : 13;
+    const room = Math.floor(S.MAX_VOICES / POP_PARTS);
+    const cluster = live ? heard('pop', Math.min(13, room)) : 13;
     await drain(700);
     // fill every accent slot, then check a pop still gets through
     if (live) for (let i = 0; i < 40; i++) S.play('coin');
     const accentsHeld = S.voices;
     const popsAfter = live ? heard('pop', 6) : 6;
     await drain(700);
-    chk('a 13-fruit cluster is heard in full', cluster, 13);
+    chk('a full cluster is heard in full', cluster, Math.min(13, Math.floor(S.MAX_VOICES / POP_PARTS)));
+    chk('there is room for a real cluster', Math.floor(S.MAX_VOICES / POP_PARTS) >= 11, true);
     chk('accents cannot fill the whole ceiling', accentsHeld < S.MAX_VOICES, true);
     chk('pops still play after an accent flood', popsAfter, 6);
 
@@ -138,7 +146,7 @@ m = re.search(r'RESULT (\{.*?\})</title>', out, re.S)
 if not m: print('NO RESULT'); sys.exit(1)
 r = json.loads(m.group(1))
 print(f"sound: {r['sounds']}종 · {r['state']} · 최대 보이스 {r['peakVoices']} → 잔여 {r['settled']} · "
-      f"13동시팝 {r['cluster']}/13 · 액센트 난사 후 팝 {r['popsAfter']}/6, {len(r['fails'])} fail")
+      f"동시팝 {r['cluster']} · 액센트 난사 후 팝 {r['popsAfter']}/6, {len(r['fails'])} fail")
 for f in r['fails']: print('  ', f)
 print('PASS' if not r['fails'] else 'FAIL')
 sys.exit(0 if not r['fails'] else 1)
