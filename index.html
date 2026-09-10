@@ -1613,8 +1613,8 @@
       desc: "바나나 3만큼 더 등장", apply() { oddsMult[6] += 3; } },
 
     // ---- B. score ----
-    chain_master: { name: "연쇄 광", icon: "🔗", price: 17,
-      desc: `연쇄 보너스 +0.2 (${CHAIN_STEP} → ${gridMult(CHAIN_STEP + 0.2)})`, apply() { chainStep += 0.2; } },
+    chain_master: { name: "덩치", icon: "🫧", price: 17,
+      desc: `덩어리 보너스 +0.2 (${CHAIN_STEP} → ${gridMult(CHAIN_STEP + 0.2)})`, apply() { chainStep += 0.2; } },
     streak_amp: { name: "불꽃 증폭", icon: "🔥", price: 16,
       desc: "콤보 배율 상한 ×2.0 → ×2.8", apply() { STREAK_CAP += 0.8; } },
     streak_step: { name: "탄력", icon: "📈", price: 13,
@@ -1657,7 +1657,7 @@
     one_cherry: { name: "체리 한 알", icon: "🍒", price: 4,
       desc: "체리 점수 +8", apply() { fruitFlat[0] += 8; } },
     whetstone: { name: "숫돌", icon: "🪨", price: 6,
-      desc: `연쇄 보너스 +0.1 (${CHAIN_STEP} → ${gridMult(CHAIN_STEP + 0.1)})`, apply() { chainStep += 0.1; } },
+      desc: `덩어리 보너스 +0.1 (${CHAIN_STEP} → ${gridMult(CHAIN_STEP + 0.1)})`, apply() { chainStep += 0.1; } },
 
     // ---- temporary: strong, cheap, and on a clock ----
     focus: { name: "단기 집중", icon: "⚡", price: 9, life: { unit: "stages", amount: 2 },
@@ -3037,43 +3037,12 @@
 
   // floating "+N" that rises from the cell you acted on (colored by fruit)
   // which multipliers turned the ingredients into the total
-  // TEMPORARY (?word=1): the size multiplier's name is still being chosen. 연쇄/체인 both
-  // promise a sequence, but this number counts how many popped at once. Tap to cycle and
-  // judge it on a phone -- delete this block and hardcode the winner once picked.
-  const CHAIN_WORDS = ["연쇄", "덩어리", "뭉치", "묶음", "다발", "대량", "박스", "모둠", "멀티"];
-  let CHAIN_WORD = CHAIN_WORDS[0];
-  if (/[?&]word=1/.test(location.search)) {
-    try { CHAIN_WORD = localStorage.getItem("fs_chainword") || CHAIN_WORDS[0]; } catch (e) {}
-    window.addEventListener("load", () => {
-      const bar = document.createElement("div");
-      bar.style.cssText = "position:fixed;left:0;right:0;bottom:0;z-index:99;display:flex;" +
-        "gap:6px;justify-content:center;flex-wrap:wrap;padding:8px 10px;" +
-        "background:rgba(8,9,15,.92);backdrop-filter:blur(6px)";
-      const paint = () => {
-        bar.textContent = "";
-        for (const w of CHAIN_WORDS) {
-          const b = document.createElement("button");
-          const on = w === CHAIN_WORD;
-          b.textContent = `×1.8 ${w}`;
-          b.style.cssText = "font:800 13px/1 inherit;padding:9px 11px;border-radius:11px;" +
-            "border:1px solid " + (on ? "#ffd23e" : "#2b3048") + ";" +
-            "background:" + (on ? "#3a3316" : "#1c2032") + ";color:" + (on ? "#ffd23e" : "#8a93ad");
-          b.addEventListener("click", () => {
-            CHAIN_WORD = w;
-            try { localStorage.setItem("fs_chainword", w); } catch (e) {}
-            paint();
-          });
-          bar.appendChild(b);
-        }
-      };
-      paint();
-      document.body.appendChild(bar);
-    });
-  }
-
+  // "덩어리" -- what this multiplier measures is the size of the connected same-colour group
+  // you popped, not a sequence of anything. 연쇄/체인 both promise a cascade this game does
+  // not have, and it maps 1:1 to "cluster", already the standard term in English match-3.
   function multLabel(cb, sm) {
     const p = [];
-    if (cb > 1.001) p.push(["gp-chain", `×${+cb.toFixed(1)} ${CHAIN_WORD}`]);
+    if (cb > 1.001) p.push(["gp-chain", `×${+cb.toFixed(1)} 덩어리`]);
     if (sm > 1.001) p.push(["gp-combo", `×${+sm.toFixed(1)} 콤보`]);
     return p;
   }
@@ -3838,8 +3807,7 @@
       get chainStep() { return chainStep; }, get coinFruitBonus() { return coinFruitBonus; },
       get starCoinMult() { return starCoinMult; }, get payoutMult() { return payoutMult; },
       bombRadius, BOMB_RADIUS_MAX, itemNeed, ITEM_NEED_MIN,
-      gridMult, MULT_GRID, STREAK_STEP_BASE, CHAIN_STEP, multLabel, CHAIN_WORDS,
-      get CHAIN_WORD() { return CHAIN_WORD; }, set CHAIN_WORD(v) { CHAIN_WORD = v; },
+      gridMult, MULT_GRID, STREAK_STEP_BASE, CHAIN_STEP, multLabel,
       syncRows, ROWS_BASE, ROWS_MAX, layout, COLS,
       rollZones, zoneAt, zoneCount, fruitScoreAt, ZONE_BASE,
       get zoneCells() { return zoneCells; }, get zoneMult() { return zoneMult; },
