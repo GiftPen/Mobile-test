@@ -189,7 +189,11 @@
   .set-toggle { flex: 1; margin: 0; padding: 12px; font-size: 15px; font-weight: 800;
     background: #1e2130; color: var(--text); border-radius: 12px; box-shadow: none; }
   .set-toggle.off { color: var(--muted); }
-  .set-lab { font-size: 13px; color: var(--muted); width: 34px; }
+  .set-lab { font-size: 13px; color: var(--muted); width: 46px; text-align: left; }
+  .lang-picker { flex: 1; display: flex; gap: 6px; }
+  .lang-btn { flex: 1; margin: 0; padding: 9px 6px; font-size: 13px; font-weight: 800;
+    background: #1e2130; color: var(--muted); border-radius: 10px; box-shadow: none; }
+  .lang-btn.on { background: #3a3316; color: #ffd23e; }
   .set-val { font-size: 13px; color: var(--muted); width: 28px; text-align: right; }
   #vol { flex: 1; accent-color: #ffd23e; }
   #vol-row.off { opacity: .35; }
@@ -425,37 +429,41 @@
 </head>
 <body>
   <div id="pause" class="hidden">
-    <h2>일시정지</h2>
+    <h2 data-i18n="paused">일시정지</h2>
     <div class="set-row">
-      <button id="btn-mute" class="set-toggle"><span id="mute-ic">🔊</span> <span id="mute-t">소리 켬</span></button>
+      <button id="btn-mute" class="set-toggle"><span id="mute-ic">🔊</span> <span id="mute-t" data-i18n="soundOn">소리 켬</span></button>
+    </div>
+    <div class="set-row">
+      <span class="set-lab" data-i18n="language">언어</span>
+      <div id="lang-picker" class="lang-picker"></div>
     </div>
     <div class="set-row" id="vol-row">
-      <span class="set-lab">음량</span>
-      <input id="vol" type="range" min="0" max="100" step="5" value="70" aria-label="음량">
+      <span class="set-lab" data-i18n="volume">음량</span>
+      <input id="vol" type="range" min="0" max="100" step="5" value="70" data-i18n-aria="volume" aria-label="음량">
       <span class="set-val" id="vol-v">70</span>
     </div>
-    <button id="btn-resume">계속하기</button>
-    <button id="btn-tomain" class="ghost-btn">메인으로</button>
+    <button id="btn-resume" data-i18n="btnResume">계속하기</button>
+    <button id="btn-tomain" class="ghost-btn" data-i18n="btnToMain">메인으로</button>
   </div>
   <div id="info" class="hidden">
     <div class="info-card">
       <div class="info-tabs">
-        <button class="itab on" data-tab="fruits">🍊 확률</button>
-        <button class="itab" data-tab="relics">📜 유물</button>
-        <button class="itab" data-tab="traits">✨ 특성</button>
+        <button class="itab on" data-tab="fruits" data-i18n="tabOdds">🍊 확률</button>
+        <button class="itab" data-tab="relics" data-i18n="tabRelics">📜 유물</button>
+        <button class="itab" data-tab="traits" data-i18n="tabTraits">✨ 특성</button>
       </div>
       <div id="info-body"></div>
-      <button id="info-close" class="ghost-btn">닫기</button>
+      <button id="info-close" class="ghost-btn" data-i18n="btnClose">닫기</button>
     </div>
   </div>
   <div id="traits" class="hidden">
     <div class="shop-card">
       <div class="shop-head">
-        <span class="shop-title">특성 선택</span>
+        <span class="shop-title" data-i18n="traitPick">특성 선택</span>
         <span>
           <button id="tr-info" class="ghost-btn">📜</button>
           <button id="tr-reroll" class="ghost-btn">🔄 1</button>
-          <button id="tr-double" class="ghost-btn hidden">✨ 2배 <b id="tr-double-n">1</b></button>
+          <button id="tr-double" class="ghost-btn hidden"><span data-i18n="doubleChip">✨ 2배</span> <b id="tr-double-n">1</b></button>
         </span>
       </div>
       <div id="tr-offers"></div>
@@ -464,30 +472,30 @@
   <div id="shop" class="hidden">
     <div class="shop-card">
       <div class="shop-head">
-        <span class="shop-title"><b id="sh-stage">1-2</b> 준비</span>
+        <span class="shop-title"><b id="sh-stage">1-2</b> <span data-i18n="prep">준비</span></span>
         <span class="chip coin">🪙 <b id="sh-coin">0</b></span>
       </div>
       <div id="sh-offers" class="offer-grid"></div>
       <div class="shop-actions">
-        <button id="sh-info" class="ghost-btn">📜 내 유물 <b id="sh-slots">0/5</b></button>
+        <button id="sh-info" class="ghost-btn"><span data-i18n="myRelics">📜 내 유물</span> <b id="sh-slots">0/5</b></button>
         <button id="sh-reroll" class="ghost-btn">🔄 🪙<b id="sh-reroll-cost">3</b></button>
-        <button id="sh-next">닫기</button>
+        <button id="sh-next" data-i18n="btnClose">닫기</button>
       </div>
     </div>
   </div>
   <div id="top">
     <div class="top-left">
-      <button id="pause-btn" aria-label="일시정지">⏸</button>
+      <button id="pause-btn" data-i18n-aria="paused" aria-label="일시정지">⏸</button>
       <button id="info-btn" aria-label="유물과 과일 확률">📜</button>
     </div>
     <div class="score-box center" id="arcade-box">
       <span class="score-val" id="score">0</span>
-      <span class="best-line">최고 <b id="best">0</b></span>
+      <span class="best-line"><span data-i18n="best">최고</span> <b id="best">0</b></span>
       <span id="streak-badge"></span>
     </div>
     <div class="rush-box center hidden" id="rush-box">
-      <span class="rb-stage">스테이지 <b id="rs-stage">1-1</b></span>
-      <span class="best-line">점수 <b id="rb-score">0</b> · 최고 <b id="rb-best">0</b></span>
+      <span class="rb-stage"><span data-i18n="stage">스테이지</span> <b id="rs-stage">1-1</b></span>
+      <span class="best-line"><span data-i18n="score">점수</span> <b id="rb-score">0</b> · <span data-i18n="best">최고</span> <b id="rb-best">0</b></span>
       <span id="streak-badge2"></span>
     </div>
     <div id="next-wrap">
@@ -498,16 +506,16 @@
 
   <div id="stats">
     <span class="chip lvl">Lv.<b id="st-level">1</b><span id="st-max" class="lvmax hidden">MAX</span></span>
-    <span class="chip">👆 터치 <b id="st-touch">0</b></span>
-    <span class="chip">➕ 매턴 <b id="st-spawn">1</b></span>
+    <span class="chip"><span data-i18n="touchChip">👆 터치</span> <b id="st-touch">0</b></span>
+    <span class="chip"><span data-i18n="spawnChip">➕ 매턴</span> <b id="st-spawn">1</b></span>
     <span class="chip coin" id="st-coin">🪙 <b id="st-coin-v">0</b></span>
-    <span id="danger-label" class="hidden">⚠️ 위험!</span>
+    <span id="danger-label" class="hidden" data-i18n="danger">⚠️ 위험!</span>
   </div>
   <div id="rush" class="hidden">
     <div class="rb-row">
-      <div class="rb-cell" id="rb-quota-cell"><span class="rb-val" id="rb-quota">0/70</span><span class="rb-lab" id="rb-quota-lab">목표</span></div>
+      <div class="rb-cell" id="rb-quota-cell"><span class="rb-val" id="rb-quota">0/70</span><span class="rb-lab" id="rb-quota-lab" data-i18n="goal">목표</span></div>
       <div class="rb-div"></div>
-      <div class="rb-cell" id="rb-touch-cell"><span class="rb-val" id="rb-touch">15</span><span class="rb-lab">남은 터치</span></div>
+      <div class="rb-cell" id="rb-touch-cell"><span class="rb-val" id="rb-touch">15</span><span class="rb-lab" data-i18n="touchesLeft">남은 터치</span></div>
       <div class="rb-chips">
         <span class="chip coin" id="rs-coin">🪙 <b id="rs-coin-v">0</b></span>
         <span class="chip">➕ <b id="rs-spawn">1</b></span>
@@ -527,11 +535,11 @@
     <button class="ib" data-item="bomb"><span class="ib-ic">💣</span><span class="ib-p">🪙30</span></button>
     <button class="ib" data-item="star"><span class="ib-ic">🌟</span><span class="ib-p">🪙70</span></button>
   </div>
-  <div id="hint">빈 칸을 탭해 과일을 놓으세요</div>
-  <button id="rush-next" class="hidden">다음 스테이지 ▶ <span id="rn-coin">🪙 +0</span></button>
+  <div id="hint" data-i18n="hintPlace">빈 칸을 탭해 과일을 놓으세요</div>
+  <button id="rush-next" class="hidden"><span data-i18n="nextStage">다음 스테이지 ▶</span> <span id="rn-coin">🪙 +0</span></button>
 
   <div id="dock" class="hidden">
-    <span class="dock-label">테스트</span>
+    <span class="dock-label" data-i18n="testDock">테스트</span>
     <button class="dock-btn fruit" data-item="fruit0"><img src="assets_new/fruit0.png" onerror="this.onerror=null;this.src='assets/fruit0.png'" alt="체리"></button>
     <button class="dock-btn fruit" data-item="fruit1"><img src="assets_new/fruit1.png" onerror="this.onerror=null;this.src='assets/fruit1.png'" alt="오렌지"></button>
     <button class="dock-btn fruit" data-item="fruit2"><img src="assets_new/fruit2.png" onerror="this.onerror=null;this.src='assets/fruit2.png'" alt="키위"></button>
@@ -548,8 +556,8 @@
 
   <div id="rotate">
     <div class="rot-ic">📱</div>
-    <div class="rot-t">세로로 돌려주세요</div>
-    <div class="rot-s">화면이 낮아 판이 다 들어가지 않습니다</div>
+    <div class="rot-t" data-i18n="rotateTitle">세로로 돌려주세요</div>
+    <div class="rot-s" data-i18n="rotateSub">화면이 낮아 판이 다 들어가지 않습니다</div>
   </div>
 
   <div id="overlay">
@@ -563,22 +571,22 @@
           <div class="t1">FRUIT</div>
           <div class="t2">STAR</div>
         </div>
-        <p class="tagline">톡! 터뜨리는 상큼한 과일</p>
+        <p class="tagline" data-i18n="appTag">톡! 터뜨리는 상큼한 과일</p>
       </div>
-      <button id="btn-arcade" class="mode-btn arcade">아케이드 모드</button>
-      <button id="btn-challenge" class="mode-btn challenge">⭐ 스타 러시</button>
+      <button id="btn-arcade" class="mode-btn arcade" data-i18n="modeArcade">아케이드 모드</button>
+      <button id="btn-challenge" class="mode-btn challenge" data-i18n="modeRush">⭐ 스타 러시</button>
       <div class="menu-icons">
-        <button class="icon-btn" id="btn-settings"><span class="ic">⚙️</span><span class="lb">설정</span></button>
-        <button class="icon-btn" id="btn-ranking"><span class="ic">🏆</span><span class="lb">랭킹</span></button>
+        <button class="icon-btn" id="btn-settings"><span class="ic">⚙️</span><span class="lb" data-i18n="btnSettings">설정</span></button>
+        <button class="icon-btn" id="btn-ranking"><span class="ic">🏆</span><span class="lb" data-i18n="btnRanking">랭킹</span></button>
       </div>
       <div id="menu-msg"></div>
       <div class="ver">v0.3.0</div>
     </div>
     <div id="gameover" class="hidden">
-      <h1 class="go-title">게임 오버</h1>
+      <h1 class="go-title" data-i18n="gameOver">게임 오버</h1>
       <div class="big" id="ov-msg"></div>
-      <button id="start-btn">다시 하기</button>
-      <button id="btn-menu" class="ghost-btn">메인으로</button>
+      <button id="start-btn" data-i18n="btnRetry">다시 하기</button>
+      <button id="btn-menu" class="ghost-btn" data-i18n="btnToMain">메인으로</button>
     </div>
   </div>
 
@@ -1628,6 +1636,139 @@
       zoneMore:   n => `표시된 칸 +${n}`,
       boostBest:  n => `지금 가장 비싼 과일의 값어치를 ${n1(n)}배로`,
       nextDouble: () => "다음 특성 선택을 2배로",
+      // relic and trait names: one per id, no pattern to share. A name with no
+      // translation falls back to Korean rather than vanishing.
+      _names: {
+        avalanche: "쏟아짐",
+        banana_bite: "바나나 한 입",
+        banana_cellar: "바나나 저장고",
+        banana_grove: "바나나 농장",
+        banana_hunter: "바나나 사냥꾼",
+        banana_master: "바나나 숙성가",
+        banana_taste: "바나나 취향",
+        basket: "바구니",
+        bell: "종소리",
+        big_pocket: "넓은 주머니",
+        big_pop: "대량 보너스",
+        big_reclaim: "대개간",
+        blast: "폭심",
+        bomb_mod: "폭탄 개조",
+        bonanza: "노다지",
+        breather: "한 숨",
+        brick_deal: "벽돌 계약",
+        chain_master: "덩치",
+        change_purse: "잔돈주머니",
+        cherry_pick: "체리 편애",
+        cherry_taste: "체리 감식가",
+        citrus: "감귤 애호",
+        citrus_crate: "감귤 상자",
+        clover: "네잎클로버",
+        concentrate: "농축",
+        crossing: "십자로",
+        crown: "왕관",
+        distill: "증류",
+        dust: "티끌",
+        endurance: "끈기",
+        feed: "모이주기",
+        first_step: "첫걸음",
+        flock: "참새떼",
+        focus: "단기 집중",
+        frenzy: "폭주",
+        gold_vein: "금맥",
+        golden_banana: "황금 바나나",
+        graft: "접붙이기",
+        grape_bunch: "포도 한 송이",
+        grape_press: "포도 압착기",
+        grape_taste: "포도 수집가",
+        heat: "열기",
+        hotspot: "명당",
+        huge_pop: "대폭발",
+        humble: "소박한 맛",
+        juice_press: "착즙기",
+        keen_eye: "안목",
+        kiwi_grove: "키위 밭",
+        kiwi_king: "키위 왕",
+        kiwi_slice: "키위 한 쪽",
+        kiwi_taste: "키위 재배가",
+        knack: "요령",
+        leisure: "여유",
+        lemon_gold: "황금 레몬",
+        lemon_jar: "레몬 단지",
+        lemon_slice: "레몬 한 조각",
+        lemon_taste: "레몬 장인",
+        lucky_coin: "행운의 주머니",
+        mint: "별 조폐국",
+        one_cherry: "체리 한 알",
+        orange_piece: "오렌지 한 알",
+        orange_taste: "오렌지 감별사",
+        orchard: "과수원",
+        peach_favour: "복숭아 애호",
+        peach_half: "복숭아 반쪽",
+        peach_taste: "복숭아 명인",
+        piggy_cherry: "체리 저금통",
+        pinch: "한 줌",
+        prism: "프리즘",
+        quarry: "채석장",
+        reclaim: "개간",
+        satchel: "보따리",
+        sprout: "떡잎",
+        stamina: "지구력",
+        stardust: "별빛",
+        storm: "폭풍 스폰",
+        streak_amp: "불꽃 증폭",
+        streak_step: "탄력",
+        sugar_rush: "설탕 폭발",
+        survey: "측량",
+        sweet_tooth: "단맛 애호",
+        tinkerer: "손재주",
+        tycoon: "거상",
+        whetstone: "숫돌",
+      },
+
+      // --- UI ---
+      appTag: "톡! 터뜨리는 상큼한 과일",
+      modeArcade: "아케이드 모드", modeRush: "⭐ 스타 러시",
+      btnStart: "시작하기", btnSettings: "설정", btnRanking: "랭킹",
+      btnClose: "닫기", btnResume: "계속하기", btnToMain: "메인으로", btnRetry: "다시 하기",
+      paused: "일시정지", gameOver: "게임 오버",
+      soundOn: "소리 켬", soundOff: "소리 끔", volume: "음량", language: "언어",
+      tabOdds: "🍊 확률", tabRelics: "📜 유물", tabTraits: "✨ 특성",
+      traitPick: "특성 선택", doubleChip: "✨ 2배", myRelics: "📜 내 유물", prep: "준비",
+      best: "최고", stage: "스테이지", score: "점수", scoreBest: (a, b) => `점수 ${a} · 최고 ${b}`,
+      touchChip: "👆 터치", spawnChip: "➕ 매턴", danger: "⚠️ 위험!",
+      goal: "목표", goalMet: "목표 달성 ✓", touchesLeft: "남은 터치",
+      nextStage: "다음 스테이지 ▶", testDock: "테스트",
+      rotateTitle: "세로로 돌려주세요", rotateSub: "화면이 낮아 판이 다 들어가지 않습니다",
+      hintPlace: "빈 칸을 탭해 과일을 놓으세요",
+      hintArcade: "같은 색 과일 옆(3×3)에 놓아 터뜨리세요",
+      hintStage: (label, quota, touches) => `${label} — 목표 ${quota}점 · 터치 ${touches}회`,
+      hintArmed: "빈 칸을 탭해 놓으세요 (다시 누르면 취소)",
+      hintTestDock: "테스트: 빈 칸을 탭해 설치",
+      itemStar: "🌟 별 — 탭! 같은 색을 별자리로 잇습니다",
+      itemBomb: "💣 폭탄 — 탭! 5×5 대폭발",
+      itemLine: "↔️ 라인 — 탭! 한 줄 청소",
+      itemBird: "🐦 참새 — 탭! 벽돌과 걸리는 과일을 쪼아냅니다",
+      expired: (icon, name) => `${icon} ${name} 효과가 끝났습니다`,
+      shopEmpty: "더 살 유물이 없습니다", soldOut: "품절",
+      noRoom: price => `🪙 ${price} · 칸 없음`,
+      sellFor: n => `팔기 +🪙${n}`,
+      noScalable: "2배로 만들 수 있는 특성이 없습니다",
+      doubled: "✨2배",
+      relicCount: (n, cap) => `유물 ${n} / ${cap}칸`,
+      relicOver: n => ` · ${n}개 비활성`,
+      noRelics: "아직 유물이 없습니다", noTraits: "아직 특성이 없습니다",
+      relicOff: "칸이 모자라 꺼져 있습니다", inactive: "비활성",
+      lifeLeft: (n, unit) => `${n}${unit} 남음`,
+      unitTouch: "터치", unitStage: "스테이지",
+      charges: n => `${n}회`,
+      points: n => `${n}점`,
+      oddsMore: n => `${n}만큼 더`,
+      overTouches: "터치 소진", overFull: "판이 가득 참",
+      reachedStage: (label, score) => `<b>${label}</b> 도달 · 점수 <b>${score}</b>`,
+      bestLine: (label, score) => `최고 <b>${label}</b> · <b>${score}</b>점`,
+      cluster: "덩어리", combo: "콤보",
+      tierCommon: "일반", tierUncommon: "고급", tierRare: "희귀", tierLegend: "전설",
+      soonSettings: "⚙️ 설정은 준비 중이에요", soonRanking: "🏆 랭킹은 준비 중이에요",
     },
     en: {
       _fruit: FRUIT_EN, _list: listEn,
@@ -1668,6 +1809,137 @@
       zoneMore:   n => `+${n} marked cells`,
       boostBest:  n => `Multiply your priciest fruit's value by ${n1(n)}`,
       nextDouble: () => "Double your next trait pick",
+      _names: {
+        avalanche: "Avalanche",
+        banana_bite: "Banana Bite",
+        banana_cellar: "Banana Cellar",
+        banana_grove: "Banana Plantation",
+        banana_hunter: "Banana Hunter",
+        banana_master: "Banana Ripener",
+        banana_taste: "Banana Craving",
+        basket: "Basket",
+        bell: "Chime",
+        big_pocket: "Deep Pockets",
+        big_pop: "Bulk Bonus",
+        big_reclaim: "Great Reclaim",
+        blast: "Blast Core",
+        bomb_mod: "Bomb Mod",
+        bonanza: "Bonanza",
+        breather: "Breather",
+        brick_deal: "Brick Pact",
+        chain_master: "Bulk",
+        change_purse: "Coin Purse",
+        cherry_pick: "Cherry Bias",
+        cherry_taste: "Cherry Connoisseur",
+        citrus: "Citrus Lover",
+        citrus_crate: "Citrus Crate",
+        clover: "Four-Leaf Clover",
+        concentrate: "Concentrate",
+        crossing: "Crossroads",
+        crown: "Crown",
+        distill: "Distill",
+        dust: "Speck",
+        endurance: "Grit",
+        feed: "Birdseed",
+        first_step: "First Step",
+        flock: "Flock",
+        focus: "Short Focus",
+        frenzy: "Frenzy",
+        gold_vein: "Gold Vein",
+        golden_banana: "Golden Banana",
+        graft: "Graft",
+        grape_bunch: "Grape Bunch",
+        grape_press: "Grape Press",
+        grape_taste: "Grape Collector",
+        heat: "Heat",
+        hotspot: "Prime Spot",
+        huge_pop: "Big Bang",
+        humble: "Humble Taste",
+        juice_press: "Juicer",
+        keen_eye: "Keen Eye",
+        kiwi_grove: "Kiwi Field",
+        kiwi_king: "Kiwi King",
+        kiwi_slice: "Kiwi Slice",
+        kiwi_taste: "Kiwi Grower",
+        knack: "Knack",
+        leisure: "Leisure",
+        lemon_gold: "Golden Lemon",
+        lemon_jar: "Lemon Jar",
+        lemon_slice: "Lemon Slice",
+        lemon_taste: "Lemon Artisan",
+        lucky_coin: "Lucky Pouch",
+        mint: "Star Mint",
+        one_cherry: "A Cherry",
+        orange_piece: "An Orange",
+        orange_taste: "Orange Grader",
+        orchard: "Orchard",
+        peach_favour: "Peach Favour",
+        peach_half: "Peach Half",
+        peach_taste: "Peach Master",
+        piggy_cherry: "Cherry Piggybank",
+        pinch: "A Pinch",
+        prism: "Prism",
+        quarry: "Quarry",
+        reclaim: "Reclaim",
+        satchel: "Satchel",
+        sprout: "Sprout",
+        stamina: "Stamina",
+        stardust: "Starlight",
+        storm: "Storm Spawn",
+        streak_amp: "Flame Amp",
+        streak_step: "Momentum",
+        sugar_rush: "Sugar Rush",
+        survey: "Survey",
+        sweet_tooth: "Sweet Tooth",
+        tinkerer: "Tinkerer",
+        tycoon: "Tycoon",
+        whetstone: "Whetstone",
+      },
+
+      // --- UI ---
+      appTag: "Pop the juiciest fruit",
+      modeArcade: "Arcade", modeRush: "⭐ Star Rush",
+      btnStart: "Play", btnSettings: "Settings", btnRanking: "Ranking",
+      btnClose: "Close", btnResume: "Resume", btnToMain: "Main menu", btnRetry: "Play again",
+      paused: "Paused", gameOver: "Game Over",
+      soundOn: "Sound on", soundOff: "Sound off", volume: "Volume", language: "Language",
+      tabOdds: "🍊 Odds", tabRelics: "📜 Relics", tabTraits: "✨ Traits",
+      traitPick: "Pick a trait", doubleChip: "✨ ×2", myRelics: "📜 My relics", prep: "",
+      best: "Best", stage: "Stage", score: "Score", scoreBest: (a, b) => `Score ${a} · Best ${b}`,
+      touchChip: "👆 Touches", spawnChip: "➕ Per turn", danger: "⚠️ Danger!",
+      goal: "Goal", goalMet: "Goal met ✓", touchesLeft: "Touches left",
+      nextStage: "Next stage ▶", testDock: "Test",
+      rotateTitle: "Please turn upright", rotateSub: "The board does not fit this screen height",
+      hintPlace: "Tap an empty cell to place a fruit",
+      hintArcade: "Place next to matching fruit (3×3) to pop them",
+      hintStage: (label, quota, touches) => `${label} — goal ${quota} · ${touches} touches`,
+      hintArmed: "Tap an empty cell to place it (tap again to cancel)",
+      hintTestDock: "Test: tap an empty cell to place",
+      itemStar: "🌟 Star — tap! Links one colour into a constellation",
+      itemBomb: "💣 Bomb — tap! A 5×5 blast",
+      itemLine: "↔️ Line — tap! Clears a whole line",
+      itemBird: "🐦 Sparrow — tap! Pecks bricks and fruit in the way",
+      expired: (icon, name) => `${icon} ${name} has worn off`,
+      shopEmpty: "Nothing left to buy", soldOut: "Sold out",
+      noRoom: price => `🪙 ${price} · no slot`,
+      sellFor: n => `Sell +🪙${n}`,
+      noScalable: "Nothing on offer can be doubled",
+      doubled: "✨×2",
+      relicCount: (n, cap) => `Relics ${n} / ${cap}`,
+      relicOver: n => ` · ${n} inactive`,
+      noRelics: "No relics yet", noTraits: "No traits yet",
+      relicOff: "Off — no slot for it", inactive: "Off",
+      lifeLeft: (n, unit) => `${n} ${unit} left`,
+      unitTouch: "touches", unitStage: "stages",
+      charges: n => `×${n}`,
+      points: n => `${n}`,
+      oddsMore: n => `+${n}`,
+      overTouches: "Out of touches", overFull: "Board full",
+      reachedStage: (label, score) => `Reached <b>${label}</b> · score <b>${score}</b>`,
+      bestLine: (label, score) => `Best <b>${label}</b> · <b>${score}</b>`,
+      cluster: "cluster", combo: "combo",
+      tierCommon: "Common", tierUncommon: "Uncommon", tierRare: "Rare", tierLegend: "Legendary",
+      soonSettings: "⚙️ Settings are on the way", soonRanking: "🏆 Ranking is on the way",
     },
   };
 
@@ -1687,86 +1959,107 @@
     const p = PACKS[LANG], k = PACKS.ko;
     return (p && p[key] != null) ? p[key] : (k[key] != null ? k[key] : key);
   }
+  // relic/trait display name by id, ko as the fallback
+  function nameOf(id) {
+    const p = PACKS[LANG]._names || {}, k = PACKS.ko._names || {};
+    return p[id] || k[id] || id;
+  }
   // descriptions call this: d("fruitFlat", 3, 8)
   function d(key, ...args) {
     const f = L(key);
     return typeof f === "function" ? f(...args) : String(f);
   }
+  // Static markup carries its Korean text as the built-in fallback and a data-i18n key. One
+  // pass fills every one of them, so switching language does not need any screen to know it
+  // happened -- and if the script never runs, the page still reads in Korean.
+  function applyStaticText() {
+    for (const el of document.querySelectorAll("[data-i18n]")) {
+      const v = L(el.dataset.i18n);
+      el.textContent = typeof v === "function" ? v() : v;
+    }
+    for (const el of document.querySelectorAll("[data-i18n-aria]"))
+      el.setAttribute("aria-label", String(L(el.dataset.i18nAria)));
+  }
+  const langListeners = [];
+  const onLangChange = fn => langListeners.push(fn);
+
   function setLang(v) {
     if (!PACKS[v]) return;
     LANG = v;
     try { localStorage.setItem("fs_lang", v); } catch (e) {}
     document.documentElement.lang = v;
+    applyStaticText();
+    for (const fn of langListeners) { try { fn(); } catch (e) {} }
   }
   document.documentElement.lang = LANG;
 
   // reason -- doubling a x1.5 would give x3 and compound out of control.
   const TRAITS = {
-    cherry_taste: { name: "체리 감식가", icon: "🍒", scalable: true,
+    cherry_taste: { icon: "🍒", scalable: true,
       effects: [{ stat: "fruitMult", target: 0, amount: 0.4 }],
       desc: e => d("fruitMult", 0, e[0].amount) },
-    banana_taste: { name: "바나나 취향", icon: "🍌", scalable: true,
+    banana_taste: { icon: "🍌", scalable: true,
       effects: [{ stat: "oddsMult", target: 6, amount: 1 }],
       desc: e => d("odds", [6], e[0].amount) },
-    citrus: { name: "감귤 애호", icon: "🍊", scalable: true,
+    citrus: { icon: "🍊", scalable: true,
       effects: [{ stat: "oddsMult", target: 1, amount: 1 }, { stat: "oddsMult", target: 3, amount: 1 }],
       desc: e => d("odds", [1, 3], e[0].amount) },
-    grape_taste: { name: "포도 수집가", icon: "🍇", scalable: true,
+    grape_taste: { icon: "🍇", scalable: true,
       effects: [{ stat: "fruitMult", target: 4, amount: 0.5 }],
       desc: e => d("fruitMult", 4, e[0].amount) },
     // every fruit gets one, so no build is stuck buying relics only. Amounts are set from
     // 등장률 x 기본점수 so the per-pick value lands in the same band rather than reading
     // "bigger number = better": 바나나 is 0.4 on a 50-point fruit that shows up 6% of the time.
-    orange_taste: { name: "오렌지 감별사", icon: "🍊", scalable: true,
+    orange_taste: { icon: "🍊", scalable: true,
       effects: [{ stat: "fruitMult", target: 1, amount: 0.4 }],
       desc: e => d("fruitMult", 1, e[0].amount) },
-    kiwi_taste: { name: "키위 재배가", icon: "🥝", scalable: true,
+    kiwi_taste: { icon: "🥝", scalable: true,
       effects: [{ stat: "fruitMult", target: 2, amount: 0.4 }],
       desc: e => d("fruitMult", 2, e[0].amount) },
-    lemon_taste: { name: "레몬 장인", icon: "🍋", scalable: true,
+    lemon_taste: { icon: "🍋", scalable: true,
       effects: [{ stat: "fruitMult", target: 3, amount: 0.5 }],
       desc: e => d("fruitMult", 3, e[0].amount) },
-    peach_taste: { name: "복숭아 명인", icon: "🍑", scalable: true,
+    peach_taste: { icon: "🍑", scalable: true,
       effects: [{ stat: "fruitMult", target: 5, amount: 0.4 }],
       desc: e => d("fruitMult", 5, e[0].amount) },
-    banana_master: { name: "바나나 숙성가", icon: "🍌", scalable: true,
+    banana_master: { icon: "🍌", scalable: true,
       effects: [{ stat: "fruitMult", target: 6, amount: 0.4 }],
       desc: e => d("fruitMult", 6, e[0].amount) },
 
     // items had no trait line at all -- the only way to push that axis was the shop
-    blast: { name: "폭심", icon: "💣", scalable: true,
+    blast: { icon: "💣", scalable: true,
       effects: [{ stat: "bombRadius", amount: 1 }],
       desc: e => d("bombRadius", e[0].amount) },
-    knack: { name: "요령", icon: "🔧", scalable: true,
+    knack: { icon: "🔧", scalable: true,
       effects: [{ stat: "itemEase", amount: 1 }],
       desc: e => d("itemEase", e[0].amount) },
-    feed: { name: "모이주기", icon: "🐦", scalable: true,
+    feed: { icon: "🐦", scalable: true,
       effects: [{ stat: "birdFlock", amount: 1 }],
       desc: e => d("birdsMore", e[0].amount) },
-    stardust: { name: "별빛", icon: "⭐", scalable: true,
+    stardust: { icon: "⭐", scalable: true,
       effects: [{ stat: "starCoin", amount: 1 }],
       desc: e => d("starCoinUp", e[0].amount) },
-    leisure: { name: "여유", icon: "👆", scalable: true,
+    leisure: { icon: "👆", scalable: true,
       effects: [{ stat: "touchBonus", amount: 2 }],
       desc: e => d("touch", e[0].amount) },
     // once-per-run like 넓은 주머니, its shelf-widening twin -- without it the shop had no
     // ceiling at all
-    keen_eye: { name: "안목", icon: "👀", scalable: true, once: true,
+    keen_eye: { icon: "👀", scalable: true, once: true,
       effects: [{ stat: "offerBonus", amount: 1 }],
       desc: e => d("offers", e[0].amount) },
-    big_pocket: { name: "넓은 주머니", icon: "🎒", scalable: true, once: true,
+    big_pocket: { icon: "🎒", scalable: true, once: true,
       effects: [{ stat: "slotBonus", amount: 1 }],
       desc: e => d("slots", e[0].amount) },
-    concentrate: { name: "농축", icon: "🔮", scalable: true,
+    concentrate: { icon: "🔮", scalable: true,
       effects: [{ stat: "boostBest", amount: 2 }],
       desc: e => d("boostBest", e[0].amount) },
-    distill: { name: "증류", icon: "⚗️", scalable: true,
+    distill: { icon: "⚗️", scalable: true,
       effects: [{ stat: "stackAll", amount: 5 }],
       desc: e => d("allFlat", e[0].amount) },
     // meta: it is a charge you spend, not something you carry. It still lands in `traits`
     // so `once` can keep it from being offered twice, but the list renders the charge
     // instead -- "접붙이기" sitting there next to a live "접붙이기 1회" read as two things.
-    graft: { name: "접붙이기", icon: "✨", scalable: false, once: true, meta: true,
+    graft: { icon: "✨", scalable: false, once: true, meta: true,
       effects: [{ stat: "doubles", amount: 1 }],
       desc: () => d("nextDouble") },
   };
@@ -1778,10 +2071,10 @@
   // every other grade. Pick the grade first, then a relic inside it, and the pool can grow
   // without moving these numbers: only WHICH legendary changes, never how often one appears.
   const TIERS = {
-    common:   { name: "일반", odds: 50, color: "#8a93ad" },
-    uncommon: { name: "고급", odds: 33, color: "#5fa8ff" },
-    rare:     { name: "희귀", odds: 16, color: "#c48bff" },
-    legend:   { name: "전설", odds:  1, color: "#ffc93c" },
+    common:   { get name() { return d("tierCommon"); },   odds: 50, color: "#8a93ad" },
+    uncommon: { get name() { return d("tierUncommon"); }, odds: 33, color: "#5fa8ff" },
+    rare:     { get name() { return d("tierRare"); },     odds: 16, color: "#c48bff" },
+    legend:   { get name() { return d("tierLegend"); },   odds:  1, color: "#ffc93c" },
   };
   const relicTier = R => R.tier ||
     (R.price >= 25 ? "legend" : R.price >= 16 ? "rare" : R.price >= 8 ? "uncommon" : "common");
@@ -1792,196 +2085,196 @@
   // those first, so an apply that did anything else would not survive a recompute.
   const RELICS = {
     banana_hunter: {                                            // A. odds
-      name: "바나나 사냥꾼", icon: "🍌", price: 14,
+      icon: "🍌", price: 14,
       desc: () => d("odds", [6], 1),
       apply() { oddsMult[6] += 1; },
     },
     big_pop: {                                                  // B. score
-      name: "대량 보너스", icon: "💥", price: 16,
+      icon: "💥", price: 16,
       desc: () => d("bigPop", 5, 1.5),
       modify: { pop: (v, ctx) => (ctx.cleared >= 5 ? v * 1.5 : v) },
     },
     stamina: {                                                  // C. resource
-      name: "지구력", icon: "✋", price: 13,
+      icon: "✋", price: 13,
       desc: () => d("touch", 3),
       apply() { touchBonus += 3; },
     },
     storm: {                                                    // D. risk
-      name: "폭풍 스폰", icon: "🌊", price: 11,
+      icon: "🌊", price: 11,
       desc: () => d("spawn", 1),
       apply() { spawnBonus += 1; },
     },
     brick_deal: {                                               // D. risk
-      name: "벽돌 계약", icon: "🧱", price: 12,
+      icon: "🧱", price: 12,
       desc: () => d("brickDeal", 30, 18),
       apply() { brickChance += 0.18; },
       modify: { pop: v => v * 1.3 },
     },
     // ---- A. odds ----
-    cherry_pick: { name: "체리 편애", icon: "🍒", price: 9,
+    cherry_pick: { icon: "🍒", price: 9,
       desc: () => d("odds", [0], 1), apply() { oddsMult[0] += 1; } },
-    citrus_crate: { name: "감귤 상자", icon: "🍊", price: 13,
+    citrus_crate: { icon: "🍊", price: 13,
       desc: () => d("odds", [1, 3], 1), apply() { oddsMult[1] += 1; oddsMult[3] += 1; } },
-    orchard: { name: "과수원", icon: "🍑", price: 14,
+    orchard: { icon: "🍑", price: 14,
       desc: () => d("odds", [4, 5], 1), apply() { oddsMult[4] += 1; oddsMult[5] += 1; } },
-    banana_grove: { name: "바나나 농장", icon: "🌴", price: 22,
+    banana_grove: { icon: "🌴", price: 22,
       desc: () => d("odds", [6], 3), apply() { oddsMult[6] += 3; } },
 
     // ---- B. score ----
-    chain_master: { name: "덩치", icon: "🫧", price: 17,
+    chain_master: { icon: "🫧", price: 17,
       desc: () => d("clusterStep", 0.2, CHAIN_STEP, gridMult(CHAIN_STEP + 0.2)), apply() { chainStep += 0.2; } },
-    streak_amp: { name: "불꽃 증폭", icon: "🔥", price: 16,
+    streak_amp: { icon: "🔥", price: 16,
       desc: () => d("comboCap", 2.0, 2.8), apply() { STREAK_CAP += 0.8; } },
-    streak_step: { name: "탄력", icon: "📈", price: 13,
+    streak_step: { icon: "📈", price: 13,
       desc: () => d("comboStep", 0.2, STREAK_STEP_BASE, gridMult(STREAK_STEP_BASE + 0.2)), apply() { STREAK_STEP += 0.2; } },
-    golden_banana: { name: "황금 바나나", icon: "🏆", price: 20,
+    golden_banana: { icon: "🏆", price: 20,
       desc: () => d("fruitMult", 6, 1), apply() { fruitMult[6] += 1; } },
-    sweet_tooth: { name: "단맛 애호", icon: "🍬", price: 15,
+    sweet_tooth: { icon: "🍬", price: 15,
       desc: () => d("fruitsMult", [4, 5], 0.5), apply() { fruitMult[4] += 0.5; fruitMult[5] += 0.5; } },
-    humble: { name: "소박한 맛", icon: "🥄", price: 11,
+    humble: { icon: "🥄", price: 11,
       desc: () => d("fruitsMult", [0, 3], 0.6), apply() { fruitMult[0] += 0.6; fruitMult[3] += 0.6; } },
-    huge_pop: { name: "대폭발", icon: "🎆", price: 21,
+    huge_pop: { icon: "🎆", price: 21,
       desc: () => d("bigPop", 8, 2),
       modify: { pop: (v, ctx) => (ctx.cleared >= 8 ? v * 2 : v) } },
 
     // ---- C. resource ----
-    endurance: { name: "끈기", icon: "💪", price: 9,
+    endurance: { icon: "💪", price: 9,
       desc: () => d("touch", 2), apply() { touchBonus += 2; } },
-    mint: { name: "별 조폐국", icon: "🪙", price: 15,
+    mint: { icon: "🪙", price: 15,
       desc: () => d("starCoin", 1, 2), apply() { starCoinMult += 1; } },
-    lucky_coin: { name: "행운의 주머니", icon: "🍀", price: 12,
+    lucky_coin: { icon: "🍀", price: 12,
       desc: () => d("coinFruit", 8), apply() { coinFruitBonus += 0.08; } },
-    tycoon: { name: "거상", icon: "💰", price: 14,
+    tycoon: { icon: "💰", price: 14,
       desc: () => d("payoutPct", 50), apply() { payoutMult += 0.5; } },
 
     // ---- D. risk ----
-    avalanche: { name: "쏟아짐", icon: "⛰️", price: 18,
+    avalanche: { icon: "⛰️", price: 18,
       desc: () => d("spawn", 2), apply() { spawnBonus += 2; } },
-    quarry: { name: "채석장", icon: "⛏️", price: 16,
+    quarry: { icon: "⛏️", price: 16,
       desc: () => d("brickDeal", 60, 30),
       apply() { brickChance += 0.30; }, modify: { pop: v => v * 1.6 } },
 
     // ---- cheap enough for the very first shop ----
-    pinch: { name: "한 줌", icon: "🥄", price: 5,
+    pinch: { icon: "🥄", price: 5,
       desc: () => d("allFlat", 2),
       apply() { for (let i = 0; i < fruitFlat.length; i++) fruitFlat[i] += 2; } },
-    breather: { name: "한 숨", icon: "🫁", price: 5,
+    breather: { icon: "🫁", price: 5,
       desc: () => d("touch", 1), apply() { touchBonus += 1; } },
-    change_purse: { name: "잔돈주머니", icon: "👛", price: 4,
+    change_purse: { icon: "👛", price: 4,
       desc: () => d("payoutFlat", 3), apply() { payoutMult += 3 / 4; } },
-    one_cherry: { name: "체리 한 알", icon: "🍒", price: 4,
+    one_cherry: { icon: "🍒", price: 4,
       desc: () => d("fruitFlat", 0, 8), apply() { fruitFlat[0] += 8; } },
-    whetstone: { name: "숫돌", icon: "🪨", price: 6,
+    whetstone: { icon: "🪨", price: 6,
       desc: () => d("clusterStep", 0.1, CHAIN_STEP, gridMult(CHAIN_STEP + 0.1)), apply() { chainStep += 0.1; } },
 
     // ---- temporary: strong, cheap, and on a clock ----
-    focus: { name: "단기 집중", icon: "⚡", price: 9, life: { unit: "stages", amount: 1 },
+    focus: { icon: "⚡", price: 9, life: { unit: "stages", amount: 1 },
       desc: () => d("popMult", 1.5), modify: { pop: v => Math.round(v * 1.5) } },
-    frenzy: { name: "폭주", icon: "🌪️", price: 7, life: { unit: "stages", amount: 1 },
+    frenzy: { icon: "🌪️", price: 7, life: { unit: "stages", amount: 1 },
       desc: () => d("spawn", 3), apply() { spawnBonus += 3; } },
-    bonanza: { name: "노다지", icon: "💎", price: 7, life: { unit: "touches", amount: 15 },
+    bonanza: { icon: "💎", price: 7, life: { unit: "touches", amount: 15 },
       desc: () => d("coinFruit", 30), apply() { coinFruitBonus += 0.3; } },
-    heat: { name: "열기", icon: "🔥", price: 8, life: { unit: "stages", amount: 2 },
+    heat: { icon: "🔥", price: 8, life: { unit: "stages", amount: 2 },
       desc: () => d("comboCap", 2.0, 4.0), apply() { STREAK_CAP += 2; } },
-    sugar_rush: { name: "설탕 폭발", icon: "🍬", price: 8, life: { unit: "touches", amount: 20 },
+    sugar_rush: { icon: "🍬", price: 8, life: { unit: "touches", amount: 20 },
       desc: () => d("allFlat", 25), apply() { for (let i = 0; i < fruitFlat.length; i++) fruitFlat[i] += 25; } },
 
     // ---- G. stacking: value that grows with play, not with the shop ----
-    piggy_cherry: { name: "체리 저금통", icon: "🐷", price: 15,
+    piggy_cherry: { icon: "🐷", price: 15,
       desc: () => d("stackOnPop", 0, 1),
       onFruitPop: p => { if (p.color === 0) fruitStack[0] += 1; } },
-    juice_press: { name: "착즙기", icon: "🫗", price: 20,
+    juice_press: { icon: "🫗", price: 20,
       desc: () => d("anyStackOnPop", 1),
       onFruitPop: p => { fruitStack[p.color] += 1; } },
-    banana_cellar: { name: "바나나 저장고", icon: "🏺", price: 18,
+    banana_cellar: { icon: "🏺", price: 18,
       desc: () => d("stackOnPop", 6, 5),
       onFruitPop: p => { if (p.color === 6) fruitStack[6] += 5; } },
 
     // ---- 일반: cheap, modest, always worth something ----
-    dust: { name: "티끌", icon: "🪙", price: 3,
+    dust: { icon: "🪙", price: 3,
       desc: () => d("payoutFlat", 2), apply() { payoutMult += 2 / 4; } },
-    lemon_slice: { name: "레몬 한 조각", icon: "🍋", price: 4,
+    lemon_slice: { icon: "🍋", price: 4,
       desc: () => d("fruitFlat", 3, 8), apply() { fruitFlat[3] += 8; } },
-    orange_piece: { name: "오렌지 한 알", icon: "🍊", price: 5,
+    orange_piece: { icon: "🍊", price: 5,
       desc: () => d("fruitFlat", 1, 10), apply() { fruitFlat[1] += 10; } },
-    kiwi_slice: { name: "키위 한 쪽", icon: "🥝", price: 5,
+    kiwi_slice: { icon: "🥝", price: 5,
       desc: () => d("fruitFlat", 2, 10), apply() { fruitFlat[2] += 10; } },
-    first_step: { name: "첫걸음", icon: "📈", price: 5,
+    first_step: { icon: "📈", price: 5,
       desc: () => d("comboStep", 0.1, STREAK_STEP_BASE, gridMult(STREAK_STEP_BASE + 0.1)), apply() { STREAK_STEP += 0.1; } },
-    clover: { name: "네잎클로버", icon: "🍀", price: 5,
+    clover: { icon: "🍀", price: 5,
       desc: () => d("coinFruit", 2), apply() { coinFruitBonus += 0.02; } },
-    sprout: { name: "떡잎", icon: "🌱", price: 5,
+    sprout: { icon: "🌱", price: 5,
       desc: () => d("odds", [0, 3], 0.5), apply() { oddsMult[0] += 0.5; oddsMult[3] += 0.5; } },
-    grape_bunch: { name: "포도 한 송이", icon: "🍇", price: 6,
+    grape_bunch: { icon: "🍇", price: 6,
       desc: () => d("fruitFlat", 4, 14), apply() { fruitFlat[4] += 14; } },
-    bell: { name: "종소리", icon: "🔔", price: 6,
+    bell: { icon: "🔔", price: 6,
       desc: () => d("comboCap", 2.0, 2.3), apply() { STREAK_CAP += 0.3; } },
-    basket: { name: "바구니", icon: "🧺", price: 6,
+    basket: { icon: "🧺", price: 6,
       desc: () => d("startFruit", 3),
       onStageStart: () => spawnBuds(3) },
-    peach_half: { name: "복숭아 반쪽", icon: "🍑", price: 7,
+    peach_half: { icon: "🍑", price: 7,
       desc: () => d("fruitFlat", 5, 14), apply() { fruitFlat[5] += 14; } },
-    banana_bite: { name: "바나나 한 입", icon: "🍌", price: 7,
+    banana_bite: { icon: "🍌", price: 7,
       desc: () => d("fruitFlat", 6, 20), apply() { fruitFlat[6] += 20; } },
 
     // ---- item upgrades the player asked for ----
-    flock: { name: "참새떼", icon: "🐦", price: 22,
+    flock: { icon: "🐦", price: 22,
       desc: () => d("birds", 3), apply() { birdFlock = 3; } },
-    crossing: { name: "십자로", icon: "✚", price: 20,
+    crossing: { icon: "✚", price: 20,
       desc: () => d("crossLine"), apply() { crossLine = true; } },
 
     // ---- more per-fruit odds / stacks / multipliers ----
-    kiwi_grove: { name: "키위 밭", icon: "🥝", price: 9,
+    kiwi_grove: { icon: "🥝", price: 9,
       desc: () => d("odds", [2], 1), apply() { oddsMult[2] += 1; } },
-    lemon_jar: { name: "레몬 단지", icon: "🫙", price: 13,
+    lemon_jar: { icon: "🫙", price: 13,
       desc: () => d("stackOnPop", 3, 1),
       onFruitPop: p => { if (p.color === 3) fruitStack[3] += 1; } },
-    grape_press: { name: "포도 압착기", icon: "🍷", price: 16,
+    grape_press: { icon: "🍷", price: 16,
       desc: () => d("stackOnPop", 4, 3),
       onFruitPop: p => { if (p.color === 4) fruitStack[4] += 3; } },
-    peach_favour: { name: "복숭아 애호", icon: "🍑", price: 17,
+    peach_favour: { icon: "🍑", price: 17,
       desc: () => d("fruitMult", 5, 0.8), apply() { fruitMult[5] += 0.8; } },
-    lemon_gold: { name: "황금 레몬", icon: "🍋", price: 18,
+    lemon_gold: { icon: "🍋", price: 18,
       desc: () => d("fruitMult", 3, 1.2), apply() { fruitMult[3] += 1.2; } },
-    kiwi_king: { name: "키위 왕", icon: "👑", price: 19,
+    kiwi_king: { icon: "👑", price: 19,
       desc: () => d("fruitMult", 2, 1.2), apply() { fruitMult[2] += 1.2; } },
 
     // ---- rare: the ones a build is actually built around ----
-    prism: { name: "프리즘", icon: "🔱", price: 34,
+    prism: { icon: "🔱", price: 34,
       desc: () => d("allMult", 1),
       apply() { for (let i = 0; i < fruitMult.length; i++) fruitMult[i] += 1; } },
     // the only permanent x2 in the game, and it must not read like the 9-coin timed one
-    crown: { name: "왕관", icon: "👑", price: 50,
+    crown: { icon: "👑", price: 50,
       desc: () => d("popMultRun", 2),
       modify: { pop: v => v * 2 } },
 
     // ---- E. map / zones: the category the design listed and nothing had built ----
-    hotspot: { name: "명당", icon: "🟩", price: 17, tier: "rare",
+    hotspot: { icon: "🟩", price: 17, tier: "rare",
       desc: () => d("zoneMult", 2),
       apply() { zoneMult += 1; } },
-    gold_vein: { name: "금맥", icon: "🪙", price: 14,
+    gold_vein: { icon: "🪙", price: 14,
       desc: () => d("zoneCoin", 1),
       apply() { zoneCoin = true; } },
-    survey: { name: "측량", icon: "🗺️", price: 12,
+    survey: { icon: "🗺️", price: 12,
       desc: () => d("zoneMore", 3),
       apply() { zoneBonus += 3; } },
 
     // ---- board growth: the one thing that buys you room instead of points ----
     // `rows` is read by syncRows(), not applied here -- growing the board is monotonic and
     // an apply() that mutated it would run again on every recompute.
-    reclaim: { name: "개간", icon: "🌾", price: 21, tier: "rare",
+    reclaim: { icon: "🌾", price: 21, tier: "rare",
       desc: () => d("rows", 1), rows: 1 },
-    big_reclaim: { name: "대개간", icon: "🚜", price: 30, tier: "legend",
+    big_reclaim: { icon: "🚜", price: 30, tier: "legend",
       desc: () => d("rows", 2), rows: 2 },
 
     // ---- F. item upgrades ----
-    bomb_mod: { name: "폭탄 개조", icon: "💣", price: 19,
+    bomb_mod: { icon: "💣", price: 19,
       desc: () => d("bombSize", 7), apply() { bombRadiusBonus += 1; } },
-    tinkerer: { name: "손재주", icon: "🔧", price: 18,
+    tinkerer: { icon: "🔧", price: 18,
       desc: () => d("itemEase", 1), apply() { itemEase += 1; } },
 
     satchel: {                                                  // capacity (doc 6)
-      name: "보따리", icon: "🎒", price: 10,
+      icon: "🎒", price: 10,
       desc: () => d("slots", 2),
       slots: 2,          // declared, not applied: the cap has to settle before anything else
     },
@@ -1991,13 +2284,19 @@
   // language at load time is baked in and switching does nothing. Relic descs are written as
   // zero-argument thunks and installed as getters here; trait descs take their effects array
   // and stay plain functions, so they localise at call time already.
-  for (const table of [RELICS]) {
+  // Names are per-id lookups on both tables; descriptions differ. A relic desc is a
+  // zero-argument thunk and becomes a getter so `R.desc` stays a string at every call site.
+  // A trait desc is CALLED with its effects array (that is how graft's doubling flows into
+  // the text), so it has to stay a function -- turning it into a getter silently breaks
+  // every trait card.
+  for (const [table, lazyDesc] of [[RELICS, true], [TRAITS, false]]) {
     for (const id of Object.keys(table)) {
       const o = table[id];
-      if (typeof o.desc === "function" && o.desc.length === 0) {
+      if (lazyDesc && typeof o.desc === "function" && o.desc.length === 0) {
         const fn = o.desc;
         Object.defineProperty(o, "desc", { get: fn, enumerable: true, configurable: true });
       }
+      Object.defineProperty(o, "name", { get: () => nameOf(id), enumerable: true, configurable: true });
     }
   }
 
@@ -2208,8 +2507,8 @@
     mfxStop();
     document.getElementById("overlay").classList.add("hidden");
     document.getElementById("hint").textContent = rules().touchBudget
-      ? `1-1 — 목표 ${rules().quota(1)}점 · 터치 ${touchesLeft}회`
-      : "같은 색 과일 옆(3×3)에 놓아 터뜨리세요";
+      ? d("hintStage", "1-1", rules().quota(1), touchesLeft)
+      : d("hintArcade");
   }
 
   // build the segmented gauge once
@@ -2270,7 +2569,7 @@
       // once met, keep counting past the quota -- the overflow is the reward for playing on
       setQuota(document.getElementById("rb-quota"), stageScore, q);
       document.getElementById("rb-quota-cell").classList.toggle("met", met);
-      document.getElementById("rb-quota-lab").textContent = met ? "목표 달성 ✓" : "목표";
+      document.getElementById("rb-quota-lab").textContent = d(met ? "goalMet" : "goal");
       document.getElementById("rb-touch").textContent = touchesLeft;
       document.getElementById("rb-score").textContent = fmtNum(score);
       document.getElementById("rb-best").textContent = fmtNum(best);
@@ -2288,7 +2587,7 @@
         const sp = document.createElement("span");
         sp.className = "chip timed" + (left <= 1 ? " last" : "");
         sp.textContent = `${R.icon}${left}`;
-        sp.title = `${R.name} — ${left}${lifeUnitLabel(R.life.unit)} 남음`;
+        sp.title = `${R.name} — ${d("lifeLeft", left, lifeUnitLabel(R.life.unit))}`;
         timed.appendChild(sp);
       }
       if (running_.length > 4) {                 // the rest are in the relic panel
@@ -2664,8 +2963,8 @@
       b.classList.toggle("armed", armedItem === kind);
     }
     const h = document.getElementById("hint");
-    if (armedItem) h.textContent = "빈 칸을 탭해 놓으세요 (다시 누르면 취소)";
-    else if (h.textContent.startsWith("빈 칸을 탭해 놓으세요")) h.textContent = "";
+    if (armedItem) h.textContent = d("hintArmed");
+    else if (h.textContent === d("hintArmed")) h.textContent = "";
   }
   for (const b of document.querySelectorAll("#ishop .ib"))
     b.addEventListener("click", () => armItem(b.dataset.item));
@@ -2685,7 +2984,7 @@
   document.querySelectorAll(".dock-btn").forEach(b => b.addEventListener("click", () => {
     selectedItem = selectedItem === b.dataset.item ? null : b.dataset.item;
     document.querySelectorAll(".dock-btn").forEach(x => x.classList.toggle("sel", x.dataset.item === selectedItem));
-    document.getElementById("hint").textContent = selectedItem ? "테스트: 빈 칸을 탭해 설치" : "";
+    document.getElementById("hint").textContent = selectedItem ? d("hintTestDock") : "";
   }));
   // ---- the bloom burst ----
   // Rule 1: placing on empty bursts a (2R+1)x(2R+1) box around itself; same-color
@@ -3013,17 +3312,17 @@
         let itemMsg = "";
         if (chainCount >= itemNeed(STAR_THRESHOLD)) {
           grid[r0][c0] = color; special[r0][c0] = "star";
-          itemMsg = "🌟 별 — 탭! 같은 색을 별자리로 잇습니다";
+          itemMsg = d("itemStar");
         } else if (chainCount >= itemNeed(BOMB_THRESHOLD)) {
           grid[r0][c0] = color; special[r0][c0] = "bomb";
-          itemMsg = "💣 폭탄 — 탭! 5×5 대폭발";
+          itemMsg = d("itemBomb");
         } else if (chainCount >= itemNeed(LINE_THRESHOLD)) {
           grid[r0][c0] = color;
           special[r0][c0] = crossLine ? "lineX" : (randInt(2) ? "lineH" : "lineV");
-          itemMsg = "↔️ 라인 — 탭! 한 줄 청소";
+          itemMsg = d("itemLine");
         } else if (chainCount >= itemNeed(BIRD_THRESHOLD)) {
           grid[r0][c0] = color; special[r0][c0] = "bird";
-          itemMsg = "🐦 참새 — 탭! 벽돌과 걸리는 과일을 쪼아냅니다";
+          itemMsg = d("itemBird");
         }
         if (itemMsg) { burst(r0, c0, color); document.getElementById("hint").textContent = itemMsg; }
       } else {
@@ -3098,7 +3397,7 @@
 
   // Temporary relics are cheap because they run out. Their clock ticks in whichever unit
   // they were written in -- stages, or placements -- and they leave when it hits zero.
-  const lifeUnitLabel = u => (u === "touches" ? "터치" : "스테이지");
+  const lifeUnitLabel = u => d(u === "touches" ? "unitTouch" : "unitStage");
   function tickRelicLife(unit) {
     let expired = null;
     for (const id of Object.keys(relicLife)) {
@@ -3114,7 +3413,7 @@
     if (expired) {
       SFX.play("expire");
       applyRelics();
-      document.getElementById("hint").textContent = `${expired.icon} ${expired.name} 효과가 끝났습니다`;
+      document.getElementById("hint").textContent = d("expired", expired.icon, expired.name);
       updateHUD();
     }
   }
@@ -3180,7 +3479,7 @@
   function resumePlay() {
     busy = false; dirty = true;
     $sh("hint").textContent =
-      `${stageLabel(stage)} — 목표 ${rules().quota(stage)}점 · 터치 ${touchesLeft}회`;
+      d("hintStage", stageLabel(stage), rules().quota(stage), touchesLeft);
     rollZones();                 // a fresh map each stage
     notify("onStageStart", { stage });
     updateHUD();
@@ -3196,7 +3495,7 @@
     wrap.textContent = "";
     if (!shopOffers.length) {
       const e = document.createElement("div");
-      e.className = "shop-empty"; e.textContent = "더 살 유물이 없습니다";
+      e.className = "shop-empty"; e.textContent = d("shopEmpty");
       wrap.appendChild(e);
       return;
     }
@@ -3223,7 +3522,7 @@
       const pr = document.createElement("span");
       pr.className = "of-price" + (full ? " nofit" : "");
       const life = R.life ? ` · ${R.life.amount}${lifeUnitLabel(R.life.unit)}` : "";
-      pr.textContent = sold ? "품절" : full ? `🪙 ${R.price} · 칸 없음` : `🪙 ${R.price}${life}`;
+      pr.textContent = sold ? d("soldOut") : full ? d("noRoom", R.price) : `🪙 ${R.price}${life}`;
       card.append(gr, nm, ic, ds, pr);
       card.addEventListener("click", () => buyRelic(id));
       wrap.appendChild(card);
@@ -3277,7 +3576,7 @@
     btn.classList.toggle("hidden", doubles <= 0);
     btn.disabled = !anyScalable;
     btn.classList.toggle("on", graftArmed);
-    btn.title = anyScalable ? "" : "2배로 만들 수 있는 특성이 없습니다";
+    btn.title = anyScalable ? "" : d("noScalable");
     $sh("tr-double-n").textContent = doubles;
 
     const wrap = $sh("tr-offers");
@@ -3290,7 +3589,7 @@
       b.className = "trait-row" + (scaled ? " boost" : "");
       const ic = document.createElement("span"); ic.className = "tr-ic"; ic.textContent = T.icon;
       const body = document.createElement("span"); body.className = "tr-body";
-      const nm = document.createElement("b"); nm.textContent = T.name + (scaled ? "  ✨2배" : "");
+      const nm = document.createElement("b"); nm.textContent = T.name + (scaled ? "  " + d("doubled") : "");
       const ds = document.createElement("span"); ds.textContent = T.desc(eff);
       body.append(nm, ds);
       b.append(ic, body);
@@ -3364,12 +3663,12 @@
       const cnt = document.createElement("div");
       cnt.className = "inf-count";
       const capNow = relicCap();
-      cnt.textContent = `유물 ${relics.length} / ${capNow}칸`;
-      if (relics.length > capNow) cnt.textContent += ` · ${relics.length - capNow}개 비활성`;
+      cnt.textContent = d("relicCount", relics.length, capNow);
+      if (relics.length > capNow) cnt.textContent += d("relicOver", relics.length - capNow);
       body.appendChild(cnt);
       if (!relics.length) {
         const e = document.createElement("div");
-        e.className = "inf-empty"; e.textContent = "아직 유물이 없습니다";
+        e.className = "inf-empty"; e.textContent = d("noRelics");
         body.appendChild(e);
         return;
       }
@@ -3384,27 +3683,27 @@
           act.className = "inf-drop";
           // "버리기 🪙5" read as though it cost 5. Say what actually happens: you sell it
           // and money comes back.
-          act.textContent = `팔기 +🪙${Math.floor(R.price / 2)}`;
+          act.textContent = d("sellFor", Math.floor(R.price / 2));
           act.addEventListener("click", e => { e.stopPropagation(); discardRelic(i); });
         }
         const left = relicLife[id];
-        row(R.icon, R.name, inert ? "칸이 모자라 꺼져 있습니다" : R.desc,
-            inert ? "비활성" : (left ? `${left}${lifeUnitLabel(R.life.unit)} 남음` : ""),
+        row(R.icon, R.name, inert ? d("relicOff") : R.desc,
+            inert ? d("inactive") : (left ? d("lifeLeft", left, lifeUnitLabel(R.life.unit)) : ""),
             inert, act);
       });
     } else if (infoTab === "traits") {
       const standing = traits.filter(t => TRAITS[t.id] && !TRAITS[t.id].meta);
       if (!standing.length && doubles <= 0) {
         const e = document.createElement("div");
-        e.className = "inf-empty"; e.textContent = "아직 특성이 없습니다";
+        e.className = "inf-empty"; e.textContent = d("noTraits");
         body.appendChild(e);
         return;
       }
       for (const t of standing) {
         const T = TRAITS[t.id];
-        row(T.icon, T.name + (t.amount > 1 ? " ✨2배" : ""), T.desc(traitEffects(T, t.amount)), "", false);
+        row(T.icon, T.name + (t.amount > 1 ? " " + d("doubled") : ""), T.desc(traitEffects(T, t.amount)), "", false);
       }
-      if (doubles > 0) row("✨", "접붙이기", "다음 특성 선택을 2배로", `${doubles}회`, false);
+      if (doubles > 0) row("✨", TRAITS.graft.name, d("nextDouble"), d("charges", doubles), false);
     } else {
       // the fruit table is where a relic's "1만큼 더" turns into a number you can read
       // a proper table: the score column is the number that actually applies, multiplier
@@ -3497,7 +3796,7 @@
     touchesLeft = stageTouches();
     flash = Math.max(flash, 0.5); addShake(7);
     document.getElementById("hint").textContent =
-      `${stageLabel(stage)} — 목표 ${rules().quota(stage)}점 · 터치 ${touchesLeft}회`;
+      d("hintStage", stageLabel(stage), rules().quota(stage), touchesLeft);
     updateHUD();
     dirty = true;
     setTimeout(openShop, 700);          // let the payout coins fly first; busy stays true
@@ -3507,13 +3806,12 @@
     running = false; busy = false;
     SFX.play("over");
     recordStage();
-    const why = reason === "touches" ? "터치 소진" : reason === "board" ? "판이 가득 참" : "";
+    const why = reason === "touches" ? d("overTouches") : reason === "board" ? d("overFull") : "";
     document.getElementById("ov-msg").innerHTML = rules().touchBudget
-      ? `<b>${stageLabel(stage)}</b> 도달 · 점수 <b>${fmtNum(score)}</b>` +
-        `<br><span class="ov-best">최고 <b>${stageLabel(bestStage || 1)}</b>` +
-        ` · <b>${fmtNum(best)}</b>점</span>` +
+      ? d("reachedStage", stageLabel(stage), fmtNum(score)) +
+        `<br><span class="ov-best">${d("bestLine", stageLabel(bestStage || 1), fmtNum(best))}</span>` +
         (why ? `<br><span class="ov-why">${why}</span>` : "")
-      : `점수 <b>${fmtNum(score)}</b> · 최고 <b>${fmtNum(best)}</b>`;
+      : d("scoreBest", `<b>${fmtNum(score)}</b>`, `<b>${fmtNum(best)}</b>`);
     document.getElementById("menu").classList.add("hidden");     // show the game-over view
     document.getElementById("gameover").classList.remove("hidden");
     document.getElementById("overlay").classList.remove("hidden");
@@ -3605,8 +3903,8 @@
   // not have, and it maps 1:1 to "cluster", already the standard term in English match-3.
   function multLabel(cb, sm) {
     const p = [];
-    if (cb > 1.001) p.push(["gp-chain", `×${+cb.toFixed(1)} 덩어리`]);
-    if (sm > 1.001) p.push(["gp-combo", `×${+sm.toFixed(1)} 콤보`]);
+    if (cb > 1.001) p.push(["gp-chain", `×${+cb.toFixed(1)} ${d("cluster")}`]);
+    if (sm > 1.001) p.push(["gp-combo", `×${+sm.toFixed(1)} ${d("combo")}`]);
     return p;
   }
   function showGain(r, c, gained, colorIdx, sub) {
@@ -4374,7 +4672,7 @@
       gridMult, MULT_GRID, STREAK_STEP_BASE, CHAIN_STEP, multLabel,
       syncRows, ROWS_BASE, ROWS_MAX, layout, COLS, BOARD_MIN, BOARD_MAX,
       checkViewport, MIN_PLAY_H,
-      SFX, setLang, LANGS, PACKS, d,
+      SFX, setLang, LANGS, PACKS, d, L, applyStaticText, nameOf,
       get LANG() { return LANG; },
       rollZones, zoneAt, zoneCount, fruitScoreAt, ZONE_BASE,
       announceOffers,
@@ -4439,8 +4737,8 @@
     clearTimeout(msgTimer); msgTimer = setTimeout(() => { el.textContent = ""; }, 2200);
   }
   document.getElementById("btn-challenge").addEventListener("click", () => start("rush"));
-  document.getElementById("btn-settings").addEventListener("click", () => menuMsg("⚙️ 설정은 준비 중이에요"));
-  document.getElementById("btn-ranking").addEventListener("click", () => menuMsg("🏆 랭킹은 준비 중이에요"));
+  document.getElementById("btn-settings").addEventListener("click", () => menuMsg(d("soonSettings")));
+  document.getElementById("btn-ranking").addEventListener("click", () => menuMsg(d("soonRanking")));
 
   // in-game pause / back to main
   document.getElementById("pause-btn").addEventListener("click", () => {
@@ -4460,7 +4758,29 @@
     v.value = Math.round(SFX.volume * 100);
     v.disabled = SFX.muted;
     document.getElementById("vol-v").textContent = v.value;
+    renderLangPicker();
   }
+  function renderLangPicker() {
+    const wrap = document.getElementById("lang-picker");
+    wrap.textContent = "";
+    for (const code of Object.keys(LANGS)) {
+      const b = document.createElement("button");
+      b.className = "lang-btn" + (code === LANG ? " on" : "");
+      b.textContent = LANGS[code];
+      b.addEventListener("click", () => { setLang(code); renderSettings(); });
+      wrap.appendChild(b);
+    }
+  }
+  // anything already on screen has to redraw in the new language, not wait for a reopen
+  onLangChange(() => {
+    renderLangPicker();
+    if (!$sh("shop").classList.contains("hidden")) renderShop();
+    if (!$sh("traits").classList.contains("hidden")) renderTraits();
+    if (!$sh("info").classList.contains("hidden")) renderInfo();
+    renderItemShop();
+    if (running) updateHUD();
+  });
+
   document.getElementById("btn-mute").addEventListener("click", () => {
     SFX.setMuted(!SFX.muted);
     renderSettings();
@@ -4522,6 +4842,7 @@
   if (location.search.includes("dev=1")) document.getElementById("dock").classList.remove("hidden");
 
   loadBest();
+  applyStaticText();   // fill every data-i18n before the first paint
   checkViewport();  // a landscape phone or a half-folded flip is told before it sees a board
   resetRun();       // init the board layers so the render loop is safe before "시작하기"
   loadFruitArt();   // load custom SVG art -> sprite cache

@@ -10,10 +10,15 @@ import subprocess, os, re, json, sys
 
 TEST = """<script>
 window.addEventListener('load', () => setTimeout(() => {
+ try {
   const F = window.__fs, fails = [];
   const chk = (c, got, want) => { if (JSON.stringify(got) !== JSON.stringify(want))
                                     fails.push({case: c, got, want}); };
-  const KO = /[\\uAC00-\\uD7A3]/;
+  // built from code points, not an escaped literal: this string travels through a Python
+  // heredoc on the way here, and a regex escape that survives one layer and not the other
+  // silently turns "any uppercase letter" into the test's idea of Korean
+  const KO = { test: t => { for (const ch of String(t)) {
+    const c = ch.codePointAt(0); if (c >= 0xAC00 && c <= 0xD7A3) return true; } return false; } };
   const langs = Object.keys(F.LANGS);
   chk('there is more than one language', langs.length > 1, true);
 
@@ -25,18 +30,37 @@ window.addEventListener('load', () => setTimeout(() => {
     chk('every pattern exists in ' + lg, missing, []);
   }
 
+  // 1b) names have no pattern to share -- one per id -- so every id must be present in every
+  //     pack, and the lookup must be lazy or the language at load time is baked in
+  const koNames = Object.keys(F.PACKS.ko._names || {});
+  chk('the Korean name table is populated', koNames.length >= 80, true);
+  for (const lg of langs) {
+    if (lg === 'ko') continue;
+    const missing = koNames.filter(k => !(F.PACKS[lg]._names || {})[k]);
+    chk('every name exists in ' + lg, missing, []);
+  }
+  const ids = Object.keys(F.RELICS).concat(Object.keys(F.TRAITS));
+  const noName = ids.filter(id => !koNames.includes(id));
+  chk('every relic and trait has a name entry', noName, []);
+  F.setLang('ko'); const koFirst = ids.map(id => (F.RELICS[id] || F.TRAITS[id]).name);
+  F.setLang('en'); const enFirst = ids.map(id => (F.RELICS[id] || F.TRAITS[id]).name);
+  chk('names actually change with the language', koFirst.join() !== enFirst.join(), true);
+
   // 2) render EVERYTHING in EVERY language; no Korean may survive outside ko
   const leaks = {}, blanks = [];
   for (const lg of langs) {
     F.setLang(lg);
     const bad = [];
     for (const id of Object.keys(F.RELICS)) {
-      const t = F.RELICS[id].desc;
-      if (!t) blanks.push(lg + '/' + id);
-      else if (lg !== 'ko' && KO.test(t)) bad.push(id + ': ' + t);
+      for (const [what, t] of [['desc', F.RELICS[id].desc], ['name', F.RELICS[id].name]]) {
+        if (!t) blanks.push(lg + '/' + id + '.' + what);
+        else if (lg !== 'ko' && KO.test(t)) bad.push(id + '.' + what + ': ' + t);
+      }
     }
     for (const id of Object.keys(F.TRAITS)) {
       const T = F.TRAITS[id];
+      if (!T.name) blanks.push(lg + '/' + id + '.name');
+      else if (lg !== 'ko' && KO.test(T.name)) bad.push(id + '.name: ' + T.name);
       for (const mult of [1, 2]) {
         const t = T.desc(F.traitEffects(T, mult));
         if (!t) blanks.push(lg + '/' + id);
@@ -68,6 +92,7 @@ window.addEventListener('load', () => setTimeout(() => {
   document.title = 'RESULT ' + JSON.stringify({ fails, langs, patterns: koKeys.length,
                                                 relics: Object.keys(F.RELICS).length,
                                                 traits: Object.keys(F.TRAITS).length });
+ } catch (e) { document.title = 'THREW ' + e.message; }
 }, 700));
 </script>"""
 
@@ -77,7 +102,7 @@ open('_i18n.html','w',encoding='utf-8').write(
 try:
     out = subprocess.run(['/Applications/Google Chrome.app/Contents/MacOS/Google Chrome',
         '--headless','--disable-gpu','--no-first-run','--window-size=430,932',
-        '--virtual-time-budget=20000','--dump-dom','http://localhost:8899/_i18n.html?test=1'],
+        '--virtual-time-budget=30000','--dump-dom','http://localhost:8899/_i18n.html?test=1'],
         capture_output=True, text=True, timeout=120).stdout
 finally:
     os.remove('_i18n.html')
