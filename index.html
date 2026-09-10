@@ -181,6 +181,16 @@
   .ib:disabled .ib-p { color: #8a93ad; }
   .ib.armed { border-color: #ffd23e; background: #3a3316; }
   .ib.armed .ib-ic { transform: scale(1.12); }
+  /* A portrait game cannot force rotation from the web, so it says so. Keyed on HEIGHT, not
+     orientation: a tablet in landscape (820 tall) plays fine, a phone in landscape (390) does
+     not. Also catches Flip flex mode and cover screens, which are short for the same reason. */
+  #rotate { position: fixed; inset: 0; z-index: 40; display: none;
+    flex-direction: column; align-items: center; justify-content: center; gap: 10px;
+    background: #0b0d16; text-align: center; padding: 20px; }
+  #rotate.on { display: flex; }
+  .rot-ic { font-size: 44px; transform: rotate(90deg); }
+  .rot-t { font-size: 19px; font-weight: 800; color: var(--text); }
+  .rot-s { font-size: 13px; color: var(--muted); }
   #dock.hidden { display: none; }
   #dock {
     display: flex; align-items: center; flex-wrap: wrap; justify-content: center;
@@ -517,6 +527,12 @@
     <button class="dock-btn" data-item="bomb">💣</button>
     <button class="dock-btn" data-item="star">🌟</button>
     <button class="dock-btn" data-item="brick">🧱</button>
+  </div>
+
+  <div id="rotate">
+    <div class="rot-ic">📱</div>
+    <div class="rot-t">세로로 돌려주세요</div>
+    <div class="rot-s">화면이 낮아 판이 다 들어가지 않습니다</div>
   </div>
 
   <div id="overlay">
@@ -1190,6 +1206,13 @@
   let cell, pad, dpr, boardPx, boardH;
 
   const BOARD_MIN = 260, BOARD_MAX = 520, CHROME_H = 220;
+  // below this the HUD, board and item bar cannot all fit at any board size
+  const MIN_PLAY_H = 520;
+  function checkViewport() {
+    const bad = window.innerHeight < MIN_PLAY_H;
+    document.getElementById("rotate").classList.toggle("on", bad);
+    return !bad;
+  }
   function layout() {
     // the height budget must shrink as ROWS grows or an 8x12 board runs off the screen
     const byHeight = (window.innerHeight - CHROME_H) * COLS / ROWS;
@@ -1210,7 +1233,10 @@
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
     rebuildSprites();   // re-cache art at the new cell size
   }
-  window.addEventListener("resize", () => { layout(); if (mfxRAF) mfxResize(); });
+  // foldables resize the viewport live, mid-run: unfolding a Fold goes 344x882 -> 673x841
+  // without a reload, so this has to re-fit rather than assume the size it booted at
+  window.addEventListener("resize", () => { checkViewport(); layout(); if (mfxRAF) mfxResize(); });
+  window.addEventListener("orientationchange", () => { checkViewport(); layout(); });
 
   // ---- helpers ----
   // the two modes score on completely different scales, so they keep separate records
@@ -3888,6 +3914,7 @@
       bombRadius, BOMB_RADIUS_MAX, itemNeed, ITEM_NEED_MIN,
       gridMult, MULT_GRID, STREAK_STEP_BASE, CHAIN_STEP, multLabel,
       syncRows, ROWS_BASE, ROWS_MAX, layout, COLS, BOARD_MIN, BOARD_MAX,
+      checkViewport, MIN_PLAY_H,
       rollZones, zoneAt, zoneCount, fruitScoreAt, ZONE_BASE,
       get zoneCells() { return zoneCells; }, get zoneMult() { return zoneMult; },
       get zoneCoin() { return zoneCoin; }, get zoneBonus() { return zoneBonus; },
@@ -4005,6 +4032,7 @@
   if (location.search.includes("dev=1")) document.getElementById("dock").classList.remove("hidden");
 
   loadBest();
+  checkViewport();  // a landscape phone or a half-folded flip is told before it sees a board
   resetRun();       // init the board layers so the render loop is safe before "시작하기"
   loadFruitArt();   // load custom SVG art -> sprite cache
   updateHUD();
