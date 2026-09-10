@@ -77,6 +77,44 @@ window.addEventListener('load', () => setTimeout(() => {
   const madeUp = F.d('a_pattern_that_does_not_exist');
   chk('an unknown key returns the key, not undefined', madeUp, 'a_pattern_that_does_not_exist');
 
+  // 3b) the picker must be able to show every language, and every code must be real
+  const picked = Object.keys(F.LANGS);
+  chk('every language has a pack', picked.filter(c => !F.PACKS[c]), []);
+  chk('every pack is offered in the picker', Object.keys(F.PACKS).filter(c => !F.LANGS[c]), []);
+  chk('every language has a display name', picked.filter(c => !F.LANGS[c]), []);
+
+  // 3c) SCREEN SCAN. Everything above tests the tables; this tests the screens. A string
+  //     hardcoded in JS instead of routed through the pack passes every table check and then
+  //     shows Korean to an English player -- which is exactly how the mute button slipped
+  //     through. Open each panel in a non-Korean language and read what is actually rendered.
+  const onScreen = [];
+  F.setLang('en');
+  F.mode = 'rush'; F.resetRun(); F.running = true; F.coins = 999;
+  const panels = [
+    ['menu',   () => {}],
+    ['pause',  () => { F.renderSettings && F.renderSettings();
+                       document.getElementById('pause').classList.remove('hidden'); }],
+    ['shop',   () => F.openShop()],
+    ['traits', () => F.openTraits()],
+    ['info',   () => F.openInfo('relics')],
+    ['odds',   () => F.openInfo('fruits')],
+    ['over',   () => document.getElementById('overlay').classList.remove('hidden')],
+  ];
+  for (const [name, open] of panels) {
+    try { open(); } catch (e) { onScreen.push(name + ': threw ' + e.message); continue; }
+    for (const el of document.querySelectorAll('body *')) {
+      if (el.children.length || el.offsetParent === null) continue;   // leaves that are visible
+      const t = (el.textContent || '').trim();
+      if (!t || !KO.test(t)) continue;
+      if (t === '한국어') continue;                 // the language button names itself, correctly
+      if (onScreen.length < 12) onScreen.push(name + ': ' + t.slice(0, 40));
+    }
+  }
+  chk('no Korean is rendered on screen in English', onScreen, []);
+  for (const id of ['pause', 'shop', 'traits', 'info', 'overlay'])
+    document.getElementById(id).classList.add('hidden');
+  F.running = false; F.resetRun();
+
   // 4) the language survives a reload
   F.setLang('en');
   let stored = null; try { stored = localStorage.getItem('fs_lang'); } catch (e) {}

@@ -184,14 +184,17 @@
   /* A portrait game cannot force rotation from the web, so it says so. Keyed on HEIGHT, not
      orientation: a tablet in landscape (820 tall) plays fine, a phone in landscape (390) does
      not. Also catches Flip flex mode and cover screens, which are short for the same reason. */
+  /* wraps: four language chips do not fit one row on a 320px phone, and a fifth will fit
+     even less. The label keeps its own line width so it never squeezes to one glyph. */
   .set-row { display: flex; align-items: center; gap: 10px; width: 100%; max-width: 280px;
-    margin: 0 auto 8px; }
+    margin: 0 auto 8px; flex-wrap: wrap; }
   .set-toggle { flex: 1; margin: 0; padding: 12px; font-size: 15px; font-weight: 800;
     background: #1e2130; color: var(--text); border-radius: 12px; box-shadow: none; }
   .set-toggle.off { color: var(--muted); }
-  .set-lab { font-size: 13px; color: var(--muted); width: 46px; text-align: left; }
-  .lang-picker { flex: 1; display: flex; gap: 6px; }
-  .lang-btn { flex: 1; margin: 0; padding: 9px 6px; font-size: 13px; font-weight: 800;
+  .set-lab { font-size: 13px; color: var(--muted); min-width: 46px; text-align: left;
+    white-space: nowrap; }
+  .lang-picker { flex: 1 1 100%; display: flex; gap: 6px; flex-wrap: wrap; }
+  .lang-btn { flex: 1 1 calc(50% - 3px); margin: 0; padding: 9px 6px; font-size: 13px; font-weight: 800;
     background: #1e2130; color: var(--muted); border-radius: 10px; box-shadow: none; }
   .lang-btn.on { background: #3a3316; color: #ffd23e; }
   .set-val { font-size: 13px; color: var(--muted); width: 28px; text-align: right; }
@@ -1578,10 +1581,14 @@
   // Two rules keep it safe as the game grows:
   //   1. every lookup falls back ko -> key, so a missing translation shows Korean, never blank
   //   2. tools/i18n-test.py fails on any key present in ko and missing elsewhere
-  const LANGS = { ko: "한국어", en: "English" };
+  const LANGS = { ko: "한국어", en: "English", ja: "日本語", zh: "简体中文" };
 
   const FRUIT_KO = ["체리", "오렌지", "키위", "레몬", "포도", "복숭아", "바나나"];
   const FRUIT_EN = ["Cherry", "Orange", "Kiwi", "Lemon", "Grape", "Peach", "Banana"];
+  const FRUIT_JA = ["さくらんぼ", "オレンジ", "キウイ", "レモン", "ぶどう", "もも", "バナナ"];
+  const FRUIT_ZH = ["樱桃", "橙子", "猕猴桃", "柠檬", "葡萄", "桃子", "香蕉"];
+  const listJa = a => a.join("・");
+  const listZh = a => a.join("和");
   const listKo = a => a.join("·");
   // Korean object particle: 레몬 takes 을, 체리 takes 를. Getting this wrong is the most
   // obvious possible tell that text was assembled by a machine, and it is one line of code.
@@ -1767,6 +1774,7 @@
       reachedStage: (label, score) => `<b>${label}</b> 도달 · 점수 <b>${score}</b>`,
       bestLine: (label, score) => `최고 <b>${label}</b> · <b>${score}</b>점`,
       cluster: "덩어리", combo: "콤보",
+      colFruit: "과일", colScore: "점수", colOdds: "확률",
       tierCommon: "일반", tierUncommon: "고급", tierRare: "희귀", tierLegend: "전설",
       soonSettings: "⚙️ 설정은 준비 중이에요", soonRanking: "🏆 랭킹은 준비 중이에요",
     },
@@ -1938,8 +1946,351 @@
       reachedStage: (label, score) => `Reached <b>${label}</b> · score <b>${score}</b>`,
       bestLine: (label, score) => `Best <b>${label}</b> · <b>${score}</b>`,
       cluster: "cluster", combo: "combo",
+      colFruit: "Fruit", colScore: "Score", colOdds: "Odds",
       tierCommon: "Common", tierUncommon: "Uncommon", tierRare: "Rare", tierLegend: "Legendary",
       soonSettings: "⚙️ Settings are on the way", soonRanking: "🏆 Ranking is on the way",
+    },
+    ja: {
+      _fruit: FRUIT_JA, _list: listJa,
+      fruitFlat:  (f, n) => `${FRUIT_JA[f]} スコア +${n}`,
+      fruitMult:  (f, n) => `${FRUIT_JA[f]} スコア倍率 +${n1(n)}`,
+      fruitsMult: (fs, n) => `${listJa(fs.map(i => FRUIT_JA[i]))} スコア倍率 +${n1(n)}`,
+      odds:       (fs, n) => `${listJa(fs.map(i => FRUIT_JA[i]))} が ${n1(n)} 多く出る`,
+      stackOnPop: (f, n) => `${FRUIT_JA[f]}を割るたびに ${FRUIT_JA[f]} スコア +${n}`,
+      anyStackOnPop: n => `フルーツを割るたびに そのフルーツのスコア +${n}`,
+      allFlat:    n => `すべてのフルーツ スコア +${n}`,
+      allMult:    n => `すべてのフルーツ スコア倍率 +${n1(n)}`,
+      touch:      n => `ステージごとにタッチ +${n}`,
+      spawn:      n => `毎ターン フルーツ +${n}`,
+      payoutFlat: n => `ステージ精算コイン +${n}`,
+      payoutPct:  n => `ステージ精算コイン +${n}%`,
+      coinFruit:  n => `コイン付きフルーツの確率 +${n}%`,
+      popMult:    n => `割ったスコア ×${n1(n)}`,
+      popMultRun: n => `割ったスコア ×${n1(n)} · ラン中ずっと`,
+      bigPop:     (k, m) => `${k}個以上割ると スコア ×${n1(m)}`,
+      brickDeal:  (pct, br) => `割ったスコア +${pct}% · 新しいフルーツの${br}%がレンガ`,
+      clusterStep:(add, from, to) => `かたまりボーナス +${n1(add)} (${n1(from)} → ${n1(to)})`,
+      comboStep:  (add, from, to) => `コンボ増加幅 +${n1(add)} (${n1(from)} → ${n1(to)})`,
+      comboCap:   (from, to) => `コンボ上限 ×${n1(from)} → ×${n1(to)}`,
+      slots:      n => `レリック枠 +${n}`,
+      offers:     n => `ショップ表示 +${n}`,
+      rows:       n => `盤面が ${n} 段 広がる`,
+      startFruit: n => `ステージ開始時にフルーツが ${n} 個 多く置かれる`,
+      bombRadius: n => `爆弾の爆発範囲 +${n}`,
+      bombSize:   n => `爆弾が ${n}×${n} で爆発`,
+      itemEase:   n => `アイテムが ${n} 個 少なく割っても出る`,
+      birds:      n => `スズメが ${n} 羽ずつ飛ぶ`,
+      birdsMore:  n => `スズメが ${n} 羽 多く飛ぶ`,
+      starCoin:   (a, b) => `星のコインが フルーツごとに ${a} → ${b}`,
+      starCoinUp: n => `星のコインが フルーツごとに +${n}`,
+      crossLine:  () => "ラインが常に縦横同時に出る",
+      zoneMult:   n => `印のマスで割ると そのフルーツのスコア ×${n1(n)}`,
+      zoneCoin:   n => `印のマスで割ると コイン +${n}`,
+      zoneMore:   n => `印のマス +${n}`,
+      boostBest:  n => `いま最も高いフルーツの価値を ${n1(n)} 倍に`,
+      nextDouble: () => "次の特性選択を2倍に",
+      _names: {
+        avalanche: "なだれ",
+        banana_bite: "バナナ一口",
+        banana_cellar: "バナナ貯蔵庫",
+        banana_grove: "バナナ農園",
+        banana_hunter: "バナナ狩人",
+        banana_master: "バナナ熟成家",
+        banana_taste: "バナナ好み",
+        basket: "かご",
+        bell: "鈴の音",
+        big_pocket: "大きなポケット",
+        big_pop: "大量ボーナス",
+        big_reclaim: "大開墾",
+        blast: "爆心",
+        bomb_mod: "爆弾改造",
+        bonanza: "大当たり",
+        breather: "ひと息",
+        brick_deal: "レンガ契約",
+        chain_master: "図体",
+        change_purse: "小銭入れ",
+        cherry_pick: "さくらんぼ偏愛",
+        cherry_taste: "さくらんぼ鑑定士",
+        citrus: "柑橘びいき",
+        citrus_crate: "柑橘の木箱",
+        clover: "四つ葉のクローバー",
+        concentrate: "濃縮",
+        crossing: "十字路",
+        crown: "王冠",
+        distill: "蒸留",
+        dust: "ちり",
+        endurance: "粘り",
+        feed: "えさやり",
+        first_step: "第一歩",
+        flock: "スズメの群れ",
+        focus: "短期集中",
+        frenzy: "暴走",
+        gold_vein: "金脈",
+        golden_banana: "黄金のバナナ",
+        graft: "接ぎ木",
+        grape_bunch: "ぶどう一房",
+        grape_press: "ぶどう圧搾機",
+        grape_taste: "ぶどう収集家",
+        heat: "熱気",
+        hotspot: "名所",
+        huge_pop: "大爆発",
+        humble: "素朴な味",
+        juice_press: "搾汁機",
+        keen_eye: "眼力",
+        kiwi_grove: "キウイ畑",
+        kiwi_king: "キウイ王",
+        kiwi_slice: "キウイ一片",
+        kiwi_taste: "キウイ栽培家",
+        knack: "コツ",
+        leisure: "ゆとり",
+        lemon_gold: "黄金のレモン",
+        lemon_jar: "レモンの壺",
+        lemon_slice: "レモン一切れ",
+        lemon_taste: "レモン職人",
+        lucky_coin: "幸運の巾着",
+        mint: "星の造幣局",
+        one_cherry: "さくらんぼ一粒",
+        orange_piece: "オレンジ一玉",
+        orange_taste: "オレンジ目利き",
+        orchard: "果樹園",
+        peach_favour: "もも好き",
+        peach_half: "もも半分",
+        peach_taste: "もも名人",
+        piggy_cherry: "さくらんぼ貯金箱",
+        pinch: "ひとつまみ",
+        prism: "プリズム",
+        quarry: "採石場",
+        reclaim: "開墾",
+        satchel: "風呂敷",
+        sprout: "双葉",
+        stamina: "持久力",
+        stardust: "星あかり",
+        storm: "嵐の湧き",
+        streak_amp: "炎の増幅",
+        streak_step: "弾み",
+        sugar_rush: "砂糖の爆発",
+        survey: "測量",
+        sweet_tooth: "甘党",
+        tinkerer: "手先の器用さ",
+        tycoon: "豪商",
+        whetstone: "砥石",
+      },
+      appTag: "パチンとはじける みずみずしいフルーツ",
+      modeArcade: "アーケード", modeRush: "⭐ スターラッシュ",
+      btnStart: "はじめる", btnSettings: "設定", btnRanking: "ランキング",
+      btnClose: "閉じる", btnResume: "つづける", btnToMain: "メインへ", btnRetry: "もう一度",
+      paused: "一時停止", gameOver: "ゲームオーバー",
+      soundOn: "サウンド オン", soundOff: "サウンド オフ", volume: "音量", language: "言語",
+      tabOdds: "🍊 確率", tabRelics: "📜 レリック", tabTraits: "✨ 特性",
+      traitPick: "特性を選ぶ", doubleChip: "✨ ×2", myRelics: "📜 所持レリック", prep: "準備",
+      best: "ベスト", stage: "ステージ", score: "スコア",
+      scoreBest: (a, b) => `スコア ${a} · ベスト ${b}`,
+      touchChip: "👆 タッチ", spawnChip: "➕ 毎ターン", danger: "⚠️ 危険!",
+      goal: "目標", goalMet: "目標達成 ✓", touchesLeft: "残りタッチ",
+      nextStage: "次のステージ ▶", testDock: "テスト",
+      rotateTitle: "縦向きにしてください", rotateSub: "画面の高さが足りず盤面が入りません",
+      hintPlace: "空いたマスをタップしてフルーツを置く",
+      hintArcade: "同じ色のフルーツの隣(3×3)に置いて割る",
+      hintStage: (label, quota, touches) => `${label} — 目標 ${quota} · タッチ ${touches}`,
+      hintArmed: "空いたマスをタップして置く(もう一度押すとキャンセル)",
+      hintTestDock: "テスト: 空いたマスをタップして設置",
+      itemStar: "🌟 星 — タップ! 同じ色を星座でつなぐ",
+      itemBomb: "💣 爆弾 — タップ! 5×5 の大爆発",
+      itemLine: "↔️ ライン — タップ! 一列をまとめて消す",
+      itemBird: "🐦 スズメ — タップ! レンガや邪魔なフルーツをついばむ",
+      expired: (icon, name) => `${icon} ${name} の効果が切れました`,
+      shopEmpty: "買えるレリックがありません", soldOut: "売り切れ",
+      noRoom: price => `🪙 ${price} · 枠なし`,
+      sellFor: n => `売る +🪙${n}`,
+      noScalable: "2倍にできる特性がありません",
+      doubled: "✨×2",
+      relicCount: (n, cap) => `レリック ${n} / ${cap}`,
+      relicOver: n => ` · ${n} 個 無効`,
+      noRelics: "まだレリックがありません", noTraits: "まだ特性がありません",
+      relicOff: "枠が足りず無効です", inactive: "無効",
+      lifeLeft: (n, unit) => `残り ${n}${unit}`,
+      unitTouch: "タッチ", unitStage: "ステージ",
+      charges: n => `${n}回`,
+      points: n => `${n}`,
+      oddsMore: n => `+${n}`,
+      overTouches: "タッチ切れ", overFull: "盤面が満杯",
+      reachedStage: (label, score) => `<b>${label}</b> 到達 · スコア <b>${score}</b>`,
+      bestLine: (label, score) => `ベスト <b>${label}</b> · <b>${score}</b>`,
+      cluster: "かたまり", combo: "コンボ",
+      colFruit: "フルーツ", colScore: "スコア", colOdds: "確率",
+      tierCommon: "コモン", tierUncommon: "アンコモン", tierRare: "レア", tierLegend: "レジェンド",
+      soonSettings: "⚙️ 設定は準備中です", soonRanking: "🏆 ランキングは準備中です",
+    },
+    zh: {
+      _fruit: FRUIT_ZH, _list: listZh,
+      fruitFlat:  (f, n) => `${FRUIT_ZH[f]} 分数 +${n}`,
+      fruitMult:  (f, n) => `${FRUIT_ZH[f]} 分数倍率 +${n1(n)}`,
+      fruitsMult: (fs, n) => `${listZh(fs.map(i => FRUIT_ZH[i]))} 分数倍率 +${n1(n)}`,
+      odds:       (fs, n) => `${listZh(fs.map(i => FRUIT_ZH[i]))} 多出现 ${n1(n)}`,
+      stackOnPop: (f, n) => `每消除一个${FRUIT_ZH[f]}，${FRUIT_ZH[f]} 分数 +${n}`,
+      anyStackOnPop: n => `每消除一个水果，该水果分数 +${n}`,
+      allFlat:    n => `所有水果 分数 +${n}`,
+      allMult:    n => `所有水果 分数倍率 +${n1(n)}`,
+      touch:      n => `每关触摸次数 +${n}`,
+      spawn:      n => `每回合水果 +${n}`,
+      payoutFlat: n => `过关结算金币 +${n}`,
+      payoutPct:  n => `过关结算金币 +${n}%`,
+      coinFruit:  n => `带金币水果概率 +${n}%`,
+      popMult:    n => `消除得分 ×${n1(n)}`,
+      popMultRun: n => `消除得分 ×${n1(n)} · 整局有效`,
+      bigPop:     (k, m) => `一次消除 ${k} 个以上，得分 ×${n1(m)}`,
+      brickDeal:  (pct, br) => `消除得分 +${pct}% · 新水果中 ${br}% 变砖块`,
+      clusterStep:(add, from, to) => `成团奖励 +${n1(add)} (${n1(from)} → ${n1(to)})`,
+      comboStep:  (add, from, to) => `连击增幅 +${n1(add)} (${n1(from)} → ${n1(to)})`,
+      comboCap:   (from, to) => `连击上限 ×${n1(from)} → ×${n1(to)}`,
+      slots:      n => `遗物格 +${n}`,
+      offers:     n => `商店展示 +${n}`,
+      rows:       n => `棋盘增加 ${n} 行`,
+      startFruit: n => `每关开始时多放 ${n} 个水果`,
+      bombRadius: n => `炸弹范围 +${n}`,
+      bombSize:   n => `炸弹以 ${n}×${n} 爆炸`,
+      itemEase:   n => `道具少消除 ${n} 个也能出现`,
+      birds:      n => `麻雀每次飞出 ${n} 只`,
+      birdsMore:  n => `麻雀多飞出 ${n} 只`,
+      starCoin:   (a, b) => `星星每个水果给 ${a} → ${b} 金币`,
+      starCoinUp: n => `星星每个水果多给 ${n} 金币`,
+      crossLine:  () => "线道总是横竖同时出现",
+      zoneMult:   n => `在标记格消除，该水果分数 ×${n1(n)}`,
+      zoneCoin:   n => `在标记格消除，金币 +${n}`,
+      zoneMore:   n => `标记格 +${n}`,
+      boostBest:  n => `将当前最贵水果的价值提高到 ${n1(n)} 倍`,
+      nextDouble: () => "下次特性选择翻倍",
+      _names: {
+        avalanche: "倾泻",
+        banana_bite: "一口香蕉",
+        banana_cellar: "香蕉仓库",
+        banana_grove: "香蕉农场",
+        banana_hunter: "香蕉猎人",
+        banana_master: "香蕉催熟师",
+        banana_taste: "香蕉偏好",
+        basket: "篮子",
+        bell: "铃声",
+        big_pocket: "大口袋",
+        big_pop: "大量奖励",
+        big_reclaim: "大开垦",
+        blast: "爆心",
+        bomb_mod: "炸弹改造",
+        bonanza: "富矿",
+        breather: "喘口气",
+        brick_deal: "砖块契约",
+        chain_master: "块头",
+        change_purse: "零钱包",
+        cherry_pick: "偏爱樱桃",
+        cherry_taste: "樱桃鉴赏家",
+        citrus: "柑橘爱好",
+        citrus_crate: "柑橘木箱",
+        clover: "四叶草",
+        concentrate: "浓缩",
+        crossing: "十字路",
+        crown: "王冠",
+        distill: "蒸馏",
+        dust: "微尘",
+        endurance: "韧劲",
+        feed: "喂食",
+        first_step: "第一步",
+        flock: "雀群",
+        focus: "短期专注",
+        frenzy: "暴走",
+        gold_vein: "金脉",
+        golden_banana: "黄金香蕉",
+        graft: "嫁接",
+        grape_bunch: "一串葡萄",
+        grape_press: "葡萄压榨机",
+        grape_taste: "葡萄收藏家",
+        heat: "热浪",
+        hotspot: "风水宝地",
+        huge_pop: "大爆炸",
+        humble: "朴素滋味",
+        juice_press: "榨汁机",
+        keen_eye: "眼力",
+        kiwi_grove: "猕猴桃田",
+        kiwi_king: "猕猴桃王",
+        kiwi_slice: "一片猕猴桃",
+        kiwi_taste: "猕猴桃种植家",
+        knack: "窍门",
+        leisure: "从容",
+        lemon_gold: "黄金柠檬",
+        lemon_jar: "柠檬罐",
+        lemon_slice: "一片柠檬",
+        lemon_taste: "柠檬匠人",
+        lucky_coin: "幸运袋",
+        mint: "星之铸币厂",
+        one_cherry: "一颗樱桃",
+        orange_piece: "一个橙子",
+        orange_taste: "橙子鉴别师",
+        orchard: "果园",
+        peach_favour: "偏爱桃子",
+        peach_half: "半个桃子",
+        peach_taste: "桃子名家",
+        piggy_cherry: "樱桃存钱罐",
+        pinch: "一撮",
+        prism: "棱镜",
+        quarry: "采石场",
+        reclaim: "开垦",
+        satchel: "包袱",
+        sprout: "嫩芽",
+        stamina: "耐力",
+        stardust: "星光",
+        storm: "风暴生成",
+        streak_amp: "烈焰增幅",
+        streak_step: "弹性",
+        sugar_rush: "砂糖爆发",
+        survey: "测绘",
+        sweet_tooth: "嗜甜",
+        tinkerer: "巧手",
+        tycoon: "巨商",
+        whetstone: "磨刀石",
+      },
+      appTag: "清爽多汁 一戳就爆",
+      modeArcade: "街机模式", modeRush: "⭐ 星辰冲刺",
+      btnStart: "开始", btnSettings: "设置", btnRanking: "排行榜",
+      btnClose: "关闭", btnResume: "继续", btnToMain: "回主菜单", btnRetry: "再来一次",
+      paused: "暂停", gameOver: "游戏结束",
+      soundOn: "音效 开", soundOff: "音效 关", volume: "音量", language: "语言",
+      tabOdds: "🍊 概率", tabRelics: "📜 遗物", tabTraits: "✨ 特性",
+      traitPick: "选择特性", doubleChip: "✨ ×2", myRelics: "📜 我的遗物", prep: "准备",
+      best: "最高", stage: "关卡", score: "分数",
+      scoreBest: (a, b) => `分数 ${a} · 最高 ${b}`,
+      touchChip: "👆 触摸", spawnChip: "➕ 每回合", danger: "⚠️ 危险!",
+      goal: "目标", goalMet: "达成目标 ✓", touchesLeft: "剩余触摸",
+      nextStage: "下一关 ▶", testDock: "测试",
+      rotateTitle: "请竖屏游玩", rotateSub: "屏幕高度不足，棋盘放不下",
+      hintPlace: "点击空格放置水果",
+      hintArcade: "放在同色水果旁(3×3)即可消除",
+      hintStage: (label, quota, touches) => `${label} — 目标 ${quota} · 触摸 ${touches}`,
+      hintArmed: "点击空格放置(再按一次取消)",
+      hintTestDock: "测试: 点击空格放置",
+      itemStar: "🌟 星星 — 点击! 把同色连成星座",
+      itemBomb: "💣 炸弹 — 点击! 5×5 大爆炸",
+      itemLine: "↔️ 线道 — 点击! 清除一整行",
+      itemBird: "🐦 麻雀 — 点击! 啄掉砖块和挡路的水果",
+      expired: (icon, name) => `${icon} ${name} 效果已结束`,
+      shopEmpty: "没有可买的遗物了", soldOut: "已售罄",
+      noRoom: price => `🪙 ${price} · 没有格子`,
+      sellFor: n => `卖出 +🪙${n}`,
+      noScalable: "没有可以翻倍的特性",
+      doubled: "✨×2",
+      relicCount: (n, cap) => `遗物 ${n} / ${cap}`,
+      relicOver: n => ` · ${n} 个未生效`,
+      noRelics: "还没有遗物", noTraits: "还没有特性",
+      relicOff: "格子不足，未生效", inactive: "未生效",
+      lifeLeft: (n, unit) => `剩余 ${n}${unit}`,
+      unitTouch: "次触摸", unitStage: "关",
+      charges: n => `${n} 次`,
+      points: n => `${n}`,
+      oddsMore: n => `+${n}`,
+      overTouches: "触摸用尽", overFull: "棋盘已满",
+      reachedStage: (label, score) => `到达 <b>${label}</b> · 分数 <b>${score}</b>`,
+      bestLine: (label, score) => `最高 <b>${label}</b> · <b>${score}</b>`,
+      cluster: "成团", combo: "连击",
+      colFruit: "水果", colScore: "分数", colOdds: "概率",
+      tierCommon: "普通", tierUncommon: "优良", tierRare: "稀有", tierLegend: "传说",
+      soonSettings: "⚙️ 设置正在准备中", soonRanking: "🏆 排行榜正在准备中",
     },
   };
 
@@ -1948,8 +2299,11 @@
     const saved = localStorage.getItem("fs_lang");
     if (saved && PACKS[saved]) LANG = saved;
     else {
+      // match on the primary subtag so ko-KR, ja-JP, zh-Hans-CN and zh-TW all land somewhere;
+      // anything unknown gets English rather than a half-translated screen
       const nav = ((navigator.languages && navigator.languages[0]) || navigator.language || "ko");
-      LANG = nav.toLowerCase().startsWith("ko") ? "ko" : "en";
+      const base = nav.toLowerCase().split("-")[0];
+      LANG = PACKS[base] ? base : "en";
     }
   } catch (e) {}
 
@@ -3623,7 +3977,7 @@
   function closeTraits() { $sh("traits").classList.add("hidden"); resumePlay(); }
 
   // ---- info popup: what I am carrying, and the odds as they stand ----
-  const FRUIT_NAMES = ["체리", "오렌지", "키위", "레몬", "포도", "복숭아", "바나나"];
+  const fruitName = i => (L("_fruit") || FRUIT_KO)[i];   // follows the language
   // slot order is historical (0체리 1오렌지 2키위 3레몬 …); the table reads better grouped by
   // points, so cherry and lemon sit together at 1점 and orange and kiwi at 2점
   const FRUIT_TABLE_ORDER = [0, 3, 1, 2, 4, 5, 6];
@@ -3632,7 +3986,7 @@
     im.className = "inf-fruit";
     im.src = `assets_new/fruit${i}.png`;
     im.onerror = () => { im.onerror = null; im.src = `assets/fruit${i}.png`; };
-    im.alt = FRUIT_NAMES[i];
+    im.alt = fruitName(i);
     return im;
   }
   let infoTab = "fruits";
@@ -3711,7 +4065,7 @@
       const p = colorOdds();
       const head = document.createElement("div");
       head.className = "ftab-row ftab-head";
-      for (const t of ["", "과일", "점수", "확률"]) {
+      for (const t of ["", d("colFruit"), d("colScore"), d("colOdds")]) {
         const c = document.createElement("span"); c.textContent = t; head.appendChild(c);
       }
       body.appendChild(head);
@@ -3720,10 +4074,10 @@
         const pts = fruitScore(i);
         const m = pts / (FRUIT_POINTS[i] || 1);   // above 1 means something raised it
         const d = document.createElement("div"); d.className = "ftab-row";
-        const nm = document.createElement("span"); nm.className = "ft-name"; nm.textContent = FRUIT_NAMES[i];
+        const nm = document.createElement("span"); nm.className = "ft-name"; nm.textContent = fruitName(i);
         const sc = document.createElement("span");
         sc.className = "ft-score" + (Math.abs(m - 1) > 0.001 ? " up" : "");
-        sc.textContent = `${pts}점`;
+        sc.textContent = String(L("points") instanceof Function ? L("points")(pts) : pts);
         const od = document.createElement("span");
         od.className = "ft-odds" + (oddsMult[i] > 0 ? " up" : "");
         od.textContent = `${p[i].toFixed(1)}%`;
@@ -4673,6 +5027,7 @@
       syncRows, ROWS_BASE, ROWS_MAX, layout, COLS, BOARD_MIN, BOARD_MAX,
       checkViewport, MIN_PLAY_H,
       SFX, setLang, LANGS, PACKS, d, L, applyStaticText, nameOf,
+      renderSettings, openTraits, openInfo,
       get LANG() { return LANG; },
       rollZones, zoneAt, zoneCount, fruitScoreAt, ZONE_BASE,
       announceOffers,
@@ -4752,7 +5107,7 @@
     const b = document.getElementById("btn-mute");
     b.classList.toggle("off", SFX.muted);
     document.getElementById("mute-ic").textContent = SFX.muted ? "🔇" : "🔊";
-    document.getElementById("mute-t").textContent = SFX.muted ? "소리 끔" : "소리 켬";
+    document.getElementById("mute-t").textContent = d(SFX.muted ? "soundOff" : "soundOn");
     document.getElementById("vol-row").classList.toggle("off", SFX.muted);
     const v = document.getElementById("vol");
     v.value = Math.round(SFX.volume * 100);
