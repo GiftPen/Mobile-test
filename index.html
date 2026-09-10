@@ -3037,9 +3037,43 @@
 
   // floating "+N" that rises from the cell you acted on (colored by fruit)
   // which multipliers turned the ingredients into the total
+  // TEMPORARY (?word=1): the size multiplier's name is still being chosen. 연쇄/체인 both
+  // promise a sequence, but this number counts how many popped at once. Tap to cycle and
+  // judge it on a phone -- delete this block and hardcode the winner once picked.
+  const CHAIN_WORDS = ["연쇄", "다발", "묶음", "덩어리", "대량", "모둠", "멀티"];
+  let CHAIN_WORD = CHAIN_WORDS[0];
+  if (/[?&]word=1/.test(location.search)) {
+    try { CHAIN_WORD = localStorage.getItem("fs_chainword") || CHAIN_WORDS[0]; } catch (e) {}
+    window.addEventListener("load", () => {
+      const bar = document.createElement("div");
+      bar.style.cssText = "position:fixed;left:0;right:0;bottom:0;z-index:99;display:flex;" +
+        "gap:6px;justify-content:center;flex-wrap:wrap;padding:8px 10px;" +
+        "background:rgba(8,9,15,.92);backdrop-filter:blur(6px)";
+      const paint = () => {
+        bar.textContent = "";
+        for (const w of CHAIN_WORDS) {
+          const b = document.createElement("button");
+          const on = w === CHAIN_WORD;
+          b.textContent = `×1.8 ${w}`;
+          b.style.cssText = "font:800 13px/1 inherit;padding:9px 11px;border-radius:11px;" +
+            "border:1px solid " + (on ? "#ffd23e" : "#2b3048") + ";" +
+            "background:" + (on ? "#3a3316" : "#1c2032") + ";color:" + (on ? "#ffd23e" : "#8a93ad");
+          b.addEventListener("click", () => {
+            CHAIN_WORD = w;
+            try { localStorage.setItem("fs_chainword", w); } catch (e) {}
+            paint();
+          });
+          bar.appendChild(b);
+        }
+      };
+      paint();
+      document.body.appendChild(bar);
+    });
+  }
+
   function multLabel(cb, sm) {
     const p = [];
-    if (cb > 1.001) p.push(["gp-chain", `×${+cb.toFixed(1)} 연쇄`]);
+    if (cb > 1.001) p.push(["gp-chain", `×${+cb.toFixed(1)} ${CHAIN_WORD}`]);
     if (sm > 1.001) p.push(["gp-combo", `×${+sm.toFixed(1)} 콤보`]);
     return p;
   }
@@ -3804,7 +3838,8 @@
       get chainStep() { return chainStep; }, get coinFruitBonus() { return coinFruitBonus; },
       get starCoinMult() { return starCoinMult; }, get payoutMult() { return payoutMult; },
       bombRadius, BOMB_RADIUS_MAX, itemNeed, ITEM_NEED_MIN,
-      gridMult, MULT_GRID, STREAK_STEP_BASE, CHAIN_STEP, multLabel,
+      gridMult, MULT_GRID, STREAK_STEP_BASE, CHAIN_STEP, multLabel, CHAIN_WORDS,
+      get CHAIN_WORD() { return CHAIN_WORD; }, set CHAIN_WORD(v) { CHAIN_WORD = v; },
       syncRows, ROWS_BASE, ROWS_MAX, layout, COLS,
       rollZones, zoneAt, zoneCount, fruitScoreAt, ZONE_BASE,
       get zoneCells() { return zoneCells; }, get zoneMult() { return zoneMult; },
