@@ -184,6 +184,15 @@
   /* A portrait game cannot force rotation from the web, so it says so. Keyed on HEIGHT, not
      orientation: a tablet in landscape (820 tall) plays fine, a phone in landscape (390) does
      not. Also catches Flip flex mode and cover screens, which are short for the same reason. */
+  .set-row { display: flex; align-items: center; gap: 10px; width: 100%; max-width: 280px;
+    margin: 0 auto 8px; }
+  .set-toggle { flex: 1; margin: 0; padding: 12px; font-size: 15px; font-weight: 800;
+    background: #1e2130; color: var(--text); border-radius: 12px; box-shadow: none; }
+  .set-toggle.off { color: var(--muted); }
+  .set-lab { font-size: 13px; color: var(--muted); width: 34px; }
+  .set-val { font-size: 13px; color: var(--muted); width: 28px; text-align: right; }
+  #vol { flex: 1; accent-color: #ffd23e; }
+  #vol-row.off { opacity: .35; }
   #rotate { position: fixed; inset: 0; z-index: 40; display: none;
     flex-direction: column; align-items: center; justify-content: center; gap: 10px;
     background: #0b0d16; text-align: center; padding: 20px; }
@@ -417,6 +426,14 @@
 <body>
   <div id="pause" class="hidden">
     <h2>일시정지</h2>
+    <div class="set-row">
+      <button id="btn-mute" class="set-toggle"><span id="mute-ic">🔊</span> <span id="mute-t">소리 켬</span></button>
+    </div>
+    <div class="set-row" id="vol-row">
+      <span class="set-lab">음량</span>
+      <input id="vol" type="range" min="0" max="100" step="5" value="70" aria-label="음량">
+      <span class="set-val" id="vol-v">70</span>
+    </div>
     <button id="btn-resume">계속하기</button>
     <button id="btn-tomain" class="ghost-btn">메인으로</button>
   </div>
@@ -1530,6 +1547,7 @@
   }
 
   function scorePop(basePts, cleared) {
+    if (streak > 0) SFX.play("combo", streak);
     const raw = basePts * chainBonus(cleared) * streakMult();
     return addScore(Math.round(modify("pop", raw, { basePts, cleared })));
   }
@@ -2158,6 +2176,8 @@
       gaugeSegs[i].style.background = on ? segColor(i) : "";
     }
     const danger = ratio >= 0.85;
+    if (danger && !wasDanger) SFX.play("danger");   // only on the way in, not every frame
+    wasDanger = danger;
     document.getElementById("fillgauge").classList.toggle("danger", danger);
     document.getElementById("danger-label").classList.toggle("hidden", !danger || rush);
     document.getElementById("danger-label2").classList.toggle("hidden", !danger || !rush);
@@ -2194,12 +2214,178 @@
     // normal fruit or brick -> nothing
   });
 
+  // ---- sound ---------------------------------------------------------------------
+  // Synthesised, not sampled. No files to fetch, nothing to license, the single-HTML build
+  // stays single, and the pitch of a pop is a number in this file rather than something to
+  // re-record. play() is the only door, so an individual sound can be swapped for a real
+  // buffer later without touching a single call site.
+  const SFX = (() => {
+    let ctx = null, master = null, armed = false, noiseBuf = null;
+    let muted = false, volume = 0.7, voices = 0;
+    const MAX_VOICES = 14;       // one star clearing 40 fruit must not open 40 oscillators
+    try { muted = localStorage.getItem("fs_mute") === "1"; } catch (e) {}
+    // +null is 0, and 0 passes a 0..1 range check -- so reading an unset key this way set the
+    // volume to silent on every fresh install. Test for the missing key before converting.
+    try {
+      const raw = localStorage.getItem("fs_vol");
+      if (raw !== null && raw !== "") { const v = +raw; if (v >= 0 && v <= 1) volume = v; }
+    } catch (e) {}
+
+    function boot() {
+      if (ctx) return ctx;
+      const AC = window.AudioContext || window.webkitAudioContext;
+      if (!AC) return null;
+      try { ctx = new AC(); } catch (e) { return null; }
+      master = ctx.createGain();
+      master.gain.value = muted ? 0 : volume;
+      master.connect(ctx.destination);
+      return ctx;
+    }
+    // iOS and Chrome both keep a context suspended until a real gesture, so the first tap
+    // anywhere wakes it. Until then every play() is a no-op rather than an error.
+    function unlock() {
+      const c = boot(); if (!c) return;
+      if (c.state === "suspended" && c.resume) c.resume();
+      armed = true;
+    }
+    const live = () => armed && !muted && ctx && ctx.state === "running";
+
+    // A voice slot must come back even if onended never fires. Relying on that event alone
+    // means one missed callback costs a slot forever, and after MAX_VOICES of them the game
+    // goes permanently silent. The timer is the floor; whichever lands first wins, once.
+    function claim(seconds) {
+      voices++;
+      let done = false;
+      const release = () => { if (!done) { done = true; voices--; } };
+      setTimeout(release, Math.max(60, seconds * 1000 + 120));
+      return release;
+    }
+    function shape(src, t0, att, hold, rel, peak) {
+      const g = ctx.createGain();
+      const p = Math.max(0.0001, peak);
+      g.gain.setValueAtTime(0.0001, t0);
+      g.gain.exponentialRampToValueAtTime(p, t0 + att);
+      g.gain.setValueAtTime(p, t0 + att + hold);
+      g.gain.exponentialRampToValueAtTime(0.0001, t0 + att + hold + rel);
+      src.connect(g); g.connect(master);
+      return att + hold + rel;
+    }
+    function tone(o) {
+      if (!live() || voices >= MAX_VOICES) return;
+      const t0 = ctx.currentTime + (o.delay || 0);
+      const osc = ctx.createOscillator();
+      osc.type = o.type || "sine";
+      osc.frequency.setValueAtTime(o.f, t0);
+      if (o.f2) osc.frequency.exponentialRampToValueAtTime(o.f2, t0 + (o.dur || 0.1));
+      const span = shape(osc, t0, o.att || 0.004, o.hold || 0, o.dur || 0.1, o.vol == null ? 0.3 : o.vol);
+      osc.onended = claim(span + (o.delay || 0));
+      osc.start(t0); osc.stop(t0 + span + 0.03);
+    }
+    function noise(o) {
+      if (!live() || voices >= MAX_VOICES) return;
+      if (!noiseBuf) {
+        noiseBuf = ctx.createBuffer(1, ctx.sampleRate * 0.4, ctx.sampleRate);
+        const d = noiseBuf.getChannelData(0);
+        for (let i = 0; i < d.length; i++) d[i] = Math.random() * 2 - 1;
+      }
+      const t0 = ctx.currentTime + (o.delay || 0);
+      const src = ctx.createBufferSource(); src.buffer = noiseBuf;
+      const f = ctx.createBiquadFilter();
+      f.type = o.filter || "lowpass";
+      f.frequency.setValueAtTime(o.f || 1200, t0);
+      if (o.f2) f.frequency.exponentialRampToValueAtTime(o.f2, t0 + (o.dur || 0.15));
+      f.Q.value = o.q || 1;
+      src.connect(f);
+      const span = shape(f, t0, o.att || 0.003, o.hold || 0, o.dur || 0.15, o.vol == null ? 0.25 : o.vol);
+      src.onended = claim(span + (o.delay || 0));
+      src.start(t0); src.stop(t0 + span + 0.03);
+    }
+
+    // Fruit pops sit on a pentatonic scale ordered by what the fruit is worth, cheapest
+    // lowest. Bursts already fire staggered by distance, so a big cluster plays itself as a
+    // rising arpeggio -- the bigger the cluster, the grander it sounds, for free.
+    const PENTA = [0, 2, 4, 7, 9, 12, 16];
+    const FRUIT_NOTE = [0, 2, 3, 1, 4, 5, 6];   // fruit index -> rung, by FRUIT_POINTS order
+    const hz = semi => 330 * Math.pow(2, semi / 12);
+
+    const S = {
+      tap:    () => tone({ f: 520, f2: 380, dur: 0.05, vol: 0.16, type: "triangle" }),
+      plant:  () => tone({ f: 240, f2: 170, dur: 0.06, vol: 0.20, type: "triangle" }),
+      pop: i => {
+        const n = PENTA[FRUIT_NOTE[i] == null ? 0 : FRUIT_NOTE[i]];
+        tone({ f: hz(n) * 2, f2: hz(n) * 1.5, dur: 0.075, vol: 0.26, type: "sine" });
+        tone({ f: hz(n) * 4, dur: 0.03, vol: 0.07, type: "triangle" });
+      },
+      gain: size => {                       // the payoff, louder and fuller with the cluster
+        const k = Math.min(1, size / 12);
+        tone({ f: 330, dur: 0.18 + k * 0.12, vol: 0.14 + k * 0.14, type: "triangle" });
+        tone({ f: 495, dur: 0.16 + k * 0.12, vol: 0.10 + k * 0.10, type: "sine", delay: 0.02 });
+        if (k > 0.5) tone({ f: 660, dur: 0.2, vol: 0.10, type: "sine", delay: 0.04 });
+      },
+      combo: n => {                          // climbs with the streak, capped so it stays sane
+        const s = PENTA[Math.min(PENTA.length - 1, n)];
+        tone({ f: hz(s) * 2, dur: 0.09, vol: 0.16, type: "square" });
+      },
+      coin:  () => { tone({ f: 1050, dur: 0.05, vol: 0.13, type: "square" });
+                     tone({ f: 1560, dur: 0.09, vol: 0.11, type: "square", delay: 0.05 }); },
+      bomb:  () => { noise({ f: 1800, f2: 120, dur: 0.34, vol: 0.34 });
+                     tone({ f: 150, f2: 44, dur: 0.34, vol: 0.30, type: "sine" }); },
+      line:  () => noise({ f: 500, f2: 4500, dur: 0.3, vol: 0.2, filter: "bandpass", q: 3 }),
+      bird:  () => { tone({ f: 1500, f2: 2300, dur: 0.07, vol: 0.16, type: "triangle" });
+                     tone({ f: 1900, f2: 2700, dur: 0.06, vol: 0.13, type: "triangle", delay: 0.08 }); },
+      star:  () => PENTA.forEach((n, i) =>
+                     tone({ f: hz(n) * 4, dur: 0.14, vol: 0.11, type: "sine", delay: i * 0.045 })),
+      brick: () => noise({ f: 2600, f2: 700, dur: 0.1, vol: 0.22, filter: "highpass" }),
+      stage: () => [0, 4, 7].forEach((n, i) =>
+                     tone({ f: hz(n) * 2, dur: 0.2, vol: 0.2, type: "triangle", delay: i * 0.1 })),
+      round: () => [0, 4, 7, 12].forEach((n, i) =>
+                     tone({ f: hz(n) * 2, dur: 0.26, vol: 0.22, type: "triangle", delay: i * 0.1 })),
+      over:  () => [12, 7, 3].forEach((n, i) =>
+                     tone({ f: hz(n), dur: 0.32, vol: 0.22, type: "triangle", delay: i * 0.15 })),
+      danger:() => tone({ f: 150, f2: 105, dur: 0.28, vol: 0.2, type: "sawtooth" }),
+      buy:   () => { tone({ f: 620, dur: 0.07, vol: 0.16, type: "triangle" });
+                     tone({ f: 930, dur: 0.13, vol: 0.14, type: "triangle", delay: 0.06 }); },
+      reroll:() => noise({ f: 900, f2: 3200, dur: 0.2, vol: 0.15, filter: "bandpass", q: 2 }),
+      trait: () => [0, 7, 12].forEach((n, i) =>
+                     tone({ f: hz(n) * 3, dur: 0.18, vol: 0.13, type: "sine", delay: i * 0.06 })),
+      graft: () => [0, 4, 7, 12, 16].forEach((n, i) =>
+                     tone({ f: hz(n) * 4, dur: 0.2, vol: 0.12, type: "sine", delay: i * 0.05 })),
+      expire:() => tone({ f: 400, f2: 190, dur: 0.22, vol: 0.16, type: "triangle" }),
+    };
+
+    function play(name, arg) { const f = S[name]; if (f && live()) f(arg); }
+    function setMuted(v) {
+      muted = !!v;
+      try { localStorage.setItem("fs_mute", muted ? "1" : "0"); } catch (e) {}
+      if (master) master.gain.value = muted ? 0 : volume;
+    }
+    function setVolume(v) {
+      volume = Math.max(0, Math.min(1, v));
+      try { localStorage.setItem("fs_vol", String(volume)); } catch (e) {}
+      if (master && !muted) master.gain.value = volume;
+    }
+    return { play, unlock, setMuted, setVolume, names: Object.keys(S),
+             get voices() { return voices; }, get MAX_VOICES() { return MAX_VOICES; },
+             get state() { return ctx ? ctx.state : "none"; },
+             get muted() { return muted; }, get volume() { return volume; },
+             get armed() { return armed; } };
+  })();
+  // any first gesture wakes the context; harmless to fire more than once
+  for (const ev of ["pointerdown", "touchstart", "keydown"])
+    window.addEventListener(ev, () => SFX.unlock(), { passive: true });
+  // one generic click for every button, in the capture phase so it lands before the handler
+  // that may play a more specific sound (buy, reroll, ...) on top of it
+  document.addEventListener("pointerdown", e => {
+    const b = e.target && e.target.closest && e.target.closest("button");
+    if (b && !b.disabled) SFX.play("tap");
+  }, true);
+
   // ---- item shop: the coin sink both modes were missing ----
   // Arcade earned coins with nothing to spend them on; Star Rush had only relics, so coins
   // past the last shop were dead weight. Buying an item costs coins and NOT a touch -- the
   // same rule the game already uses for tapping an item that is already on the board.
   const ITEM_PRICES = { bird: 10, line: 15, bomb: 30, star: 70 };
-  let armedItem = null;
+  let armedItem = null, wasDanger = false;
   function canBuyItem(kind) {
     return running && !busy && !paused && ITEM_PRICES[kind] != null
            && coins >= ITEM_PRICES[kind] && emptyCells().length > 0;
@@ -2212,6 +2398,7 @@
     const kind = armedItem;
     if (!kind || !canBuyItem(kind) || grid[r][c] !== -1) { armedItem = null; renderItemShop(); return false; }
     coins -= ITEM_PRICES[kind]; coinsShown = coins;
+    SFX.play("buy");
     const color = pickColor();
     grid[r][c] = color; special[r][c] = kind;
     appear[r][c] = 1;
@@ -2258,6 +2445,7 @@
   // Rule 2: different colors are walls — the burst never pops or passes them.
   function plant(r0, c0, color) {
     touchCount++;
+    SFX.play("plant");
     grid[r0][c0] = color;            // the placed ball (removed later if it clears)
     special[r0][c0] = null;
     const R = BURST_RADIUS;
@@ -2280,6 +2468,8 @@
   // tap an existing item bud to trigger it directly (FREE: no touch count, no spawn — strategic)
   function tapItem(r0, c0) {
     const color = grid[r0][c0];
+    SFX.play({ bomb: "bomb", lineH: "line", lineV: "line", lineX: "line",
+               bird: "bird", star: "star" }[special[r0][c0]] || "tap");
     const visited = Array.from({length: ROWS}, () => Array(COLS).fill(false));
     runChain(r0, c0, color, visited, [{ r: r0, c: c0, d: 0, mode: "blast", color }], false);
   }
@@ -2297,6 +2487,7 @@
     function step() {
       if (!frontier.length) {
         let broke = 0;
+        if (hitBricks.size) SFX.play("brick");
         hitBricks.forEach((dmg, key) => {
           const br = (key / COLS) | 0, bc = key % COLS;
           if (grid[br][bc] !== BRICK) return;   // already destroyed by a blast
@@ -2339,6 +2530,7 @@
           ghost[r][c] = null;                    // this cell's turn: fruit goes, particles fly
           burst(r, c, vis);
           popScoreText(r, c, cellColor, fruitScoreAt(r, c, cellColor));
+          if (cellColor >= 0) SFX.play("pop", cellColor);
           if (cellColor >= 0) notify("onFruitPop", { r, c, color: cellColor });
           if (carried) addCoins(1, r, c);        // its coin flies when the fruit actually pops
           glow[r][c] = { c: vis, t: 1 };
@@ -2672,6 +2864,7 @@
       expired = R;
     }
     if (expired) {
+      SFX.play("expire");
       applyRelics();
       document.getElementById("hint").textContent = `${expired.icon} ${expired.name} 효과가 끝났습니다`;
       updateHUD();
@@ -2712,6 +2905,7 @@
   const shelfSize = () => Math.min(SHOP_OFFERS_MAX, SHOP_OFFERS + offerBonus);
 
   function openShop() {
+    SFX.play("trait");
     shopOffers = rollOffers(shelfSize());   // the 안목 trait widens it further
     shopSold = new Set();
     shopReroll = REROLL_COST;
@@ -2782,6 +2976,7 @@
     // than relying on the button being disabled
     if (!R || relics.includes(id) || coins < R.price || relics.length >= relicCap()) return;
     coins -= R.price; coinsShown = coins;
+    SFX.play("buy");
     relics.push(id);
     if (R.life) relicLife[id] = R.life.amount;   // starts its clock on purchase
     applyRelics();                      // recompute, so buying mid-run matches a fresh run
@@ -2846,6 +3041,7 @@
   }
   function pickTrait(id) {
     const T = TRAITS[id]; if (!T) return;
+    SFX.play(graftArmed && doubles > 0 && T.scalable ? "graft" : "trait");
     // armed is a UI flag; the charge is the truth. Without the doubles check an armed flag
     // left over from a previous screen would double a trait for free.
     const scaled = graftArmed && doubles > 0 && T.scalable;
@@ -3033,6 +3229,7 @@
   function stageClear() {
     // fly the payout from the middle of the board -- awarding it position-less meant the
     // counter just ticked up silently, which read as "the coin effect isn't working"
+    SFX.play(stage % STAGES_PER_ROUND === 0 ? "round" : "stage");
     recordStage();                       // reaching it counts even if the run is abandoned
     tickRelicLife("stages");             // the stage that just ended counts against them
     addCoins(Math.round(COIN_PAYOUT(stage) * payoutMult), (ROWS - 1) / 2, (COLS - 1) / 2);
@@ -3049,6 +3246,7 @@
 
   function gameOver(reason) {
     running = false; busy = false;
+    SFX.play("over");
     recordStage();
     const why = reason === "touches" ? "터치 소진" : reason === "board" ? "판이 가득 참" : "";
     document.getElementById("ov-msg").innerHTML = rules().touchBudget
@@ -3110,6 +3308,7 @@
   function addCoins(n, r, c) {
     if (!(n > 0)) return;
     coins += n;
+    SFX.play("coin");
     if (r != null) for (let i = 0; i < n && coinFly.length < 60; i++)
       coinFly.push({ sx: pad + c * cell + cell / 2, sy: pad + r * cell + cell / 2,
                      t: -i * 0.05, lift: 0.5 + Math.random() * 0.7 });
@@ -3153,6 +3352,7 @@
   }
   function showGain(r, c, gained, colorIdx, sub) {
     if (!gained || gained <= 0) return;
+    SFX.play("gain", (sub && sub.length) ? 12 : 4);
     const wrap = document.getElementById("stage-wrap");
     const el = document.createElement("div");
     el.className = "gain-pop";
@@ -3915,6 +4115,7 @@
       gridMult, MULT_GRID, STREAK_STEP_BASE, CHAIN_STEP, multLabel,
       syncRows, ROWS_BASE, ROWS_MAX, layout, COLS, BOARD_MIN, BOARD_MAX,
       checkViewport, MIN_PLAY_H,
+      SFX,
       rollZones, zoneAt, zoneCount, fruitScoreAt, ZONE_BASE,
       get zoneCells() { return zoneCells; }, get zoneMult() { return zoneMult; },
       get zoneCoin() { return zoneCoin; }, get zoneBonus() { return zoneBonus; },
@@ -3984,8 +4185,33 @@
   document.getElementById("pause-btn").addEventListener("click", () => {
     if (!running) return;
     paused = true;
+    renderSettings();
     document.getElementById("pause").classList.remove("hidden");
   });
+  // ---- settings ----
+  function renderSettings() {
+    const b = document.getElementById("btn-mute");
+    b.classList.toggle("off", SFX.muted);
+    document.getElementById("mute-ic").textContent = SFX.muted ? "🔇" : "🔊";
+    document.getElementById("mute-t").textContent = SFX.muted ? "소리 끔" : "소리 켬";
+    document.getElementById("vol-row").classList.toggle("off", SFX.muted);
+    const v = document.getElementById("vol");
+    v.value = Math.round(SFX.volume * 100);
+    v.disabled = SFX.muted;
+    document.getElementById("vol-v").textContent = v.value;
+  }
+  document.getElementById("btn-mute").addEventListener("click", () => {
+    SFX.setMuted(!SFX.muted);
+    renderSettings();
+    if (!SFX.muted) SFX.play("tap");        // hearing it come back is the confirmation
+  });
+  document.getElementById("vol").addEventListener("input", e => {
+    SFX.setVolume(+e.target.value / 100);
+    document.getElementById("vol-v").textContent = e.target.value;
+  });
+  document.getElementById("vol").addEventListener("change", () => SFX.play("coin"));
+  renderSettings();
+
   document.getElementById("btn-resume").addEventListener("click", () => {
     paused = false;
     document.getElementById("pause").classList.add("hidden");
@@ -3997,6 +4223,7 @@
   document.getElementById("tr-reroll").addEventListener("click", () => {
     if (traitRerolls <= 0) return;
     traitRerolls--;
+    SFX.play("reroll");
     traitOffers = rollTraits();
     graftArmed = doubles > 0;           // a fresh three, still armed -- rerolling is not opting out
     renderTraits();
@@ -4013,6 +4240,7 @@
   document.getElementById("sh-reroll").addEventListener("click", () => {
     if (coins < shopReroll || !shopOffers.length) return;
     coins -= shopReroll; coinsShown = coins;
+    SFX.play("reroll");
     shopReroll += 2;                    // rerolling again in the same shop costs more
     shopOffers = rollOffers(shelfSize());
     shopSold = new Set();
