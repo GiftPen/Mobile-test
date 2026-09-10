@@ -19,6 +19,13 @@
   * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
   html, body {
     margin: 0; height: 100%;
+    /* viewport-fit=cover was set but nothing read the insets: the HUD sat under the notch
+       and the item bar under the home indicator. env() falls back to 0 where there are none. */
+    padding-top: env(safe-area-inset-top, 0px);
+    padding-bottom: env(safe-area-inset-bottom, 0px);
+    padding-left: env(safe-area-inset-left, 0px);
+    padding-right: env(safe-area-inset-right, 0px);
+    box-sizing: border-box;
     background: radial-gradient(120% 100% at 50% 0%, #1a1d2e 0%, var(--bg) 60%);
     color: var(--text);
     font-family: 'Maplestory', -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
@@ -1182,10 +1189,15 @@
   const ctx = canvas.getContext("2d");
   let cell, pad, dpr, boardPx, boardH;
 
+  const BOARD_MIN = 260, BOARD_MAX = 520, CHROME_H = 220;
   function layout() {
     // the height budget must shrink as ROWS grows or an 8x12 board runs off the screen
-    const maxW = Math.min(window.innerWidth - 24, 520, (window.innerHeight - 220) * COLS / ROWS);
-    boardPx = Math.max(260, maxW);
+    const byHeight = (window.innerHeight - CHROME_H) * COLS / ROWS;
+    const maxW = Math.min(window.innerWidth - 24, BOARD_MAX, byHeight);
+    // BOARD_MIN keeps the board playable on a wide-but-short screen, but it is a floor, not a
+    // licence to overflow: at 320x568 with a grown 12-row board it pushed the item bar 28px
+    // off the bottom. Clamp it back under the height budget.
+    boardPx = Math.min(Math.max(BOARD_MIN, maxW), Math.max(byHeight, 200));
     dpr = Math.min(3, window.devicePixelRatio || 1);  // sharper board on hi-DPI phones (idle-skip keeps heat down)
     dirty = true;
     pad = boardPx * 0.02;
@@ -3875,7 +3887,7 @@
       get starCoinMult() { return starCoinMult; }, get payoutMult() { return payoutMult; },
       bombRadius, BOMB_RADIUS_MAX, itemNeed, ITEM_NEED_MIN,
       gridMult, MULT_GRID, STREAK_STEP_BASE, CHAIN_STEP, multLabel,
-      syncRows, ROWS_BASE, ROWS_MAX, layout, COLS,
+      syncRows, ROWS_BASE, ROWS_MAX, layout, COLS, BOARD_MIN, BOARD_MAX,
       rollZones, zoneAt, zoneCount, fruitScoreAt, ZONE_BASE,
       get zoneCells() { return zoneCells; }, get zoneMult() { return zoneMult; },
       get zoneCoin() { return zoneCoin; }, get zoneBonus() { return zoneBonus; },
