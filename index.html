@@ -2222,7 +2222,12 @@
   const SFX = (() => {
     let ctx = null, master = null, armed = false, noiseBuf = null;
     let muted = false, volume = 0.7, voices = 0;
-    const MAX_VOICES = 14;       // one star clearing 40 fruit must not open 40 oscillators
+    // A cluster is the main event, so the ceiling has to fit one. At 14 a pop (two voices)
+    // filled it after seven fruit and every later pop went silent -- the bigger the cluster
+    // the quieter it got, leaving only the combo accent audible.
+    const MAX_VOICES = 26;
+    // ...and pops must never be starved by a coin or a combo blip, so accents get less room
+    const ACCENT_VOICES = 14;
     try { muted = localStorage.getItem("fs_mute") === "1"; } catch (e) {}
     // +null is 0, and 0 passes a 0..1 range check -- so reading an unset key this way set the
     // volume to silent on every fresh install. Test for the missing key before converting.
@@ -2271,7 +2276,7 @@
       return att + hold + rel;
     }
     function tone(o) {
-      if (!live() || voices >= MAX_VOICES) return;
+      if (!live() || voices >= (o.lead ? MAX_VOICES : ACCENT_VOICES)) return;
       const t0 = ctx.currentTime + (o.delay || 0);
       const osc = ctx.createOscillator();
       osc.type = o.type || "sine";
@@ -2282,7 +2287,7 @@
       osc.start(t0); osc.stop(t0 + span + 0.03);
     }
     function noise(o) {
-      if (!live() || voices >= MAX_VOICES) return;
+      if (!live() || voices >= (o.lead ? MAX_VOICES : ACCENT_VOICES)) return;
       if (!noiseBuf) {
         noiseBuf = ctx.createBuffer(1, ctx.sampleRate * 0.4, ctx.sampleRate);
         const d = noiseBuf.getChannelData(0);
@@ -2309,25 +2314,33 @@
     const hz = semi => 330 * Math.pow(2, semi / 12);
 
     const S = {
-      tap:    () => tone({ f: 520, f2: 380, dur: 0.05, vol: 0.16, type: "triangle" }),
-      plant:  () => tone({ f: 240, f2: 170, dur: 0.06, vol: 0.20, type: "triangle" }),
+      tap:    () => tone({ f: 520, f2: 380, dur: 0.05, vol: 0.10, type: "triangle" }),
+      // putting a fruit down is half the feel of the game: a soft thud with a little body
+      plant:  () => {
+        tone({ f: 300, f2: 165, dur: 0.10, vol: 0.42, type: "triangle", lead: true });
+        noise({ f: 800, f2: 260, dur: 0.05, vol: 0.16, filter: "lowpass", lead: true });
+      },
+      // the main sound. A sine was too polite to be heard over anything -- juice needs a wet
+      // transient and a body with harmonics, not a pure tone.
       pop: i => {
         const n = PENTA[FRUIT_NOTE[i] == null ? 0 : FRUIT_NOTE[i]];
-        tone({ f: hz(n) * 2, f2: hz(n) * 1.5, dur: 0.075, vol: 0.26, type: "sine" });
-        tone({ f: hz(n) * 4, dur: 0.03, vol: 0.07, type: "triangle" });
+        const f = hz(n) * 2;
+        tone({ f: f * 1.5, f2: f * 0.92, dur: 0.13, vol: 0.52, type: "triangle", lead: true });
+        noise({ f: f * 3.2, f2: f * 1.1, dur: 0.055, vol: 0.26, filter: "bandpass", q: 1.2, lead: true });
       },
-      gain: size => {                       // the payoff, louder and fuller with the cluster
+      gain: size => {                       // the payoff, fuller with the cluster but under it
         const k = Math.min(1, size / 12);
-        tone({ f: 330, dur: 0.18 + k * 0.12, vol: 0.14 + k * 0.14, type: "triangle" });
-        tone({ f: 495, dur: 0.16 + k * 0.12, vol: 0.10 + k * 0.10, type: "sine", delay: 0.02 });
-        if (k > 0.5) tone({ f: 660, dur: 0.2, vol: 0.10, type: "sine", delay: 0.04 });
+        tone({ f: 330, dur: 0.20 + k * 0.12, vol: 0.11 + k * 0.10, type: "triangle" });
+        tone({ f: 495, dur: 0.18 + k * 0.12, vol: 0.08 + k * 0.07, type: "sine", delay: 0.03 });
       },
-      combo: n => {                          // climbs with the streak, capped so it stays sane
+      // an accent under the pops, not over them. A square wave at 0.16 carries far more
+      // energy than a sine at 0.26, which is why this was the only thing audible.
+      combo: n => {
         const s = PENTA[Math.min(PENTA.length - 1, n)];
-        tone({ f: hz(s) * 2, dur: 0.09, vol: 0.16, type: "square" });
+        tone({ f: hz(s) * 2, dur: 0.07, vol: 0.07, type: "triangle" });
       },
-      coin:  () => { tone({ f: 1050, dur: 0.05, vol: 0.13, type: "square" });
-                     tone({ f: 1560, dur: 0.09, vol: 0.11, type: "square", delay: 0.05 }); },
+      coin:  () => { tone({ f: 1050, dur: 0.05, vol: 0.08, type: "triangle" });
+                     tone({ f: 1560, dur: 0.09, vol: 0.07, type: "triangle", delay: 0.05 }); },
       bomb:  () => { noise({ f: 1800, f2: 120, dur: 0.34, vol: 0.34 });
                      tone({ f: 150, f2: 44, dur: 0.34, vol: 0.30, type: "sine" }); },
       line:  () => noise({ f: 500, f2: 4500, dur: 0.3, vol: 0.2, filter: "bandpass", q: 3 }),
