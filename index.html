@@ -198,8 +198,19 @@
     background: #1e2130; color: var(--muted); border-radius: 10px; box-shadow: none; }
   .lang-btn.on { background: #3a3316; color: #ffd23e; }
   .set-val { font-size: 13px; color: var(--muted); width: 28px; text-align: right; }
-  #vol { flex: 1; accent-color: #ffd23e; }
-  #vol-row.off { opacity: .35; }
+  #vol, #s-vol { flex: 1; accent-color: #ffd23e; }
+  #vol-row.off, #s-vol-row.off { opacity: .35; }
+  #settings { position: fixed; inset: 0; z-index: 30; background: rgba(8,9,15,.92);
+    backdrop-filter: blur(6px); display: flex; align-items: center; justify-content: center;
+    padding: 18px; }
+  #settings.hidden { display: none; }
+  .set-card { width: 100%; max-width: 340px; max-height: 92vh; overflow-y: auto;
+    background: #161926; border-radius: 20px; padding: 18px; border: 1px solid #262b40;
+    text-align: center; }
+  .set-card h2 { margin: 0 0 14px; font-size: 22px; font-weight: 900; }
+  .set-card .ghost-btn.wide { width: 100%; max-width: 280px; margin: 0 auto; }
+  .set-ver { font-size: 11px; color: var(--muted); margin: 12px 0 10px; letter-spacing: .5px; }
+  .set-toggle.off { color: var(--muted); }
   #rotate { position: fixed; inset: 0; z-index: 40; display: none;
     flex-direction: column; align-items: center; justify-content: center; gap: 10px;
     background: #0b0d16; text-align: center; padding: 20px; }
@@ -436,10 +447,6 @@
     <div class="set-row">
       <button id="btn-mute" class="set-toggle"><span id="mute-ic">🔊</span> <span id="mute-t" data-i18n="soundOn">소리 켬</span></button>
     </div>
-    <div class="set-row">
-      <span class="set-lab" data-i18n="language">언어</span>
-      <div id="lang-picker" class="lang-picker"></div>
-    </div>
     <div class="set-row" id="vol-row">
       <span class="set-lab" data-i18n="volume">음량</span>
       <input id="vol" type="range" min="0" max="100" step="5" value="70" data-i18n-aria="volume" aria-label="음량">
@@ -555,6 +562,32 @@
     <button class="dock-btn" data-item="bomb">💣</button>
     <button class="dock-btn" data-item="star">🌟</button>
     <button class="dock-btn" data-item="brick">🧱</button>
+  </div>
+
+  <div id="settings" class="hidden">
+    <div class="set-card">
+      <h2 data-i18n="btnSettings">설정</h2>
+      <div class="set-row">
+        <span class="set-lab" data-i18n="language">언어</span>
+        <div id="s-lang" class="lang-picker"></div>
+      </div>
+      <div class="set-row">
+        <button id="s-mute" class="set-toggle"><span id="s-mute-ic">🔊</span> <span id="s-mute-t">소리 켬</span></button>
+      </div>
+      <div class="set-row" id="s-vol-row">
+        <span class="set-lab" data-i18n="volume">음량</span>
+        <input id="s-vol" type="range" min="0" max="100" step="5" value="70" data-i18n-aria="volume" aria-label="음량">
+        <span class="set-val" id="s-vol-v">70</span>
+      </div>
+      <div class="set-row">
+        <button id="s-haptic" class="set-toggle"><span id="s-haptic-ic">📳</span> <span id="s-haptic-t" data-i18n="haptics">진동</span></button>
+      </div>
+      <div class="set-row">
+        <button id="s-reset" class="ghost-btn wide" data-i18n="resetRecords">기록 초기화</button>
+      </div>
+      <div class="set-ver" id="s-ver"></div>
+      <button id="s-close" data-i18n="btnClose">닫기</button>
+    </div>
   </div>
 
   <div id="rotate">
@@ -1290,6 +1323,7 @@
   // is JSON-safe, so a long Star Rush run can survive the phone evicting the tab. Session
   // flags (running/busy/paused), effect buffers (particles/waves/...) and layout are
   // deliberately NOT run state -- they are rebuilt, not restored.
+  const BUILD_VER = "0.9";   // shown in settings so a bug report can name a build
   const RUN_VERSION = 1;
   const layer = fill => Array.from({ length: ROWS }, () => Array(COLS).fill(fill));
 
@@ -1775,6 +1809,10 @@
       bestLine: (label, score) => `최고 <b>${label}</b> · <b>${score}</b>점`,
       cluster: "덩어리", combo: "콤보",
       colFruit: "과일", colScore: "점수", colOdds: "확률",
+      haptics: "진동",
+      resetRecords: "기록 초기화",
+      resetAsk: "최고 점수와 도달 기록을 지웁니다. 계속할까요?",
+      resetDone: "기록을 지웠습니다",
       tierCommon: "일반", tierUncommon: "고급", tierRare: "희귀", tierLegend: "전설",
       soonSettings: "⚙️ 설정은 준비 중이에요", soonRanking: "🏆 랭킹은 준비 중이에요",
     },
@@ -1947,6 +1985,10 @@
       bestLine: (label, score) => `Best <b>${label}</b> · <b>${score}</b>`,
       cluster: "cluster", combo: "combo",
       colFruit: "Fruit", colScore: "Score", colOdds: "Odds",
+      haptics: "Vibration",
+      resetRecords: "Reset records",
+      resetAsk: "This clears your best score and furthest stage. Continue?",
+      resetDone: "Records cleared",
       tierCommon: "Common", tierUncommon: "Uncommon", tierRare: "Rare", tierLegend: "Legendary",
       soonSettings: "⚙️ Settings are on the way", soonRanking: "🏆 Ranking is on the way",
     },
@@ -2118,6 +2160,10 @@
       bestLine: (label, score) => `ベスト <b>${label}</b> · <b>${score}</b>`,
       cluster: "かたまり", combo: "コンボ",
       colFruit: "フルーツ", colScore: "スコア", colOdds: "確率",
+      haptics: "バイブ",
+      resetRecords: "記録をリセット",
+      resetAsk: "ベストスコアと到達記録を消します。よろしいですか?",
+      resetDone: "記録を消しました",
       tierCommon: "コモン", tierUncommon: "アンコモン", tierRare: "レア", tierLegend: "レジェンド",
       soonSettings: "⚙️ 設定は準備中です", soonRanking: "🏆 ランキングは準備中です",
     },
@@ -2289,6 +2335,10 @@
       bestLine: (label, score) => `最高 <b>${label}</b> · <b>${score}</b>`,
       cluster: "成团", combo: "连击",
       colFruit: "水果", colScore: "分数", colOdds: "概率",
+      haptics: "震动",
+      resetRecords: "重置记录",
+      resetAsk: "将清除最高分和最远关卡记录，确定吗？",
+      resetDone: "记录已清除",
       tierCommon: "普通", tierUncommon: "优良", tierRare: "稀有", tierLegend: "传说",
       soonSettings: "⚙️ 设置正在准备中", soonRanking: "🏆 排行榜正在准备中",
     },
@@ -3347,6 +3397,7 @@
   function plant(r0, c0, color) {
     touchCount++;
     SFX.play("plant");
+    buzz(12);                              // the tick under your thumb
     grid[r0][c0] = color;            // the placed ball (removed later if it clears)
     special[r0][c0] = null;
     const R = BURST_RADIUS;
@@ -4159,6 +4210,7 @@
   function gameOver(reason) {
     running = false; busy = false;
     SFX.play("over");
+    buzz([30, 60, 30]);
     recordStage();
     const why = reason === "touches" ? d("overTouches") : reason === "board" ? d("overFull") : "";
     document.getElementById("ov-msg").innerHTML = rules().touchBudget
@@ -4264,6 +4316,7 @@
   function showGain(r, c, gained, colorIdx, sub) {
     if (!gained || gained <= 0) return;
     SFX.play("gain", (sub && sub.length) ? 12 : 4);
+    if (sub && sub.length) buzz(24);       // only the big ones, or it is a constant hum
     const wrap = document.getElementById("stage-wrap");
     const el = document.createElement("div");
     el.className = "gain-pop";
@@ -5027,7 +5080,10 @@
       syncRows, ROWS_BASE, ROWS_MAX, layout, COLS, BOARD_MIN, BOARD_MAX,
       checkViewport, MIN_PLAY_H,
       SFX, setLang, LANGS, PACKS, d, L, applyStaticText, nameOf,
-      renderSettings, openTraits, openInfo,
+      renderSettings, openTraits, openInfo, openSettings, closeSettings, renderMenuSettings,
+      // these are declared further down, so read them lazily rather than at hook-build time
+      setHaptics, BUILD_VER,
+      get HAPTICS_OK() { return HAPTICS_OK; }, get haptics() { return haptics; },
       get LANG() { return LANG; },
       rollZones, zoneAt, zoneCount, fruitScoreAt, ZONE_BASE,
       announceOffers,
@@ -5092,7 +5148,29 @@
     clearTimeout(msgTimer); msgTimer = setTimeout(() => { el.textContent = ""; }, 2200);
   }
   document.getElementById("btn-challenge").addEventListener("click", () => start("rush"));
-  document.getElementById("btn-settings").addEventListener("click", () => menuMsg(d("soonSettings")));
+  document.getElementById("btn-settings").addEventListener("click", openSettings);
+  document.getElementById("s-close").addEventListener("click", closeSettings);
+  document.getElementById("s-mute").addEventListener("click", () => {
+    SFX.setMuted(!SFX.muted); renderMenuSettings();
+    if (!SFX.muted) SFX.play("tap");
+  });
+  document.getElementById("s-vol").addEventListener("input", e => {
+    SFX.setVolume(+e.target.value / 100);
+    document.getElementById("s-vol-v").textContent = e.target.value;
+  });
+  document.getElementById("s-vol").addEventListener("change", () => SFX.play("coin"));
+  document.getElementById("s-haptic").addEventListener("click", () => {
+    setHaptics(!haptics); renderMenuSettings();
+    buzz(18);                              // feel the setting you just turned on
+  });
+  document.getElementById("s-reset").addEventListener("click", () => {
+    if (!confirm(d("resetAsk"))) return;
+    try {
+      for (const k of [BEST_KEYS.arcade, BEST_KEYS.rush, BEST_STAGE_KEY]) localStorage.removeItem(k);
+    } catch (e) {}
+    best = 0; bestStage = 0; loadBest(); updateHUD();
+    menuMsg(d("resetDone"));
+  });
   document.getElementById("btn-ranking").addEventListener("click", () => menuMsg(d("soonRanking")));
 
   // in-game pause / back to main
@@ -5102,7 +5180,49 @@
     renderSettings();
     document.getElementById("pause").classList.remove("hidden");
   });
+  // ---- haptics ----
+  // A tactile game deserves a tick you can feel. navigator.vibrate is Android-only (iOS
+  // Safari has no equivalent), so the toggle hides itself where it cannot work rather than
+  // offering a switch that does nothing.
+  const HAPTICS_OK = typeof navigator !== "undefined" && typeof navigator.vibrate === "function";
+  let haptics = true;
+  try { haptics = localStorage.getItem("fs_haptic") !== "0"; } catch (e) {}
+  function buzz(ms) { if (haptics && HAPTICS_OK) { try { navigator.vibrate(ms); } catch (e) {} } }
+  function setHaptics(v) {
+    haptics = !!v;
+    try { localStorage.setItem("fs_haptic", haptics ? "1" : "0"); } catch (e) {}
+  }
+
   // ---- settings ----
+  // The menu panel is the full set; the pause panel keeps only what you would want to reach
+  // mid-run (sound and volume). Both are driven from here so they cannot drift apart.
+  function renderMenuSettings() {
+    const m = document.getElementById("s-mute");
+    m.classList.toggle("off", SFX.muted);
+    document.getElementById("s-mute-ic").textContent = SFX.muted ? "🔇" : "🔊";
+    document.getElementById("s-mute-t").textContent = d(SFX.muted ? "soundOff" : "soundOn");
+    document.getElementById("s-vol-row").classList.toggle("off", SFX.muted);
+    const v = document.getElementById("s-vol");
+    v.value = Math.round(SFX.volume * 100); v.disabled = SFX.muted;
+    document.getElementById("s-vol-v").textContent = v.value;
+    const h = document.getElementById("s-haptic");
+    h.parentElement.style.display = HAPTICS_OK ? "" : "none";
+    h.classList.toggle("off", !haptics);
+    document.getElementById("s-haptic-ic").textContent = haptics ? "📳" : "🔕";
+    const wrap = document.getElementById("s-lang");
+    wrap.textContent = "";
+    for (const code of Object.keys(LANGS)) {
+      const b = document.createElement("button");
+      b.className = "lang-btn" + (code === LANG ? " on" : "");
+      b.textContent = LANGS[code];
+      b.addEventListener("click", () => { setLang(code); renderMenuSettings(); });
+      wrap.appendChild(b);
+    }
+    document.getElementById("s-ver").textContent = "Fruit Star · " + BUILD_VER;
+  }
+  function openSettings() { renderMenuSettings(); $sh("settings").classList.remove("hidden"); }
+  function closeSettings() { $sh("settings").classList.add("hidden"); }
+
   function renderSettings() {
     const b = document.getElementById("btn-mute");
     b.classList.toggle("off", SFX.muted);
@@ -5113,22 +5233,10 @@
     v.value = Math.round(SFX.volume * 100);
     v.disabled = SFX.muted;
     document.getElementById("vol-v").textContent = v.value;
-    renderLangPicker();
-  }
-  function renderLangPicker() {
-    const wrap = document.getElementById("lang-picker");
-    wrap.textContent = "";
-    for (const code of Object.keys(LANGS)) {
-      const b = document.createElement("button");
-      b.className = "lang-btn" + (code === LANG ? " on" : "");
-      b.textContent = LANGS[code];
-      b.addEventListener("click", () => { setLang(code); renderSettings(); });
-      wrap.appendChild(b);
-    }
   }
   // anything already on screen has to redraw in the new language, not wait for a reopen
   onLangChange(() => {
-    renderLangPicker();
+    if (!$sh("settings").classList.contains("hidden")) renderMenuSettings();
     if (!$sh("shop").classList.contains("hidden")) renderShop();
     if (!$sh("traits").classList.contains("hidden")) renderTraits();
     if (!$sh("info").classList.contains("hidden")) renderInfo();

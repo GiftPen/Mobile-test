@@ -92,6 +92,7 @@ window.addEventListener('load', () => setTimeout(() => {
   F.mode = 'rush'; F.resetRun(); F.running = true; F.coins = 999;
   const panels = [
     ['menu',   () => {}],
+    ['settings', () => F.openSettings()],
     ['pause',  () => { F.renderSettings && F.renderSettings();
                        document.getElementById('pause').classList.remove('hidden'); }],
     ['shop',   () => F.openShop()],
@@ -111,7 +112,7 @@ window.addEventListener('load', () => setTimeout(() => {
     }
   }
   chk('no Korean is rendered on screen in English', onScreen, []);
-  for (const id of ['pause', 'shop', 'traits', 'info', 'overlay'])
+  for (const id of ['settings', 'pause', 'shop', 'traits', 'info', 'overlay'])
     document.getElementById(id).classList.add('hidden');
   F.running = false; F.resetRun();
 
