@@ -1561,75 +1561,214 @@
   // Traits are DATA, not closures: every effect declares {stat, target, amount} so a
   // "double the next trait" consumable can just scale `amount` (doc 7). scalable:false marks
   // the ones where doubling has no meaning. Multiplier effects are additive for the same
+  // ---- language --------------------------------------------------------------------
+  // Descriptions are written as CALLS INTO the language pack, not as sentences. 70% of the
+  // 84 relic/trait descriptions share a phrasing with at least one other ("F 점수 배율 +N"
+  // alone covers 13), so a new relic that reuses a pattern is translated in every language
+  // the moment it is added -- no new strings to write, nothing to forget.
+  //
+  // Two rules keep it safe as the game grows:
+  //   1. every lookup falls back ko -> key, so a missing translation shows Korean, never blank
+  //   2. tools/i18n-test.py fails on any key present in ko and missing elsewhere
+  const LANGS = { ko: "한국어", en: "English" };
+
+  const FRUIT_KO = ["체리", "오렌지", "키위", "레몬", "포도", "복숭아", "바나나"];
+  const FRUIT_EN = ["Cherry", "Orange", "Kiwi", "Lemon", "Grape", "Peach", "Banana"];
+  const listKo = a => a.join("·");
+  // Korean object particle: 레몬 takes 을, 체리 takes 를. Getting this wrong is the most
+  // obvious possible tell that text was assembled by a machine, and it is one line of code.
+  const hasJong = w => {
+    const c = w.charCodeAt(w.length - 1);
+    return c >= 0xAC00 && c <= 0xD7A3 && (c - 0xAC00) % 28 !== 0;
+  };
+  const eul = w => w + (hasJong(w) ? "을" : "를");
+  const listEn = a => a.length < 2 ? a[0] : a.slice(0, -1).join(", ") + " and " + a[a.length - 1];
+  const n1 = v => +(+v).toFixed(2);
+
+  const PACKS = {
+    ko: {
+      _fruit: FRUIT_KO, _list: listKo,
+      // --- shared description patterns (the 70%) ---
+      fruitFlat:  (f, n) => `${FRUIT_KO[f]} 점수 +${n}`,
+      fruitMult:  (f, n) => `${FRUIT_KO[f]} 점수 배율 +${n1(n)}`,
+      fruitsMult: (fs, n) => `${listKo(fs.map(i => FRUIT_KO[i]))} 점수 배율 +${n1(n)}`,
+      odds:       (fs, n) => `${listKo(fs.map(i => FRUIT_KO[i]))} ${n1(n)}만큼 더 등장`,
+      stackOnPop: (f, n) => `${eul(FRUIT_KO[f])} 터뜨릴 때마다 ${FRUIT_KO[f]} 점수 +${n}`,
+      anyStackOnPop: n => `과일을 터뜨릴 때마다 그 과일 점수 +${n}`,
+      allFlat:    n => `모든 과일 점수 +${n}`,
+      allMult:    n => `모든 과일 점수 배율 +${n1(n)}`,
+      touch:      n => `스테이지마다 터치 +${n}`,
+      spawn:      n => `매 턴 과일 +${n}`,
+      payoutFlat: n => `스테이지 정산 코인 +${n}`,
+      payoutPct:  n => `스테이지 정산 코인 +${n}%`,
+      coinFruit:  n => `코인 달린 과일 확률 +${n}%p`,
+      popMult:    n => `터뜨린 점수 ×${n1(n)}`,
+      popMultRun: n => `터뜨린 점수 ×${n1(n)} · 런 내내`,
+      bigPop:     (k, m) => `${k}개 이상 터뜨리면 점수 ×${n1(m)}`,
+      brickDeal:  (pct, br) => `터뜨린 점수 +${pct}% · 새 과일의 ${br}%가 벽돌`,
+      clusterStep:(add, from, to) => `덩어리 보너스 +${n1(add)} (${n1(from)} → ${n1(to)})`,
+      comboStep:  (add, from, to) => `콤보 증가폭 +${n1(add)} (${n1(from)} → ${n1(to)})`,
+      comboCap:   (from, to) => `콤보 상한 ×${n1(from)} → ×${n1(to)}`,
+      slots:      n => `유물 칸 +${n}`,
+      offers:     n => `상점 진열 +${n}`,
+      // 한 줄 / 두 줄, not 1줄 / 2줄 -- Korean counts small numbers of things with native
+      // numerals, and the board can only ever grow by four
+      rows:       n => `판이 ${["", "한", "두", "세", "네"][n] || n} 줄 넓어집니다`,
+      startFruit: n => `스테이지를 시작할 때 과일 ${n}개가 더 놓입니다`,
+      bombRadius: n => `폭탄 폭발 범위 +${n}`,
+      bombSize:   n => `폭탄이 ${n}×${n}로 터집니다`,
+      itemEase:   n => `아이템이 ${n}개 적게 터뜨려도 생깁니다`,
+      birds:      n => `참새가 ${n}마리씩 날아갑니다`,
+      birdsMore:  n => `참새가 ${n}마리 더 날아갑니다`,
+      starCoin:   (a, b) => `별이 과일당 코인 ${a}개 → ${b}개`,
+      starCoinUp: n => `별이 과일당 코인 +${n}`,
+      crossLine:  () => "라인이 항상 가로세로 동시에 생깁니다",
+      zoneMult:   n => `표시된 칸에서 터뜨리면 그 과일 점수 ×${n1(n)}`,
+      zoneCoin:   n => `표시된 칸에서 터뜨리면 코인 +${n}`,
+      zoneMore:   n => `표시된 칸 +${n}`,
+      boostBest:  n => `지금 가장 비싼 과일의 값어치를 ${n1(n)}배로`,
+      nextDouble: () => "다음 특성 선택을 2배로",
+    },
+    en: {
+      _fruit: FRUIT_EN, _list: listEn,
+      fruitFlat:  (f, n) => `${FRUIT_EN[f]} +${n} points`,
+      fruitMult:  (f, n) => `${FRUIT_EN[f]} score multiplier +${n1(n)}`,
+      fruitsMult: (fs, n) => `${listEn(fs.map(i => FRUIT_EN[i]))} score multiplier +${n1(n)}`,
+      odds:       (fs, n) => `${listEn(fs.map(i => FRUIT_EN[i]))} appear ${n1(n)} more`,
+      stackOnPop: (f, n) => `Every ${FRUIT_EN[f]} popped raises ${FRUIT_EN[f]} by +${n}`,
+      anyStackOnPop: n => `Every fruit popped raises that fruit by +${n}`,
+      allFlat:    n => `All fruit +${n} points`,
+      allMult:    n => `All fruit score multiplier +${n1(n)}`,
+      touch:      n => `+${n} touches each stage`,
+      spawn:      n => `+${n} fruit every turn`,
+      payoutFlat: n => `+${n} coins on stage payout`,
+      payoutPct:  n => `+${n}% coins on stage payout`,
+      coinFruit:  n => `Coin-carrying fruit +${n}%`,
+      popMult:    n => `Popped score ×${n1(n)}`,
+      popMultRun: n => `Popped score ×${n1(n)} · whole run`,
+      bigPop:     (k, m) => `Pop ${k} or more for ×${n1(m)} score`,
+      brickDeal:  (pct, br) => `Popped score +${pct}% · ${br}% of new fruit are bricks`,
+      clusterStep:(add, from, to) => `Cluster bonus +${n1(add)} (${n1(from)} → ${n1(to)})`,
+      comboStep:  (add, from, to) => `Combo step +${n1(add)} (${n1(from)} → ${n1(to)})`,
+      comboCap:   (from, to) => `Combo cap ×${n1(from)} → ×${n1(to)}`,
+      slots:      n => `+${n} relic slot${n > 1 ? "s" : ""}`,
+      offers:     n => `+${n} shop card${n > 1 ? "s" : ""}`,
+      rows:       n => `Board grows ${n} row${n > 1 ? "s" : ""}`,
+      startFruit: n => `${n} extra fruit at the start of each stage`,
+      bombRadius: n => `Bomb blast radius +${n}`,
+      bombSize:   n => `Bombs blast ${n}×${n}`,
+      itemEase:   n => `Items need ${n} fewer pops`,
+      birds:      n => `${n} sparrows fly at once`,
+      birdsMore:  n => `+${n} sparrow${n > 1 ? "s" : ""} fly`,
+      starCoin:   (a, b) => `Stars pay ${a} → ${b} coins per fruit`,
+      starCoinUp: n => `Stars pay +${n} coin per fruit`,
+      crossLine:  () => "Lines always clear a row and a column",
+      zoneMult:   n => `Popping on a marked cell scores ×${n1(n)}`,
+      zoneCoin:   n => `Popping on a marked cell pays +${n} coin`,
+      zoneMore:   n => `+${n} marked cells`,
+      boostBest:  n => `Multiply your priciest fruit's value by ${n1(n)}`,
+      nextDouble: () => "Double your next trait pick",
+    },
+  };
+
+  let LANG = "ko";
+  try {
+    const saved = localStorage.getItem("fs_lang");
+    if (saved && PACKS[saved]) LANG = saved;
+    else {
+      const nav = ((navigator.languages && navigator.languages[0]) || navigator.language || "ko");
+      LANG = nav.toLowerCase().startsWith("ko") ? "ko" : "en";
+    }
+  } catch (e) {}
+
+  // every lookup lands somewhere: current pack -> ko -> the key itself. A relic added without
+  // an English phrasing shows Korean rather than an empty card.
+  function L(key) {
+    const p = PACKS[LANG], k = PACKS.ko;
+    return (p && p[key] != null) ? p[key] : (k[key] != null ? k[key] : key);
+  }
+  // descriptions call this: d("fruitFlat", 3, 8)
+  function d(key, ...args) {
+    const f = L(key);
+    return typeof f === "function" ? f(...args) : String(f);
+  }
+  function setLang(v) {
+    if (!PACKS[v]) return;
+    LANG = v;
+    try { localStorage.setItem("fs_lang", v); } catch (e) {}
+    document.documentElement.lang = v;
+  }
+  document.documentElement.lang = LANG;
+
   // reason -- doubling a x1.5 would give x3 and compound out of control.
   const TRAITS = {
     cherry_taste: { name: "체리 감식가", icon: "🍒", scalable: true,
       effects: [{ stat: "fruitMult", target: 0, amount: 0.4 }],
-      desc: e => `체리 점수 배율 +${+e[0].amount.toFixed(2)}` },
+      desc: e => d("fruitMult", 0, e[0].amount) },
     banana_taste: { name: "바나나 취향", icon: "🍌", scalable: true,
       effects: [{ stat: "oddsMult", target: 6, amount: 1 }],
-      desc: e => `바나나 ${e[0].amount}만큼 더 등장` },
+      desc: e => d("odds", [6], e[0].amount) },
     citrus: { name: "감귤 애호", icon: "🍊", scalable: true,
       effects: [{ stat: "oddsMult", target: 1, amount: 1 }, { stat: "oddsMult", target: 3, amount: 1 }],
-      desc: e => `오렌지·레몬 ${e[0].amount}만큼 더 등장` },
+      desc: e => d("odds", [1, 3], e[0].amount) },
     grape_taste: { name: "포도 수집가", icon: "🍇", scalable: true,
       effects: [{ stat: "fruitMult", target: 4, amount: 0.5 }],
-      desc: e => `포도 점수 배율 +${+e[0].amount.toFixed(2)}` },
+      desc: e => d("fruitMult", 4, e[0].amount) },
     // every fruit gets one, so no build is stuck buying relics only. Amounts are set from
     // 등장률 x 기본점수 so the per-pick value lands in the same band rather than reading
     // "bigger number = better": 바나나 is 0.4 on a 50-point fruit that shows up 6% of the time.
     orange_taste: { name: "오렌지 감별사", icon: "🍊", scalable: true,
       effects: [{ stat: "fruitMult", target: 1, amount: 0.4 }],
-      desc: e => `오렌지 점수 배율 +${+e[0].amount.toFixed(2)}` },
+      desc: e => d("fruitMult", 1, e[0].amount) },
     kiwi_taste: { name: "키위 재배가", icon: "🥝", scalable: true,
       effects: [{ stat: "fruitMult", target: 2, amount: 0.4 }],
-      desc: e => `키위 점수 배율 +${+e[0].amount.toFixed(2)}` },
+      desc: e => d("fruitMult", 2, e[0].amount) },
     lemon_taste: { name: "레몬 장인", icon: "🍋", scalable: true,
       effects: [{ stat: "fruitMult", target: 3, amount: 0.5 }],
-      desc: e => `레몬 점수 배율 +${+e[0].amount.toFixed(2)}` },
+      desc: e => d("fruitMult", 3, e[0].amount) },
     peach_taste: { name: "복숭아 명인", icon: "🍑", scalable: true,
       effects: [{ stat: "fruitMult", target: 5, amount: 0.4 }],
-      desc: e => `복숭아 점수 배율 +${+e[0].amount.toFixed(2)}` },
+      desc: e => d("fruitMult", 5, e[0].amount) },
     banana_master: { name: "바나나 숙성가", icon: "🍌", scalable: true,
       effects: [{ stat: "fruitMult", target: 6, amount: 0.4 }],
-      desc: e => `바나나 점수 배율 +${+e[0].amount.toFixed(2)}` },
+      desc: e => d("fruitMult", 6, e[0].amount) },
 
     // items had no trait line at all -- the only way to push that axis was the shop
     blast: { name: "폭심", icon: "💣", scalable: true,
       effects: [{ stat: "bombRadius", amount: 1 }],
-      desc: e => `폭탄 폭발 범위 +${e[0].amount}` },
+      desc: e => d("bombRadius", e[0].amount) },
     knack: { name: "요령", icon: "🔧", scalable: true,
       effects: [{ stat: "itemEase", amount: 1 }],
-      desc: e => `아이템이 ${e[0].amount}개 적게 터뜨려도 생깁니다` },
+      desc: e => d("itemEase", e[0].amount) },
     feed: { name: "모이주기", icon: "🐦", scalable: true,
       effects: [{ stat: "birdFlock", amount: 1 }],
-      desc: e => `참새가 ${e[0].amount}마리 더 날아갑니다` },
+      desc: e => d("birdsMore", e[0].amount) },
     stardust: { name: "별빛", icon: "⭐", scalable: true,
       effects: [{ stat: "starCoin", amount: 1 }],
-      desc: e => `별이 과일당 코인 +${e[0].amount}` },
+      desc: e => d("starCoinUp", e[0].amount) },
     leisure: { name: "여유", icon: "👆", scalable: true,
       effects: [{ stat: "touchBonus", amount: 2 }],
-      desc: e => `스테이지마다 터치 +${e[0].amount}` },
+      desc: e => d("touch", e[0].amount) },
     // once-per-run like 넓은 주머니, its shelf-widening twin -- without it the shop had no
     // ceiling at all
     keen_eye: { name: "안목", icon: "👀", scalable: true, once: true,
       effects: [{ stat: "offerBonus", amount: 1 }],
-      desc: e => `상점 진열 +${e[0].amount}` },
+      desc: e => d("offers", e[0].amount) },
     big_pocket: { name: "넓은 주머니", icon: "🎒", scalable: true, once: true,
       effects: [{ stat: "slotBonus", amount: 1 }],
-      desc: e => `유물 칸 +${e[0].amount}` },
+      desc: e => d("slots", e[0].amount) },
     concentrate: { name: "농축", icon: "🔮", scalable: true,
       effects: [{ stat: "boostBest", amount: 2 }],
-      desc: e => `지금 가장 비싼 과일의 값어치를 ${e[0].amount}배로` },
+      desc: e => d("boostBest", e[0].amount) },
     distill: { name: "증류", icon: "⚗️", scalable: true,
       effects: [{ stat: "stackAll", amount: 5 }],
-      desc: e => `모든 과일 점수 +${e[0].amount}` },
+      desc: e => d("allFlat", e[0].amount) },
     // meta: it is a charge you spend, not something you carry. It still lands in `traits`
     // so `once` can keep it from being offered twice, but the list renders the charge
     // instead -- "접붙이기" sitting there next to a live "접붙이기 1회" read as two things.
     graft: { name: "접붙이기", icon: "✨", scalable: false, once: true, meta: true,
       effects: [{ stat: "doubles", amount: 1 }],
-      desc: () => "다음 특성 선택을 2배로" },
+      desc: () => d("nextDouble") },
   };
 
   // Grade sets how often a relic is offered. Derived from price by default so 40 relics do
@@ -1654,199 +1793,214 @@
   const RELICS = {
     banana_hunter: {                                            // A. odds
       name: "바나나 사냥꾼", icon: "🍌", price: 14,
-      desc: "바나나 1만큼 더 등장",
+      desc: () => d("odds", [6], 1),
       apply() { oddsMult[6] += 1; },
     },
     big_pop: {                                                  // B. score
       name: "대량 보너스", icon: "💥", price: 16,
-      desc: "5개 이상 터뜨리면 점수 ×1.5",
+      desc: () => d("bigPop", 5, 1.5),
       modify: { pop: (v, ctx) => (ctx.cleared >= 5 ? v * 1.5 : v) },
     },
     stamina: {                                                  // C. resource
       name: "지구력", icon: "✋", price: 13,
-      desc: "스테이지마다 터치 +3",
+      desc: () => d("touch", 3),
       apply() { touchBonus += 3; },
     },
     storm: {                                                    // D. risk
       name: "폭풍 스폰", icon: "🌊", price: 11,
-      desc: "매 턴 과일 +1",
+      desc: () => d("spawn", 1),
       apply() { spawnBonus += 1; },
     },
     brick_deal: {                                               // D. risk
       name: "벽돌 계약", icon: "🧱", price: 12,
-      desc: "터뜨린 점수 +30% · 새 과일의 18%가 벽돌",
+      desc: () => d("brickDeal", 30, 18),
       apply() { brickChance += 0.18; },
       modify: { pop: v => v * 1.3 },
     },
     // ---- A. odds ----
     cherry_pick: { name: "체리 편애", icon: "🍒", price: 9,
-      desc: "체리 1만큼 더 등장", apply() { oddsMult[0] += 1; } },
+      desc: () => d("odds", [0], 1), apply() { oddsMult[0] += 1; } },
     citrus_crate: { name: "감귤 상자", icon: "🍊", price: 13,
-      desc: "오렌지·레몬 1만큼 더 등장", apply() { oddsMult[1] += 1; oddsMult[3] += 1; } },
+      desc: () => d("odds", [1, 3], 1), apply() { oddsMult[1] += 1; oddsMult[3] += 1; } },
     orchard: { name: "과수원", icon: "🍑", price: 14,
-      desc: "포도·복숭아 1만큼 더 등장", apply() { oddsMult[4] += 1; oddsMult[5] += 1; } },
+      desc: () => d("odds", [4, 5], 1), apply() { oddsMult[4] += 1; oddsMult[5] += 1; } },
     banana_grove: { name: "바나나 농장", icon: "🌴", price: 22,
-      desc: "바나나 3만큼 더 등장", apply() { oddsMult[6] += 3; } },
+      desc: () => d("odds", [6], 3), apply() { oddsMult[6] += 3; } },
 
     // ---- B. score ----
     chain_master: { name: "덩치", icon: "🫧", price: 17,
-      desc: `덩어리 보너스 +0.2 (${CHAIN_STEP} → ${gridMult(CHAIN_STEP + 0.2)})`, apply() { chainStep += 0.2; } },
+      desc: () => d("clusterStep", 0.2, CHAIN_STEP, gridMult(CHAIN_STEP + 0.2)), apply() { chainStep += 0.2; } },
     streak_amp: { name: "불꽃 증폭", icon: "🔥", price: 16,
-      desc: "콤보 배율 상한 ×2.0 → ×2.8", apply() { STREAK_CAP += 0.8; } },
+      desc: () => d("comboCap", 2.0, 2.8), apply() { STREAK_CAP += 0.8; } },
     streak_step: { name: "탄력", icon: "📈", price: 13,
-      desc: `콤보 증가폭 +0.2 (${STREAK_STEP_BASE} → ${gridMult(STREAK_STEP_BASE + 0.2)})`, apply() { STREAK_STEP += 0.2; } },
+      desc: () => d("comboStep", 0.2, STREAK_STEP_BASE, gridMult(STREAK_STEP_BASE + 0.2)), apply() { STREAK_STEP += 0.2; } },
     golden_banana: { name: "황금 바나나", icon: "🏆", price: 20,
-      desc: "바나나 점수 배율 +1.0", apply() { fruitMult[6] += 1; } },
+      desc: () => d("fruitMult", 6, 1), apply() { fruitMult[6] += 1; } },
     sweet_tooth: { name: "단맛 애호", icon: "🍬", price: 15,
-      desc: "포도·복숭아 점수 배율 +0.5", apply() { fruitMult[4] += 0.5; fruitMult[5] += 0.5; } },
+      desc: () => d("fruitsMult", [4, 5], 0.5), apply() { fruitMult[4] += 0.5; fruitMult[5] += 0.5; } },
     humble: { name: "소박한 맛", icon: "🥄", price: 11,
-      desc: "체리·레몬 점수 배율 +0.6", apply() { fruitMult[0] += 0.6; fruitMult[3] += 0.6; } },
+      desc: () => d("fruitsMult", [0, 3], 0.6), apply() { fruitMult[0] += 0.6; fruitMult[3] += 0.6; } },
     huge_pop: { name: "대폭발", icon: "🎆", price: 21,
-      desc: "8개 이상 터뜨리면 점수 ×2",
+      desc: () => d("bigPop", 8, 2),
       modify: { pop: (v, ctx) => (ctx.cleared >= 8 ? v * 2 : v) } },
 
     // ---- C. resource ----
     endurance: { name: "끈기", icon: "💪", price: 9,
-      desc: "스테이지마다 터치 +2", apply() { touchBonus += 2; } },
+      desc: () => d("touch", 2), apply() { touchBonus += 2; } },
     mint: { name: "별 조폐국", icon: "🪙", price: 15,
-      desc: "별이 과일당 코인 1개 → 2개", apply() { starCoinMult += 1; } },
+      desc: () => d("starCoin", 1, 2), apply() { starCoinMult += 1; } },
     lucky_coin: { name: "행운의 주머니", icon: "🍀", price: 12,
-      desc: "코인 달린 과일 확률 +8%p", apply() { coinFruitBonus += 0.08; } },
+      desc: () => d("coinFruit", 8), apply() { coinFruitBonus += 0.08; } },
     tycoon: { name: "거상", icon: "💰", price: 14,
-      desc: "스테이지 정산 코인 +50%", apply() { payoutMult += 0.5; } },
+      desc: () => d("payoutPct", 50), apply() { payoutMult += 0.5; } },
 
     // ---- D. risk ----
     avalanche: { name: "쏟아짐", icon: "⛰️", price: 18,
-      desc: "매 턴 과일 +2", apply() { spawnBonus += 2; } },
+      desc: () => d("spawn", 2), apply() { spawnBonus += 2; } },
     quarry: { name: "채석장", icon: "⛏️", price: 16,
-      desc: "터뜨린 점수 +60% · 새 과일의 30%가 벽돌",
+      desc: () => d("brickDeal", 60, 30),
       apply() { brickChance += 0.30; }, modify: { pop: v => v * 1.6 } },
 
     // ---- cheap enough for the very first shop ----
     pinch: { name: "한 줌", icon: "🥄", price: 5,
-      desc: "모든 과일 점수 +2",
+      desc: () => d("allFlat", 2),
       apply() { for (let i = 0; i < fruitFlat.length; i++) fruitFlat[i] += 2; } },
     breather: { name: "한 숨", icon: "🫁", price: 5,
-      desc: "스테이지마다 터치 +1", apply() { touchBonus += 1; } },
+      desc: () => d("touch", 1), apply() { touchBonus += 1; } },
     change_purse: { name: "잔돈주머니", icon: "👛", price: 4,
-      desc: "스테이지 정산 코인 +3", apply() { payoutMult += 3 / 4; } },
+      desc: () => d("payoutFlat", 3), apply() { payoutMult += 3 / 4; } },
     one_cherry: { name: "체리 한 알", icon: "🍒", price: 4,
-      desc: "체리 점수 +8", apply() { fruitFlat[0] += 8; } },
+      desc: () => d("fruitFlat", 0, 8), apply() { fruitFlat[0] += 8; } },
     whetstone: { name: "숫돌", icon: "🪨", price: 6,
-      desc: `덩어리 보너스 +0.1 (${CHAIN_STEP} → ${gridMult(CHAIN_STEP + 0.1)})`, apply() { chainStep += 0.1; } },
+      desc: () => d("clusterStep", 0.1, CHAIN_STEP, gridMult(CHAIN_STEP + 0.1)), apply() { chainStep += 0.1; } },
 
     // ---- temporary: strong, cheap, and on a clock ----
     focus: { name: "단기 집중", icon: "⚡", price: 9, life: { unit: "stages", amount: 1 },
-      desc: "터뜨린 점수 ×1.5", modify: { pop: v => Math.round(v * 1.5) } },
+      desc: () => d("popMult", 1.5), modify: { pop: v => Math.round(v * 1.5) } },
     frenzy: { name: "폭주", icon: "🌪️", price: 7, life: { unit: "stages", amount: 1 },
-      desc: "매 턴 과일 +3", apply() { spawnBonus += 3; } },
+      desc: () => d("spawn", 3), apply() { spawnBonus += 3; } },
     bonanza: { name: "노다지", icon: "💎", price: 7, life: { unit: "touches", amount: 15 },
-      desc: "코인 달린 과일 확률 +30%p", apply() { coinFruitBonus += 0.3; } },
+      desc: () => d("coinFruit", 30), apply() { coinFruitBonus += 0.3; } },
     heat: { name: "열기", icon: "🔥", price: 8, life: { unit: "stages", amount: 2 },
-      desc: "콤보 상한 ×2.0 → ×4.0", apply() { STREAK_CAP += 2; } },
+      desc: () => d("comboCap", 2.0, 4.0), apply() { STREAK_CAP += 2; } },
     sugar_rush: { name: "설탕 폭발", icon: "🍬", price: 8, life: { unit: "touches", amount: 20 },
-      desc: "모든 과일 점수 +25", apply() { for (let i = 0; i < fruitFlat.length; i++) fruitFlat[i] += 25; } },
+      desc: () => d("allFlat", 25), apply() { for (let i = 0; i < fruitFlat.length; i++) fruitFlat[i] += 25; } },
 
     // ---- G. stacking: value that grows with play, not with the shop ----
     piggy_cherry: { name: "체리 저금통", icon: "🐷", price: 15,
-      desc: "체리를 터뜨릴 때마다 체리 점수 +1",
+      desc: () => d("stackOnPop", 0, 1),
       onFruitPop: p => { if (p.color === 0) fruitStack[0] += 1; } },
     juice_press: { name: "착즙기", icon: "🫗", price: 20,
-      desc: "과일을 터뜨릴 때마다 그 과일 점수 +1",
+      desc: () => d("anyStackOnPop", 1),
       onFruitPop: p => { fruitStack[p.color] += 1; } },
     banana_cellar: { name: "바나나 저장고", icon: "🏺", price: 18,
-      desc: "바나나를 터뜨릴 때마다 바나나 점수 +5",
+      desc: () => d("stackOnPop", 6, 5),
       onFruitPop: p => { if (p.color === 6) fruitStack[6] += 5; } },
 
     // ---- 일반: cheap, modest, always worth something ----
     dust: { name: "티끌", icon: "🪙", price: 3,
-      desc: "스테이지 정산 코인 +2", apply() { payoutMult += 2 / 4; } },
+      desc: () => d("payoutFlat", 2), apply() { payoutMult += 2 / 4; } },
     lemon_slice: { name: "레몬 한 조각", icon: "🍋", price: 4,
-      desc: "레몬 점수 +8", apply() { fruitFlat[3] += 8; } },
+      desc: () => d("fruitFlat", 3, 8), apply() { fruitFlat[3] += 8; } },
     orange_piece: { name: "오렌지 한 알", icon: "🍊", price: 5,
-      desc: "오렌지 점수 +10", apply() { fruitFlat[1] += 10; } },
+      desc: () => d("fruitFlat", 1, 10), apply() { fruitFlat[1] += 10; } },
     kiwi_slice: { name: "키위 한 쪽", icon: "🥝", price: 5,
-      desc: "키위 점수 +10", apply() { fruitFlat[2] += 10; } },
+      desc: () => d("fruitFlat", 2, 10), apply() { fruitFlat[2] += 10; } },
     first_step: { name: "첫걸음", icon: "📈", price: 5,
-      desc: `콤보 증가폭 +0.1 (${STREAK_STEP_BASE} → ${gridMult(STREAK_STEP_BASE + 0.1)})`, apply() { STREAK_STEP += 0.1; } },
+      desc: () => d("comboStep", 0.1, STREAK_STEP_BASE, gridMult(STREAK_STEP_BASE + 0.1)), apply() { STREAK_STEP += 0.1; } },
     clover: { name: "네잎클로버", icon: "🍀", price: 5,
-      desc: "코인 달린 과일 확률 +2%p", apply() { coinFruitBonus += 0.02; } },
+      desc: () => d("coinFruit", 2), apply() { coinFruitBonus += 0.02; } },
     sprout: { name: "떡잎", icon: "🌱", price: 5,
-      desc: "체리·레몬 0.5만큼 더 등장", apply() { oddsMult[0] += 0.5; oddsMult[3] += 0.5; } },
+      desc: () => d("odds", [0, 3], 0.5), apply() { oddsMult[0] += 0.5; oddsMult[3] += 0.5; } },
     grape_bunch: { name: "포도 한 송이", icon: "🍇", price: 6,
-      desc: "포도 점수 +14", apply() { fruitFlat[4] += 14; } },
+      desc: () => d("fruitFlat", 4, 14), apply() { fruitFlat[4] += 14; } },
     bell: { name: "종소리", icon: "🔔", price: 6,
-      desc: "콤보 상한 ×2.0 → ×2.3", apply() { STREAK_CAP += 0.3; } },
+      desc: () => d("comboCap", 2.0, 2.3), apply() { STREAK_CAP += 0.3; } },
     basket: { name: "바구니", icon: "🧺", price: 6,
-      desc: "스테이지를 시작할 때 과일 3개가 더 놓입니다",
+      desc: () => d("startFruit", 3),
       onStageStart: () => spawnBuds(3) },
     peach_half: { name: "복숭아 반쪽", icon: "🍑", price: 7,
-      desc: "복숭아 점수 +14", apply() { fruitFlat[5] += 14; } },
+      desc: () => d("fruitFlat", 5, 14), apply() { fruitFlat[5] += 14; } },
     banana_bite: { name: "바나나 한 입", icon: "🍌", price: 7,
-      desc: "바나나 점수 +20", apply() { fruitFlat[6] += 20; } },
+      desc: () => d("fruitFlat", 6, 20), apply() { fruitFlat[6] += 20; } },
 
     // ---- item upgrades the player asked for ----
     flock: { name: "참새떼", icon: "🐦", price: 22,
-      desc: "참새가 3마리씩 날아갑니다", apply() { birdFlock = 3; } },
+      desc: () => d("birds", 3), apply() { birdFlock = 3; } },
     crossing: { name: "십자로", icon: "✚", price: 20,
-      desc: "라인이 항상 가로세로 동시에 생깁니다", apply() { crossLine = true; } },
+      desc: () => d("crossLine"), apply() { crossLine = true; } },
 
     // ---- more per-fruit odds / stacks / multipliers ----
     kiwi_grove: { name: "키위 밭", icon: "🥝", price: 9,
-      desc: "키위 1만큼 더 등장", apply() { oddsMult[2] += 1; } },
+      desc: () => d("odds", [2], 1), apply() { oddsMult[2] += 1; } },
     lemon_jar: { name: "레몬 단지", icon: "🫙", price: 13,
-      desc: "레몬을 터뜨릴 때마다 레몬 점수 +1",
+      desc: () => d("stackOnPop", 3, 1),
       onFruitPop: p => { if (p.color === 3) fruitStack[3] += 1; } },
     grape_press: { name: "포도 압착기", icon: "🍷", price: 16,
-      desc: "포도를 터뜨릴 때마다 포도 점수 +3",
+      desc: () => d("stackOnPop", 4, 3),
       onFruitPop: p => { if (p.color === 4) fruitStack[4] += 3; } },
     peach_favour: { name: "복숭아 애호", icon: "🍑", price: 17,
-      desc: "복숭아 점수 배율 +0.8", apply() { fruitMult[5] += 0.8; } },
+      desc: () => d("fruitMult", 5, 0.8), apply() { fruitMult[5] += 0.8; } },
     lemon_gold: { name: "황금 레몬", icon: "🍋", price: 18,
-      desc: "레몬 점수 배율 +1.2", apply() { fruitMult[3] += 1.2; } },
+      desc: () => d("fruitMult", 3, 1.2), apply() { fruitMult[3] += 1.2; } },
     kiwi_king: { name: "키위 왕", icon: "👑", price: 19,
-      desc: "키위 점수 배율 +1.2", apply() { fruitMult[2] += 1.2; } },
+      desc: () => d("fruitMult", 2, 1.2), apply() { fruitMult[2] += 1.2; } },
 
     // ---- rare: the ones a build is actually built around ----
     prism: { name: "프리즘", icon: "🔱", price: 34,
-      desc: "모든 과일 점수 배율 +1.0",
+      desc: () => d("allMult", 1),
       apply() { for (let i = 0; i < fruitMult.length; i++) fruitMult[i] += 1; } },
     // the only permanent x2 in the game, and it must not read like the 9-coin timed one
     crown: { name: "왕관", icon: "👑", price: 50,
-      desc: "터뜨린 점수 ×2 · 런 내내",
+      desc: () => d("popMultRun", 2),
       modify: { pop: v => v * 2 } },
 
     // ---- E. map / zones: the category the design listed and nothing had built ----
     hotspot: { name: "명당", icon: "🟩", price: 17, tier: "rare",
-      desc: "표시된 칸에서 터뜨리면 그 과일 점수 ×2",
+      desc: () => d("zoneMult", 2),
       apply() { zoneMult += 1; } },
     gold_vein: { name: "금맥", icon: "🪙", price: 14,
-      desc: "표시된 칸에서 터뜨리면 코인 +1",
+      desc: () => d("zoneCoin", 1),
       apply() { zoneCoin = true; } },
     survey: { name: "측량", icon: "🗺️", price: 12,
-      desc: "표시된 칸 +3",
+      desc: () => d("zoneMore", 3),
       apply() { zoneBonus += 3; } },
 
     // ---- board growth: the one thing that buys you room instead of points ----
     // `rows` is read by syncRows(), not applied here -- growing the board is monotonic and
     // an apply() that mutated it would run again on every recompute.
     reclaim: { name: "개간", icon: "🌾", price: 21, tier: "rare",
-      desc: "판이 한 줄 넓어집니다", rows: 1 },
+      desc: () => d("rows", 1), rows: 1 },
     big_reclaim: { name: "대개간", icon: "🚜", price: 30, tier: "legend",
-      desc: "판이 두 줄 넓어집니다", rows: 2 },
+      desc: () => d("rows", 2), rows: 2 },
 
     // ---- F. item upgrades ----
     bomb_mod: { name: "폭탄 개조", icon: "💣", price: 19,
-      desc: "폭탄이 7×7로 터집니다", apply() { bombRadiusBonus += 1; } },
+      desc: () => d("bombSize", 7), apply() { bombRadiusBonus += 1; } },
     tinkerer: { name: "손재주", icon: "🔧", price: 18,
-      desc: "아이템이 하나 적게 터뜨려도 생깁니다", apply() { itemEase += 1; } },
+      desc: () => d("itemEase", 1), apply() { itemEase += 1; } },
 
     satchel: {                                                  // capacity (doc 6)
       name: "보따리", icon: "🎒", price: 10,
-      desc: "유물 칸 +2",
+      desc: () => d("slots", 2),
       slots: 2,          // declared, not applied: the cap has to settle before anything else
     },
   };
+
+  // Descriptions are evaluated when READ, not when the table is defined -- otherwise the
+  // language at load time is baked in and switching does nothing. Relic descs are written as
+  // zero-argument thunks and installed as getters here; trait descs take their effects array
+  // and stay plain functions, so they localise at call time already.
+  for (const table of [RELICS]) {
+    for (const id of Object.keys(table)) {
+      const o = table[id];
+      if (typeof o.desc === "function" && o.desc.length === 0) {
+        const fn = o.desc;
+        Object.defineProperty(o, "desc", { get: fn, enumerable: true, configurable: true });
+      }
+    }
+  }
+
   function notify(event, payload) {
     for (const id of activeRelics()) {
       const h = RELICS[id] && RELICS[id][event];
@@ -4220,7 +4374,8 @@
       gridMult, MULT_GRID, STREAK_STEP_BASE, CHAIN_STEP, multLabel,
       syncRows, ROWS_BASE, ROWS_MAX, layout, COLS, BOARD_MIN, BOARD_MAX,
       checkViewport, MIN_PLAY_H,
-      SFX,
+      SFX, setLang, LANGS, PACKS, d,
+      get LANG() { return LANG; },
       rollZones, zoneAt, zoneCount, fruitScoreAt, ZONE_BASE,
       announceOffers,
       get zoneCells() { return zoneCells; }, get zoneMult() { return zoneMult; },

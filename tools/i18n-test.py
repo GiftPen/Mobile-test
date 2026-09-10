@@ -1,0 +1,95 @@
+#!/usr/bin/env python3
+"""The point of this suite is that ADDING A RELIC CANNOT BREAK TRANSLATION.
+
+Descriptions are calls into a language pack, so a relic reusing an existing pattern is
+translated everywhere for free. The danger is a relic that needs a NEW pattern: if it is
+added to ko only, the fallback quietly serves Korean inside English. That is what this
+catches -- by rendering every relic and trait in every language and failing on any Korean
+character that survives into a non-Korean pack."""
+import subprocess, os, re, json, sys
+
+TEST = """<script>
+window.addEventListener('load', () => setTimeout(() => {
+  const F = window.__fs, fails = [];
+  const chk = (c, got, want) => { if (JSON.stringify(got) !== JSON.stringify(want))
+                                    fails.push({case: c, got, want}); };
+  const KO = /[\\uAC00-\\uD7A3]/;
+  const langs = Object.keys(F.LANGS);
+  chk('there is more than one language', langs.length > 1, true);
+
+  // 1) every pattern the Korean pack defines must exist in every other pack
+  const koKeys = Object.keys(F.PACKS.ko).filter(k => k[0] !== '_');
+  for (const lg of langs) {
+    if (lg === 'ko') continue;
+    const missing = koKeys.filter(k => F.PACKS[lg][k] == null);
+    chk('every pattern exists in ' + lg, missing, []);
+  }
+
+  // 2) render EVERYTHING in EVERY language; no Korean may survive outside ko
+  const leaks = {}, blanks = [];
+  for (const lg of langs) {
+    F.setLang(lg);
+    const bad = [];
+    for (const id of Object.keys(F.RELICS)) {
+      const t = F.RELICS[id].desc;
+      if (!t) blanks.push(lg + '/' + id);
+      else if (lg !== 'ko' && KO.test(t)) bad.push(id + ': ' + t);
+    }
+    for (const id of Object.keys(F.TRAITS)) {
+      const T = F.TRAITS[id];
+      for (const mult of [1, 2]) {
+        const t = T.desc(F.traitEffects(T, mult));
+        if (!t) blanks.push(lg + '/' + id);
+        else if (lg !== 'ko' && KO.test(t)) bad.push(id + ' x' + mult + ': ' + t);
+      }
+    }
+    if (bad.length) leaks[lg] = bad.slice(0, 6);
+  }
+  chk('no description is empty in any language', blanks, []);
+  chk('no Korean leaks into another language', leaks, {});
+
+  // 3) a genuinely missing key must fall back to Korean, never to blank or "undefined"
+  F.setLang('en');
+  const madeUp = F.d('a_pattern_that_does_not_exist');
+  chk('an unknown key returns the key, not undefined', madeUp, 'a_pattern_that_does_not_exist');
+
+  // 4) the language survives a reload
+  F.setLang('en');
+  let stored = null; try { stored = localStorage.getItem('fs_lang'); } catch (e) {}
+  chk('language is remembered', stored, 'en');
+  chk('html lang follows', document.documentElement.lang, 'en');
+
+  // 5) switching back really switches back (descriptions are read, not baked at load)
+  F.setLang('ko');
+  const anyRelic = Object.keys(F.RELICS)[0];
+  chk('switching back restores Korean', KO.test(F.RELICS[anyRelic].desc), true);
+
+  try { localStorage.removeItem('fs_lang'); } catch (e) {}
+  document.title = 'RESULT ' + JSON.stringify({ fails, langs, patterns: koKeys.length,
+                                                relics: Object.keys(F.RELICS).length,
+                                                traits: Object.keys(F.TRAITS).length });
+}, 700));
+</script>"""
+
+os.chdir(os.path.dirname(os.path.abspath(__file__)) + '/..')
+open('_i18n.html','w',encoding='utf-8').write(
+    open('index.html',encoding='utf-8').read().replace('</body>', TEST + '</body>'))
+try:
+    out = subprocess.run(['/Applications/Google Chrome.app/Contents/MacOS/Google Chrome',
+        '--headless','--disable-gpu','--no-first-run','--window-size=430,932',
+        '--virtual-time-budget=20000','--dump-dom','http://localhost:8899/_i18n.html?test=1'],
+        capture_output=True, text=True, timeout=120).stdout
+finally:
+    os.remove('_i18n.html')
+
+m = re.search(r'RESULT (\{.*\})</title>', out, re.S)
+if not m:
+    t = re.search(r'<title>(.*?)</title>', out, re.S)
+    print('NO RESULT', t.group(1)[:200] if t else ''); sys.exit(1)
+r = json.loads(m.group(1))
+print(f"i18n: {'/'.join(r['langs'])} · 문형 {r['patterns']}개 · "
+      f"유물 {r['relics']} + 특성 {r['traits']} 전수 검사, {len(r['fails'])} fail")
+for f in r['fails']:
+    print('  ', json.dumps(f, ensure_ascii=False)[:400])
+print('PASS' if not r['fails'] else 'FAIL')
+sys.exit(0 if not r['fails'] else 1)

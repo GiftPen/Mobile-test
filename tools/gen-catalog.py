@@ -12,6 +12,7 @@ os.chdir(os.path.join(os.path.dirname(os.path.abspath(__file__)), '..'))
 DUMP = r"""<script>
 window.addEventListener('load', () => setTimeout(() => {
   const F = window.__fs;
+  F.setLang('ko');   // 유물.md is the Korean reference; do not follow the browser locale
   if (!F) { document.title = 'RESULT {"err":"no hook"}'; return; }
   const relics = Object.keys(F.RELICS).map(id => {
     const R = F.RELICS[id];
