@@ -2378,14 +2378,32 @@
       brick: () => noise({ f: 2600, f2: 700, dur: 0.1, vol: 0.22, filter: "highpass" }),
       stage: () => [0, 4, 7].forEach((n, i) =>
                      tone({ f: hz(n) * 2, dur: 0.2, vol: 0.2, type: "triangle", delay: i * 0.1 })),
-      round: () => [0, 4, 7, 12].forEach((n, i) =>
-                     tone({ f: hz(n) * 2, dur: 0.26, vol: 0.22, type: "triangle", delay: i * 0.1 })),
+      // a round is three stages of work, so it has to land bigger than a stage: the same run
+      // up, then a chord that actually sustains under it instead of stopping dead
+      round: () => {
+        [0, 4, 7, 12].forEach((n, i) =>
+          tone({ f: hz(n) * 2, dur: 0.28, vol: 0.24, type: "triangle", delay: i * 0.09 }));
+        tone({ f: hz(0),      dur: 0.9, att: 0.03, vol: 0.17, type: "sine", delay: 0.34 });
+        tone({ f: hz(7),      dur: 0.9, att: 0.03, vol: 0.12, type: "sine", delay: 0.36 });
+        tone({ f: hz(12) * 2, dur: 0.8, att: 0.04, vol: 0.10, type: "sine", delay: 0.38 });
+      },
       over:  () => [12, 7, 3].forEach((n, i) =>
                      tone({ f: hz(n), dur: 0.32, vol: 0.22, type: "triangle", delay: i * 0.15 })),
       danger:() => tone({ f: 150, f2: 105, dur: 0.28, vol: 0.2, type: "sawtooth" }),
       buy:   () => { tone({ f: 620, dur: 0.07, vol: 0.16, type: "triangle" });
                      tone({ f: 930, dur: 0.13, vol: 0.14, type: "triangle", delay: 0.06 }); },
-      reroll:() => noise({ f: 900, f2: 3200, dur: 0.2, vol: 0.15, filter: "bandpass", q: 2 }),
+      // a single swoosh read as wind. Rerolling is cards being riffled, so it is a run of
+      // short clicks climbing in pitch, not one sweep.
+      reroll:() => { for (let i = 0; i < 5; i++)
+        noise({ f: 1300 + i * 480, dur: 0.032, vol: 0.14, filter: "bandpass", q: 6, delay: i * 0.036 }); },
+
+      // A legendary showing up is a 1% event with a whole visual language of its own (§22)
+      // and, until now, no sound at all -- the card blazed gold in total silence.
+      // A slow detuned chime: the beating between the pairs is what makes it shimmer.
+      legend: () => [0, 7, 12, 16].forEach((n, i) => {
+        tone({ f: hz(n) * 2,         dur: 0.85, att: 0.025, vol: 0.15, type: "sine", delay: i * 0.1 });
+        tone({ f: hz(n) * 2 * 1.005, dur: 0.85, att: 0.025, vol: 0.11, type: "sine", delay: i * 0.1 });
+      }),
       trait: () => [0, 7, 12].forEach((n, i) =>
                      tone({ f: hz(n) * 3, dur: 0.18, vol: 0.13, type: "sine", delay: i * 0.06 })),
       graft: () => [0, 4, 7, 12, 16].forEach((n, i) =>
@@ -2980,6 +2998,16 @@
   // relic quietly adding to offerBonus
   const shelfSize = () => Math.min(SHOP_OFFERS_MAX, SHOP_OFFERS + offerBonus);
 
+  // fires once per fresh shelf, after the cards are on screen so the chime lands with the
+  // gold rather than before it. Only on a new draw -- buying does not re-announce.
+  function announceOffers() {
+    const has = shopOffers.some(id => RELICS[id] && relicTier(RELICS[id]) === "legend");
+    // delayed so the chime lands with the gold rather than before it; returns the decision so
+    // the choice is testable without waiting on a timer
+    if (has) setTimeout(() => SFX.play("legend"), 180);
+    return has;
+  }
+
   function openShop() {
     SFX.play("trait");
     shopOffers = rollOffers(shelfSize());   // the 안목 trait widens it further
@@ -2987,6 +3015,7 @@
     shopReroll = REROLL_COST;
     renderShop();
     $sh("shop").classList.remove("hidden");
+    announceOffers();
   }
   function closeShop() {
     $sh("shop").classList.add("hidden");
@@ -4193,6 +4222,7 @@
       checkViewport, MIN_PLAY_H,
       SFX,
       rollZones, zoneAt, zoneCount, fruitScoreAt, ZONE_BASE,
+      announceOffers,
       get zoneCells() { return zoneCells; }, get zoneMult() { return zoneMult; },
       get zoneCoin() { return zoneCoin; }, get zoneBonus() { return zoneBonus; },
       emptyCells, ITEM_PRICES, canBuyItem, armItem, placeBoughtItem, renderItemShop,
@@ -4321,6 +4351,7 @@
     shopOffers = rollOffers(shelfSize());
     shopSold = new Set();
     renderShop();
+    announceOffers();                   // a reroll can turn one up too
   });
 
   document.getElementById("btn-tomain").addEventListener("click", () => {

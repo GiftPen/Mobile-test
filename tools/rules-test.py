@@ -799,6 +799,34 @@ window.addEventListener('load', () => setTimeout(() => {
     F.closeInfo(); F.resetRun();
   })();
 
+  // ---- a legendary announces itself, and only when one actually turns up ----
+  (() => {
+    const byTier = {};
+    for (const id of Object.keys(F.RELICS)) {
+      const t = F.relicTier(F.RELICS[id]);
+      (byTier[t] = byTier[t] || []).push(id);
+    }
+    F.mode = 'rush'; F.resetRun(); F.coins = 9999;
+    F.openShop();
+    schk('the chime is a real sound, not a typo', F.SFX.names.includes('legend'), true);
+
+    F.shopOffers = (byTier.common || []).slice(0, 3);
+    schk('a plain shelf stays quiet', F.announceOffers(), false);
+
+    F.shopOffers = (byTier.uncommon || []).concat(byTier.rare || []).slice(0, 4);
+    schk('rare is not legendary', F.announceOffers(), false);
+
+    F.shopOffers = (byTier.common || []).slice(0, 2).concat([(byTier.legend || [])[0]]);
+    schk('a legendary on the shelf announces itself', F.announceOffers(), true);
+
+    // it is tied to the draw, not to the render: buying redraws nothing and must stay silent
+    const before = F.shopOffers.slice();
+    F.renderShop();
+    schk('rendering does not redraw the shelf', F.shopOffers, before);
+    F.closeShop(); F.resetRun();
+  })();
+
+
   // ---- legendary must not read as "rare, but yellow" ----
   (() => {
     const byTier = {};
