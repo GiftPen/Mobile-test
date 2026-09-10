@@ -479,16 +479,22 @@ window.addEventListener('load', () => setTimeout(() => {
   schk('expired: effect withdrawn', F.spawnCount(0), spawn0);
   schk('expired: clock cleared', F.relicLife.frenzy, undefined);
 
-  // a two-stage one survives the first stage
+  // a timed relic lasts exactly as long as it says. Read the duration off the relic rather
+  // than pinning it: retuning 단기 집중 from 2 stages to 1 should not break this.
   F.resetRun(); F.mode = 'rush'; F.coins = 200; F.streak = 0;
-  F.buyRelic('focus');                       // 2 stages of x2 pop score
+  const focusLife = F.RELICS.focus.life.amount;
+  F.buyRelic('focus');
   F.score = 0; F.scorePop(10, 1); const withFocus = F.score;
+  for (let i = 1; i < focusLife; i++) {
+    F.tickRelicLife('stages');
+    schk(`still held after stage ${i} of ${focusLife}`, F.relics.includes('focus'), true);
+  }
   F.tickRelicLife('stages');
-  schk('still held after one stage', F.relics.includes('focus'), true);
-  F.tickRelicLife('stages');
-  schk('gone after the second', F.relics.includes('focus'), false);
-  F.score = 0; F.scorePop(10, 1);
-  schk('and its doubling is gone', withFocus, F.score * 2);
+  schk('gone once its stages are used up', F.relics.includes('focus'), false);
+  F.score = 0; F.scorePop(10, 1); const without = F.score;
+  schk('and its boost went with it', withFocus > without, true);
+  // ...by exactly what the relic itself says it does, whatever that is tuned to
+  schk('the boost matched the relic while held', withFocus, F.RELICS.focus.modify.pop(without));
 
   // selling one stops its clock too
   F.resetRun(); F.mode = 'rush'; F.coins = 200;

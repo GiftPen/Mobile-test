@@ -1680,8 +1680,8 @@
       desc: `덩어리 보너스 +0.1 (${CHAIN_STEP} → ${gridMult(CHAIN_STEP + 0.1)})`, apply() { chainStep += 0.1; } },
 
     // ---- temporary: strong, cheap, and on a clock ----
-    focus: { name: "단기 집중", icon: "⚡", price: 9, life: { unit: "stages", amount: 2 },
-      desc: "터뜨린 점수 ×2", modify: { pop: v => v * 2 } },
+    focus: { name: "단기 집중", icon: "⚡", price: 9, life: { unit: "stages", amount: 1 },
+      desc: "터뜨린 점수 ×1.5", modify: { pop: v => Math.round(v * 1.5) } },
     frenzy: { name: "폭주", icon: "🌪️", price: 7, life: { unit: "stages", amount: 1 },
       desc: "매 턴 과일 +3", apply() { spawnBonus += 3; } },
     bonanza: { name: "노다지", icon: "💎", price: 7, life: { unit: "touches", amount: 15 },
@@ -1755,8 +1755,9 @@
     prism: { name: "프리즘", icon: "🔱", price: 34,
       desc: "모든 과일 점수 배율 +1.0",
       apply() { for (let i = 0; i < fruitMult.length; i++) fruitMult[i] += 1; } },
-    crown: { name: "왕관", icon: "👑", price: 40,
-      desc: "터뜨린 점수 ×2",
+    // the only permanent x2 in the game, and it must not read like the 9-coin timed one
+    crown: { name: "왕관", icon: "👑", price: 50,
+      desc: "터뜨린 점수 ×2 · 런 내내",
       modify: { pop: v => v * 2 } },
 
     // ---- E. map / zones: the category the design listed and nothing had built ----
