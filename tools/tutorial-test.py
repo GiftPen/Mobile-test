@@ -41,6 +41,36 @@ window.addEventListener('load', () => setTimeout(async () => {
   chk('a tap outside the highlight is ignored', F.grid.flat().filter(v => v !== -1).length, before);
   chk('and it has not advanced', F.tut.i, 0);
 
+  // An impatient player taps again while the burst is still resolving. The burst finishes
+  // BEFORE nextTutStep fires, so in that gap `busy` is already false while the target still
+  // points at a cell that is now empty -- a second tap planted another fruit, queued another
+  // advance, and the tutorial skipped a whole step (0 -> 2).
+  const wasStep = F.tut.i;
+  const gapTarget = F.tut.target.slice();
+  tapCell(gapTarget[0], gapTarget[1]);
+  await settle(400);                    // burst done, next step not yet set up
+  chk('the board is free again during the gap', F.busy, false);
+  tapCell(gapTarget[0], gapTarget[1]);  // the impatient second tap
+  await settle(2600);
+  chk('a second tap in the gap does not skip a step', F.tut && F.tut.i, wasStep + 1);
+
+  // and hammering the whole board never advances more than one step at a time
+  const walked = [];
+  for (let guard = 0; guard < 6 && F.tut; guard++) {
+    const t = F.tut.target; if (!t) { await settle(200); continue; }
+    for (let i = 0; i < 5; i++) tapCell(t[0], t[1]);
+    for (let r = 0; r < 3; r++) for (let c = 0; c < 3; c++) tapCell(r, c);
+    await settle(2300);
+    walked.push(F.tut ? F.tut.i : 'end');
+  }
+  chk('hammering taps still walks one step at a time', walked, [2, 3, 'end']);
+  chk('and it still finishes cleanly', F.tut, null);
+
+  // restart it for the per-board inspection below
+  try { localStorage.removeItem(F.TUT_KEY); } catch (e) {}
+  F.startTutorial('rush');
+  await settle(250);
+
   // Walk every step. Two things are checked on each board before it is tapped:
   //  - previewShows is what drawNextPreview actually drew. Steps set nextColor by hand, so a
   //    stale preview ships easily, and the player watches a fruit that is not the one landing.

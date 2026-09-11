@@ -3308,6 +3308,11 @@
       return;
     }
     if (!tutAllows(r, c)) { buzz(8); return; }            // tutorial: one legal tap at a time
+    // Spend the target the moment it is used. The burst finishes before nextTutStep fires, and
+    // in that gap `busy` is already false while the target still points at the cell -- which is
+    // now empty, so a second tap planted another fruit, queued another advance, and the
+    // tutorial skipped a whole step.
+    if (tut) tut.target = null;
     if (grid[r][c] === -1) plant(r, c, nextColor);        // empty -> place next color
     else if (special[r][c]) tapItem(r, c);                // item bud -> trigger it
     // normal fruit or brick -> nothing
@@ -5600,7 +5605,8 @@
     showMenu();                            // replayed from settings: go back, do not start a run
   }
   // the tutorial owns the board while it runs: only the highlighted cell responds
-  const tutAllows = (r, c) => !tut || (tut.target && tut.target[0] === r && tut.target[1] === c);
+  // no target means the step is resolving: nothing on the board responds until the next one
+  const tutAllows = (r, c) => !tut || !!(tut.target && tut.target[0] === r && tut.target[1] === c);
 
   // ---- ads ---------------------------------------------------------------------------
   // One door. The game asks for an ad and gets a yes or a no; it never knows whether that came
