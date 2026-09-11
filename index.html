@@ -39,6 +39,23 @@
      layout() rather than another env() here: one place reads the insets, everything else asks
      it -- which also makes it checkable, since env() cannot be simulated in a test. */
   #tut { padding-bottom: 18px; }
+  /* the stub stands in for a real ad surface: full screen, blocking, and a moment long */
+  #adstub { position: fixed; inset: 0; z-index: 60; background: rgba(8,9,15,.96);
+    display: flex; align-items: center; justify-content: center; padding: 20px; }
+  #adstub.hidden { display: none; }
+  .ad-box { width: 100%; max-width: 320px; text-align: center; padding: 26px 18px;
+    border: 1px dashed #3a4160; border-radius: 18px; background: #12151f; }
+  .ad-tag { font-size: 11px; font-weight: 800; letter-spacing: 3px; color: #5b6178; margin-bottom: 10px; }
+  #adstub-t { font-size: 15px; font-weight: 700; color: var(--text); margin-bottom: 18px; }
+  #adstub-x { margin: 0; padding: 11px 22px; font-size: 14px; }
+  /* banner: menu and shop only, never over the board */
+  #banner { width: 100%; max-width: 520px; height: 50px; margin-top: 10px; display: flex;
+    align-items: center; justify-content: center; border: 1px dashed #2b3048; border-radius: 10px;
+    color: #5b6178; font-size: 11px; font-weight: 800; letter-spacing: 3px; flex: none; }
+  #banner.hidden { display: none; }
+  #btn-revive { background: linear-gradient(100deg, #ffd23e, #ffa62e); color: #201a05;
+    font-weight: 900; }
+  #btn-revive.hidden { display: none; }
   #top {
     width: 100%; max-width: 520px; padding: 14px 18px 6px;
     /* equal 1fr side columns keep the center (score) truly centered no matter how wide
@@ -584,6 +601,7 @@
   </div>
   <div id="fillgauge" aria-label="판 채움/위험도"></div>
 
+  <div id="banner" class="hidden">AD</div>
   <div id="stage-wrap">
     <canvas id="game"></canvas>
   </div>
@@ -612,6 +630,14 @@
     <button class="dock-btn" data-item="brick">🧱</button>
   </div>
 
+  <div id="adstub" class="hidden">
+    <div class="ad-box">
+      <div class="ad-tag">AD</div>
+      <div id="adstub-t"></div>
+      <button id="adstub-x" data-i18n="adClose">닫기</button>
+    </div>
+  </div>
+
   <div id="tut" class="hidden">
     <div id="tut-bubble"><p id="tut-text"></p></div>
     <button id="tut-skip" class="ghost-btn" data-i18n="tutSkip">건너뛰기</button>
@@ -634,6 +660,9 @@
       </div>
       <div class="set-row">
         <button id="s-haptic" class="set-toggle"><span id="s-haptic-ic">📳</span> <span id="s-haptic-t" data-i18n="haptics">진동</span></button>
+      </div>
+      <div class="set-row">
+        <button id="s-noads" class="ghost-btn wide" data-i18n="removeAds">광고 제거</button>
       </div>
       <div class="set-row">
         <button id="s-replay" class="ghost-btn wide" data-i18n="tutReplay">튜토리얼 다시 보기</button>
@@ -677,6 +706,7 @@
     <div id="gameover" class="hidden">
       <h1 class="go-title" data-i18n="gameOver">게임 오버</h1>
       <div class="big" id="ov-msg"></div>
+      <button id="btn-revive" class="hidden"><span data-i18n="reviveAd">▶ 광고 보고 이어하기</span></button>
       <button id="start-btn" data-i18n="btnRetry">다시 하기</button>
       <button id="btn-menu" class="ghost-btn" data-i18n="btnToMain">메인으로</button>
     </div>
@@ -1932,6 +1962,13 @@
       helpRun2: "스테이지 사이마다 <b>상점</b>이 열립니다. 코인으로 산 유물은 그 판 내내 효과가 이어집니다.",
       helpRun3: "라운드가 끝나면 <b>특성</b>을 하나 고릅니다. 목표를 일찍 채우면 남은 터치만큼 코인을 더 받습니다.",
       tut4: "아이템은 바로 옆에서 과일이 터져도 함께 발동합니다. 빛나는 칸에 놓아보세요",
+      reviveAd: "▶ 광고 보고 이어하기",
+      adRewarded: "보상형 광고 (샘플)",
+      adInterstitial: "전면 광고 (샘플)",
+      adClose: "닫기",
+      doubleCoins: "▶ 광고 보고 코인 2배",
+      removeAds: "광고 제거",
+      adsRemoved: "광고가 제거되었습니다",
       tierCommon: "일반", tierUncommon: "고급", tierRare: "희귀", tierLegend: "전설",
       soonSettings: "⚙️ 설정은 준비 중이에요", soonRanking: "🏆 랭킹은 준비 중이에요",
     },
@@ -2127,6 +2164,13 @@
       helpRun2: "A <b>shop</b> opens between stages. Relics bought with coins last the rest of the run.",
       helpRun3: "At the end of a round you pick a <b>trait</b>. Finish early and the touches you did not use pay out as coins.",
       tut4: "An item also goes off when fruit pops right beside it. Place on the glowing cell",
+      reviveAd: "▶ Watch an ad to continue",
+      adRewarded: "Rewarded ad (sample)",
+      adInterstitial: "Interstitial ad (sample)",
+      adClose: "Close",
+      doubleCoins: "▶ Watch an ad to double coins",
+      removeAds: "Remove ads",
+      adsRemoved: "Ads removed",
       tierCommon: "Common", tierUncommon: "Uncommon", tierRare: "Rare", tierLegend: "Legendary",
       soonSettings: "⚙️ Settings are on the way", soonRanking: "🏆 Ranking is on the way",
     },
@@ -2321,6 +2365,13 @@
       helpRun2: "ステージの合間に<b>ショップ</b>が開きます。コインで買ったレリックはラン中ずっと効きます。",
       helpRun3: "ラウンドの終わりに<b>特性</b>を1つ選びます。早く達成すると残りタッチ分のコインがもらえます。",
       tut4: "アイテムはすぐ隣でフルーツが割れても発動します。光るマスに置いてみましょう",
+      reviveAd: "▶ 広告を見て続ける",
+      adRewarded: "リワード広告 (サンプル)",
+      adInterstitial: "インタースティシャル広告 (サンプル)",
+      adClose: "閉じる",
+      doubleCoins: "▶ 広告を見てコイン2倍",
+      removeAds: "広告を非表示",
+      adsRemoved: "広告は非表示です",
       tierCommon: "コモン", tierUncommon: "アンコモン", tierRare: "レア", tierLegend: "レジェンド",
       soonSettings: "⚙️ 設定は準備中です", soonRanking: "🏆 ランキングは準備中です",
     },
@@ -2515,6 +2566,13 @@
       helpRun2: "关卡之间会开<b>商店</b>。用金币买的遗物整局有效。",
       helpRun3: "每轮结束选择一个<b>特性</b>。提前达成，剩余触摸会换成金币。",
       tut4: "旁边的水果被消除时道具也会发动。放在发光的格子上",
+      reviveAd: "▶ 看广告继续",
+      adRewarded: "激励广告 (样例)",
+      adInterstitial: "插屏广告 (样例)",
+      adClose: "关闭",
+      doubleCoins: "▶ 看广告金币翻倍",
+      removeAds: "移除广告",
+      adsRemoved: "广告已移除",
       tierCommon: "普通", tierUncommon: "优良", tierRare: "稀有", tierLegend: "传说",
       soonSettings: "⚙️ 设置正在准备中", soonRanking: "🏆 排行榜正在准备中",
     },
@@ -3078,6 +3136,7 @@
   // ---- game start ----
   function start(next = mode) {
     mode = MODES[next] ? next : "arcade";
+    revivedThisRun = false;
     document.getElementById("shop").classList.add("hidden");
     document.getElementById("traits").classList.add("hidden");
     loadBest();
@@ -3091,6 +3150,7 @@
     running = true; busy = false;
     mfxStop();
     document.getElementById("overlay").classList.add("hidden");
+    syncBanner();
     document.getElementById("hint").textContent = rules().touchBudget
       ? d("hintStage", "1-1", rules().quota(1), touchesLeft)
       : d("hintArcade");
@@ -4065,10 +4125,12 @@
     shopReroll = REROLL_COST;
     renderShop();
     $sh("shop").classList.remove("hidden");
+    syncBanner();
     announceOffers();
   }
   function closeShop() {
     $sh("shop").classList.add("hidden");
+    syncBanner();
     // a trait pick lands every couple of stages, right after the shop
     if (rules().touchBudget && stage > 1 && (stage - 1) % STAGES_PER_ROUND === 0) { openTraits(); return; }
     resumePlay();
@@ -4433,12 +4495,38 @@
     setTimeout(openShop, 700);          // let the payout coins fly first; busy stays true
   }
 
+  let revivedThisRun = false;
+  // Revive puts the run back where it died: the board is cleared enough to move, the touch
+  // budget is restored, everything else (score, relics, stage) is untouched. Once per run --
+  // an unlimited one makes "furthest stage" meaningless, and that is half the point of a run.
+  function reviveRun() {
+    revivedThisRun = true;
+    $sh("overlay").classList.add("hidden");
+    $sh("gameover").classList.add("hidden");
+    // clear a quarter of the board at random so there is somewhere to play
+    const filled = [];
+    for (let r = 0; r < ROWS; r++) for (let c = 0; c < COLS; c++)
+      if (grid[r][c] !== -1) filled.push([r, c]);
+    for (let i = 0; i < Math.ceil(filled.length / 4) && filled.length; i++) {
+      const [r, c] = filled.splice(randInt(filled.length), 1)[0];
+      grid[r][c] = -1; special[r][c] = null; hp[r][c] = 0; coinCell[r][c] = 0;
+    }
+    touchesLeft = Math.max(touchesLeft, stageTouches());
+    running = true; busy = false; paused = false;
+    pickNext(); dirty = true; updateHUD();
+    resumePlay();
+  }
+
   function gameOver(reason) {
     running = false; busy = false;
     SFX.play("over");
+    Ads.countGame();
     buzz([30, 60, 30]);
     recordStage();
     const why = reason === "touches" ? d("overTouches") : reason === "board" ? d("overFull") : "";
+    // offered only once per run, and never to someone who has already used it
+    const canRevive = !revivedThisRun && rules().touchBudget && Ads.rewardedReady();
+    document.getElementById("btn-revive").classList.toggle("hidden", !canRevive);
     document.getElementById("ov-msg").innerHTML = rules().touchBudget
       ? d("reachedStage", stageLabel(stage), fmtNum(score)) +
         `<br><span class="ov-best">${d("bestLine", stageLabel(bestStage || 1), fmtNum(best))}</span>` +
@@ -4449,11 +4537,18 @@
     document.getElementById("overlay").classList.remove("hidden");
     mfxStop();   // canvas lives inside #menu (now hidden) — stop the ambient loop
   }
+  function syncBanner() {
+    const onMenu = !$sh("overlay").classList.contains("hidden");
+    const inShop = !$sh("shop").classList.contains("hidden");
+    const show = !Ads.adsRemoved() && (onMenu || inShop);
+    document.getElementById("banner").classList.toggle("hidden", !show);
+  }
   function showMenu() {
     document.getElementById("gameover").classList.add("hidden");
     document.getElementById("menu").classList.remove("hidden");
     document.getElementById("overlay").classList.remove("hidden");
     document.getElementById("menu-msg").textContent = "";
+    syncBanner();
     mfxStart();
   }
 
@@ -5307,7 +5402,26 @@
   document.getElementById("btn-challenge").addEventListener("click", () => play("rush"));
   document.getElementById("btn-settings").addEventListener("click", openSettings);
   document.getElementById("s-close").addEventListener("click", closeSettings);
+  document.getElementById("btn-revive").addEventListener("click", async () => {
+    const b = document.getElementById("btn-revive");
+    b.disabled = true;
+    const res = await Ads.show("rewarded");
+    b.disabled = false;
+    if (res.ok) reviveRun();               // a failed or dismissed ad simply does not revive
+  });
+  // Retry is the core loop, so it is never blocked on an ad -- the interstitial is rate
+  // limited and the game starts either way.
+  document.getElementById("start-btn").addEventListener("click", async () => {
+    if (Ads.interstitialDue()) await Ads.show("interstitial");
+  }, true);
   document.getElementById("tut-skip").addEventListener("click", () => finishTutorial(true));
+  document.getElementById("s-noads").addEventListener("click", () => {
+    if (Ads.adsRemoved()) return;
+    // a real build hands this to Play Billing; the stub just grants it
+    Ads.setRemoved(true);
+    renderMenuSettings(); syncBanner();
+    SFX.play("buy");
+  });
   document.getElementById("s-replay").addEventListener("click", () => {
     closeSettings();
     startTutorial(null);                   // null: finish back at the menu
@@ -5460,6 +5574,76 @@
   // the tutorial owns the board while it runs: only the highlighted cell responds
   const tutAllows = (r, c) => !tut || (tut.target && tut.target[0] === r && tut.target[1] === c);
 
+  // ---- ads ---------------------------------------------------------------------------
+  // One door. The game asks for an ad and gets a yes or a no; it never knows whether that came
+  // from AdMob, a test stub, or a player who paid to remove them. When this is wrapped for the
+  // store only `show()` changes.
+  //
+  // Placement is deliberate:
+  //   revive      rewarded, ONCE per run. Unlimited revives would make "furthest stage" -- half
+  //               the stated goal of the game -- meaningless.
+  //   doubleCoins rewarded, offered at the stage payout. Pure upside, never required.
+  //   retry       interstitial, heavily rate-limited. Charging an ad every time someone wants
+  //               to play again punishes the core loop, so it is capped hard.
+  //   banner      menu and shop only. The board is already fighting for every pixel (§31, §44).
+  const Ads = (() => {
+    const FREE_GAMES   = 3;        // first runs are never interrupted
+    const RETRY_EVERY  = 3;        // then at most one interstitial per N game-overs
+    const MIN_GAP_MS   = 150000;   // ...and never twice inside this window
+    let removed = false, games = 0, lastAd = 0, sinceAd = 0;
+    try { removed = localStorage.getItem("fs_noads") === "1"; } catch (e) {}
+    try { games = +localStorage.getItem("fs_games") || 0; } catch (e) {}
+
+    const adsRemoved = () => removed;
+    function setRemoved(v) {
+      removed = !!v;
+      try { localStorage.setItem("fs_noads", removed ? "1" : "0"); } catch (e) {}
+    }
+    function countGame() {
+      games++; sinceAd++;
+      try { localStorage.setItem("fs_games", String(games)); } catch (e) {}
+    }
+    // whether an INTERSTITIAL is allowed right now, without showing one
+    function interstitialDue() {
+      if (removed) return false;
+      if (games <= FREE_GAMES) return false;
+      if (sinceAd < RETRY_EVERY) return false;
+      return Date.now() - lastAd >= MIN_GAP_MS;
+    }
+    // rewarded is always offered (it is opt-in and the player wants the reward), except to
+    // someone who paid to be rid of ads -- they get the reward without the ad
+    const rewardedReady = () => true;
+
+    // the stub. A real SDK replaces the body of show() and nothing else.
+    let onScreen = null;
+    function show(kind) {
+      return new Promise(resolve => {
+        if (removed) { resolve({ ok: true, skipped: "removed" }); return; }
+        lastAd = Date.now();
+        if (kind === "interstitial") sinceAd = 0;
+        onScreen = { kind, at: Date.now() };
+        const el = document.getElementById("adstub");
+        const label = document.getElementById("adstub-t");
+        if (!el) { onScreen = null; resolve({ ok: true, skipped: "nostub" }); return; }
+        label.textContent = d(kind === "rewarded" ? "adRewarded" : "adInterstitial");
+        el.classList.remove("hidden");
+        const finish = ok => {
+          el.classList.add("hidden");
+          onScreen = null;
+          document.getElementById("adstub-x").onclick = null;
+          resolve({ ok });
+        };
+        document.getElementById("adstub-x").onclick = () => finish(true);
+        // a real ad is not instant; the stub holds long enough to feel like one
+        setTimeout(() => { if (onScreen) finish(true); }, 2200);
+      });
+    }
+    return { show, adsRemoved, setRemoved, countGame, interstitialDue, rewardedReady,
+             get games() { return games; }, get sinceAd() { return sinceAd; },
+             FREE_GAMES, RETRY_EVERY,
+             resetForTest() { games = 0; sinceAd = 0; lastAd = 0; } };
+  })();
+
   // ---- haptics ----
   // A tactile game deserves a tick you can feel. navigator.vibrate is Android-only (iOS
   // Safari has no equivalent), so the toggle hides itself where it cannot work rather than
@@ -5498,6 +5682,10 @@
       b.addEventListener("click", () => { setLang(code); renderMenuSettings(); });
       wrap.appendChild(b);
     }
+    // a purchase, once made, should read as done rather than as a button to press again
+    const na = document.getElementById("s-noads");
+    na.textContent = d(Ads.adsRemoved() ? "adsRemoved" : "removeAds");
+    na.disabled = Ads.adsRemoved();
     document.getElementById("s-ver").textContent = "Fruit Star · " + BUILD_VER;
   }
   function openSettings() { renderMenuSettings(); $sh("settings").classList.remove("hidden"); }
@@ -5631,7 +5819,10 @@
       gridMult, MULT_GRID, STREAK_STEP_BASE, CHAIN_STEP, multLabel,
       syncRows, ROWS_BASE, ROWS_MAX, layout, COLS, BOARD_MIN, BOARD_MAX,
       checkViewport, MIN_PLAY_H, insets, usableH, usableW,
-      SFX, setLang, LANGS, PACKS, d, L, applyStaticText, nameOf,
+      SFX, Ads, setLang, LANGS, PACKS, d, L, applyStaticText, nameOf,
+      reviveRun, syncBanner, get revivedThisRun() { return revivedThisRun; },
+      start, showMenu, gameOver,
+      set revivedThisRun(v) { revivedThisRun = v; },
       renderSettings, openTraits, openInfo, openSettings, closeSettings, renderMenuSettings,
       setHaptics, BUILD_VER, startTutorial, finishTutorial, nextTutStep, tutorialDone,
       TUT_KEY, TUT_STEPS, tutAllows, get tut() { return tut; },
