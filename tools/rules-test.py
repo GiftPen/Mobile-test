@@ -175,6 +175,38 @@ window.addEventListener('load', () => setTimeout(() => {
   ochk('rush: totals 100', p.reduce((a, b) => a + b, 0), 100);
   for (let i = 0; i < 7; i++) ochk('rush: base slot ' + i, p[i], F.BASE_ODDS[i]);
 
+  // No fruit may ever reach 0%. A fruit that never spawns silently kills every relic keyed
+  // to it, and the odds table stops describing a game you can actually build in.
+  const floorCases = [
+    ['banana +3',      [0,0,0,0,0,0,3]],
+    ['banana +9',      [0,0,0,0,0,0,9]],
+    ['banana +40',     [0,0,0,0,0,0,40]],
+    ['banana +200',    [0,0,0,0,0,0,200]],
+    ['two stacks',     [5,0,0,5,0,0,20]],
+    ['everything +9',  [9,9,9,9,9,9,9]],
+  ];
+  const zeroed = [], offTotal = [];
+  for (const [label, mult] of floorCases) {
+    F.oddsMult = mult.slice();
+    const q = F.colorOdds();
+    const lo = Math.min.apply(null, q);
+    // compared against an absolute figure, NOT against MIN_ODDS: keying the assertion to the
+    // constant means lowering the constant lowers the assertion with it and proves nothing
+    if (lo < 1) zeroed.push(label + ': ' + lo.toFixed(2) + '%');
+    const tot = q.reduce((a, b) => a + b, 0);
+    if (Math.abs(tot - 100) > 0.01) offTotal.push(label + ': ' + tot.toFixed(2));
+  }
+  ochk('the floor itself is a usable share', F.MIN_ODDS >= 1 ? 1 : 0, 1, 0);
+  ochk('no boost can starve a fruit below 1%', zeroed.length, 0, 0);
+  if (zeroed.length) oddsFails.push({case: 'starved', got: zeroed, want: []});
+  ochk('and every boosted table still totals 100', offTotal.length, 0, 0);
+  if (offTotal.length) oddsFails.push({case: 'totals', got: offTotal, want: []});
+  // boosting every fruit equally changes nothing -- it is a share, not an absolute
+  F.oddsMult = [9,9,9,9,9,9,9];
+  const flat = F.colorOdds();
+  for (let i = 0; i < 7; i++) ochk('uniform boost is a no-op, slot ' + i, flat[i], F.BASE_ODDS[i]);
+  F.oddsMult = [0,0,0,0,0,0,0];
+
   F.oddsMult = [0,0,0,0,0,0,1];                  // the banana relic: one more banana's worth
   p = F.colorOdds();
   ochk('boost: totals 100', p.reduce((a, b) => a + b, 0), 100);

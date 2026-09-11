@@ -1548,28 +1548,56 @@
   // a relic, and which ones go quiet is then a decision rather than a deletion
   const activeRelics = () => relics.slice(0, relicCap());
   let oddsMult = [0, 0, 0, 0, 0, 0, 0];         // extra helpings of each fruit's base share
+  // "1만큼 더 등장" means exactly what it says: banana goes 6% -> 12%, and the rest give up
+  // the difference in proportion. That part was right. What was wrong is where the difference
+  // came FROM: unboosted fruit were driven to exactly 0% once the boosts reached 100, and a
+  // fruit at 0% silently kills every relic keyed to it (레몬 단지 stacks on lemon pops that
+  // then never happen). Cloverpit never zeroes a symbol for the same reason.
+  //
+  // So every colour keeps a floor, and it is a CLAMP, not a reservation: with no boosts
+  // nothing is under it and the table reads exactly the designed BASE_ODDS.
+  const MIN_ODDS = 2;                     // percent, per active colour
   function colorOdds() {
     const n = activeColors();
     const base = rules().odds();
     const out = new Array(n);
     let baseSum = 0;
     for (let i = 0; i < n; i++) { out[i] = base ? base[i] : 1; baseSum += out[i]; }
-    for (let i = 0; i < n; i++) out[i] = out[i] / baseSum * 100;   // normalise to 100
+    for (let i = 0; i < n; i++) out[i] = out[i] / baseSum * 100;
 
-    let boosted = 0, restBase = 0;
+    const floor = Math.min(MIN_ODDS, 100 / n);
+    let boostSum = 0, restSum = 0, restCount = 0;
     for (let i = 0; i < n; i++) {
-      if (oddsMult[i] > 0) boosted += out[i] * (1 + oddsMult[i]);
-      else restBase += out[i];
+      if (oddsMult[i] > 0) boostSum += out[i] * (1 + oddsMult[i]);
+      else { restSum += out[i]; restCount++; }
     }
-    if (boosted <= 0) return out;
-    if (boosted >= 100) {                        // boosts ate the whole pool -> split it
-      for (let i = 0; i < n; i++)
-        out[i] = oddsMult[i] > 0 ? out[i] * (1 + oddsMult[i]) / boosted * 100 : 0;
-      return out;
+    if (boostSum > 0) {
+      // boosts may not take the room the floors need; past that they share what is left
+      const room = Math.max(0, 100 - floor * restCount);
+      const bScale = boostSum > room ? room / boostSum : 1;
+      const bTotal = boostSum * bScale;
+      const restPool = 100 - bTotal;
+      for (let i = 0; i < n; i++) {
+        if (oddsMult[i] > 0) out[i] = out[i] * (1 + oddsMult[i]) * bScale;
+        else out[i] = restSum > 0 ? out[i] / restSum * restPool : restPool / Math.max(1, restCount);
+      }
     }
-    const scale = restBase > 0 ? (100 - boosted) / restBase : 0;
-    for (let i = 0; i < n; i++)
-      out[i] = oddsMult[i] > 0 ? out[i] * (1 + oddsMult[i]) : out[i] * scale;
+
+    // a proportional split can still leave the smallest colour under the floor, so lift it and
+    // take from the surplus above. Iterated because a donor can fall under the floor itself.
+    for (let pass = 0; pass < 8; pass++) {
+      let deficit = 0, surplus = 0;
+      for (let i = 0; i < n; i++) {
+        if (out[i] < floor) deficit += floor - out[i];
+        else surplus += out[i] - floor;
+      }
+      if (deficit <= 1e-9 || surplus <= 1e-9) break;
+      const take = Math.min(deficit, surplus);
+      for (let i = 0; i < n; i++) {
+        if (out[i] < floor) out[i] += (floor - out[i]) / deficit * take;
+        else                out[i] -= (out[i] - floor) / surplus * take;
+      }
+    }
     return out;
   }
   function pickColor() {
@@ -5601,6 +5629,7 @@
       HAPTICS_OK, get haptics() { return haptics; },
       get LANG() { return LANG; },
       rollZones, zoneAt, zoneCount, fruitScoreAt, ZONE_BASE,
+      MIN_ODDS,
       announceOffers,
       get zoneCells() { return zoneCells; }, get zoneMult() { return zoneMult; },
       get zoneCoin() { return zoneCoin; }, get zoneBonus() { return zoneBonus; },
