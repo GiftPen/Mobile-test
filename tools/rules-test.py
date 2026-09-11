@@ -723,6 +723,34 @@ window.addEventListener('load', () => setTimeout(() => {
     F.running = false; F.resetRun(); F.mode = 'rush';
   })();
 
+  // ---- the shop must never offer a relic that cannot do anything yet ----
+  (() => {
+    F.mode = 'rush'; F.resetRun();
+    // 측량 widens the marked cells; with no 명당/금맥 there are none, so it is a dead purchase
+    schk('측량 alone marks nothing', (() => {
+      F.resetRun(); F.relics.push('survey'); F.applyRelics(); F.rollZones();
+      return F.zoneCells.size;
+    })(), 0);
+    F.resetRun();
+    const seen = new Set();
+    for (let i = 0; i < 300; i++) for (const id of F.rollOffers(5)) seen.add(id);
+    schk('so it is not offered', seen.has('survey'), false);
+
+    // once a zone relic is owned it becomes useful, and becomes purchasable
+    F.resetRun(); F.relics.push('hotspot'); F.applyRelics();
+    const seen2 = new Set();
+    for (let i = 0; i < 300; i++) for (const id of F.rollOffers(5)) seen2.add(id);
+    schk('and is offered once it can work', seen2.has('survey'), true);
+    F.relics.push('survey'); F.applyRelics(); F.rollZones();
+    schk('and then really widens the map', F.zoneCells.size, F.ZONE_BASE + 3);
+
+    // the gate must not quietly swallow anything else
+    F.resetRun();
+    const gated = Object.keys(F.RELICS).filter(id => F.RELICS[id].requires);
+    schk('only the relics that need a prerequisite are gated', gated, ['survey']);
+    F.resetRun();
+  })();
+
   // ---- bonus zones ----
   (() => {
     F.mode = 'rush'; F.resetRun();

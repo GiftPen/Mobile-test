@@ -2835,7 +2835,10 @@
     gold_vein: { icon: "🪙", price: 14,
       desc: () => d("zoneCoin", 1),
       apply() { zoneCoin = true; } },
-    survey: { icon: "🗺️", price: 12,
+    // 측량 widens something that has to exist first: with no 명당 or 금맥 there are no marked
+    // cells to add to, and it is a 12-coin card that does literally nothing. `requires` keeps
+    // the shop from offering a relic that cannot work yet.
+    survey: { icon: "🗺️", price: 12, requires: () => zoneOn(),
       desc: () => d("zoneMore", 3),
       apply() { zoneBonus += 3; } },
 
@@ -4020,7 +4023,14 @@
   function rollOffers(n = 3) {
     const byTier = {};
     for (const t of TIER_KEYS) byTier[t] = [];
-    for (const id of Object.keys(RELICS)) if (!relics.includes(id)) byTier[relicTier(RELICS[id])].push(id);
+    for (const id of Object.keys(RELICS)) {
+      if (relics.includes(id)) continue;
+      // a relic whose effect has nothing to attach to yet is a dead card the shop would
+      // still charge for, so it does not get offered until it can work
+      const R = RELICS[id];
+      if (R.requires && !R.requires()) continue;
+      byTier[relicTier(R)].push(id);
+    }
     const out = [];
     while (out.length < n) {
       const live = TIER_KEYS.filter(t => byTier[t].length);
