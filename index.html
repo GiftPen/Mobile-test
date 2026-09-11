@@ -3589,7 +3589,12 @@
   }
   function placeBoughtItem(r, c) {
     const kind = armedItem;
-    if (!kind || !canBuyItem(kind) || grid[r][c] !== -1) { armedItem = null; renderItemShop(); return false; }
+    if (!kind) return false;
+    // A tap on an occupied cell is a MISS, not a cancel. Disarming here silently threw the
+    // purchase away and let the next tap plant an ordinary fruit -- spending a turn the
+    // player never meant to spend. Stay armed and say nothing happened.
+    if (grid[r][c] !== -1) { buzz(8); SFX.play("tap"); return false; }
+    if (!canBuyItem(kind)) { armedItem = null; renderItemShop(); return false; }
     coins -= ITEM_PRICES[kind]; coinsShown = coins;
     SFX.play("buy");
     const color = pickColor();
@@ -3802,6 +3807,15 @@
             }
             cur = tCells.splice(bi, 1)[0]; path.push(cur);
           }
+          // Bank the whole constellation NOW. takeCoin() has already lifted the carried coins
+          // off those cells at this point, so paying out during the animation meant an
+          // interrupted stroke destroyed them -- and the star's own cell never paid at all.
+          // The stroke keeps its staggered flight; only the value stopped depending on it.
+          let starCoins = 0;
+          for (let k = 1; k < path.length; k++) starCoins += starCoinMult + (path[k][2] || 0);
+          starCoins += starCoinMult + (carried ? 1 : 0);     // the star's own cell counts too
+          coins += starCoins;
+          dirty = true;
           links.push({ nodes: path, color: target, prog: 0, reached: 0, done: false });
           // small local splash so the star itself pops immediately
           for (const [nr, nc, d] of budsAround(r, c, R, visited))
@@ -4589,13 +4603,20 @@
     coinCell[r][c] = 0;
     return 1;
   }
-  function addCoins(n, r, c) {
-    if (!(n > 0)) return;
-    coins += n;
+  // the flight, with no value attached. Used where the coins were already banked at the
+  // moment the fruit was cleared and only the picture still has to catch up.
+  function flyCoins(n, r, c) {
+    if (!(n > 0) || r == null) return;
     SFX.play("coin");
-    if (r != null) for (let i = 0; i < n && coinFly.length < 60; i++)
+    for (let i = 0; i < n && coinFly.length < 60; i++)
       coinFly.push({ sx: pad + c * cell + cell / 2, sy: pad + r * cell + cell / 2,
                      t: -i * 0.05, lift: 0.5 + Math.random() * 0.7 });
+    dirty = true;
+  }
+  function addCoins(n, r, c) {
+    if (!(n > 0)) return;
+    coins += n;                            // value first, always
+    flyCoins(n, r, c);
     dirty = true;
   }
   // where the coins fly to: the HUD coin chip, mapped into board space
@@ -5178,7 +5199,7 @@
         if (nd) {
           burst(nd[0], nd[1], L.color); popScoreText(nd[0], nd[1], L.color);
           notify("onFruitPop", { r: nd[0], c: nd[1], color: L.color });
-          addCoins(starCoinMult + (nd[2] || 0), nd[0], nd[1]);   // ⭐ signature + carried coin
+          flyCoins(starCoinMult + (nd[2] || 0), nd[0], nd[1]);   // already banked; this is the picture
         }
       }
       const seg = Math.floor(p), frac = p - seg;
@@ -5828,6 +5849,7 @@
       checkViewport, MIN_PLAY_H, insets, usableH, usableW,
       SFX, Ads, setLang, LANGS, PACKS, d, L, applyStaticText, nameOf,
       reviveRun, syncBanner, get revivedThisRun() { return revivedThisRun; },
+      resetEffects, get links() { return links; },
       start, showMenu, gameOver,
       set revivedThisRun(v) { revivedThisRun = v; },
       renderSettings, openTraits, openInfo, openSettings, closeSettings, renderMenuSettings,

@@ -696,12 +696,20 @@ window.addEventListener('load', () => setTimeout(() => {
     schk('exactly one cell was filled', F.filledCount(), before.filled + 1);
     schk('and the arm is cleared', F.armedItem, null);
 
-    // an armed buy aimed at an occupied cell spends nothing
+    // A tap on an occupied cell is a MISS, not a cancel. Disarming there threw the purchase
+    // away silently and the NEXT tap planted an ordinary fruit, spending a turn the player
+    // never meant to spend -- which is exactly how it was reported.
     F.armItem('bird');
-    const coinsWas = F.coins;
+    const coinsWas = F.coins, turnWas = F.touchCount;
     F.placeBoughtItem(r0, c0);                    // still holds the bomb
-    schk('a blocked placement is refused', F.coins, coinsWas);
-    schk('and disarms rather than lingering', F.armedItem, null);
+    schk('a blocked placement spends nothing', F.coins, coinsWas);
+    schk('and costs no turn', F.touchCount, turnWas);
+    schk('and stays armed for the next tap', F.armedItem, 'bird');
+    const [r2, c2] = emptyRC();
+    F.placeBoughtItem(r2, c2);
+    schk('so the next tap places the item, not a fruit', F.special[r2][c2], 'bird');
+    schk('now it disarms', F.armedItem, null);
+    schk('and only now was it paid for', coinsWas - F.coins, F.ITEM_PRICES.bird);
 
     // cannot arm what you cannot afford
     F.coins = 5;

@@ -91,6 +91,24 @@ window.addEventListener('load', async () => {
   chk('star: constellation actually ran', sawLink, true);
   chk('star: no fruit spawned mid-draw', grew, false);
 
+  // The constellation's coins must be banked when the fruit is CLEARED, not paid out frame by
+  // frame as the stroke draws. takeCoin() lifts carried coins off those cells at clear time,
+  // so an interrupted stroke used to destroy them -- and the star's own cell never paid.
+  F.mode = 'rush'; F.start('rush');
+  for (let r = 0; r < F.ROWS; r++) for (let c = 0; c < F.COLS; c++) {
+    F.grid[r][c] = (r + c) % 2 === 0 ? 2 : -1; F.special[r][c] = null; F.coinCell[r][c] = 0;
+  }
+  F.special[4][4] = 'star'; F.grid[4][4] = 2;
+  const targets = F.grid.flat().filter(v => v === 2).length;
+  F.coins = 0;
+  F.tapItem(4, 4);
+  for (let i = 0; i < 3; i++) { F.draw(); await sleep(16); }     // barely any animation yet
+  const banked = F.coins;
+  chk('star: coins are banked at once, not as the stroke draws', banked, targets);
+  F.resetEffects();                                             // what a stage change does
+  for (let i = 0; i < 60; i++) { F.draw(); await sleep(16); }
+  chk('star: cutting the animation short loses none of them', F.coins, banked);
+
   // ---- the reported bug: a bird landing after the last touch still counts ----
   // BIRD_SCORE lands the quota exactly, and it arrives ~880ms after the turn ended -- later
   // than the 750ms the loss used to be scheduled at.
