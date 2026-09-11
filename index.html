@@ -1470,6 +1470,47 @@
     layout(); dirty = true;
     return true;
   }
+  // ---- autosave -------------------------------------------------------------------
+  // serializeRun/restoreRun existed but nothing ever wrote them down, so a run only lived in
+  // memory. Mobile browsers discard backgrounded tabs freely, and a Star Rush run is five to
+  // ten minutes of relics and score to lose that way.
+  const SAVE_KEY = "fs_run_v1";
+  function saveRun() {
+    if (!running || tut) return;                 // nothing to keep mid-tutorial
+    try { localStorage.setItem(SAVE_KEY, JSON.stringify(serializeRun())); } catch (e) {}
+  }
+  function clearSave() { try { localStorage.removeItem(SAVE_KEY); } catch (e) {} }
+  function loadSave() {
+    try {
+      const raw = localStorage.getItem(SAVE_KEY);
+      if (!raw) return null;
+      const o = JSON.parse(raw);
+      return (o && o.v === RUN_VERSION) ? o : null;
+    } catch (e) { return null; }
+  }
+  // Comes back PAUSED: the player was somewhere else, and dropping them straight onto a live
+  // board invites a tap they did not mean. Seeing the board behind the pause panel also says
+  // plainly that nothing was lost.
+  function resumeSavedRun() {
+    const o = loadSave();
+    if (!o) return false;
+    if (!restoreRun(o)) { clearSave(); return false; }
+    resetEffects();
+    applyRelics();                               // derived state is not serialised
+    pickNext();
+    running = true; busy = false;
+    loadBest();
+    $sh("overlay").classList.add("hidden");
+    $sh("gameover").classList.add("hidden");
+    syncBanner();
+    rollZones();
+    updateHUD(); dirty = true;
+    paused = true;
+    renderSettings();
+    $sh("pause").classList.remove("hidden");
+    return true;
+  }
+
   function resetEffects() {
     particles = []; birds = []; flares = []; waves = []; links = []; floats = []; coinFly = [];
     shake = 0; flash = 0; dirty = true;
@@ -3137,6 +3178,7 @@
   function start(next = mode) {
     mode = MODES[next] ? next : "arcade";
     revivedThisRun = false;
+    clearSave();                           // a new run replaces whatever was kept
     document.getElementById("shop").classList.add("hidden");
     document.getElementById("traits").classList.add("hidden");
     loadBest();
@@ -3579,8 +3621,19 @@
   // Coming back from the background leaves the context suspended. A tap would wake it, but
   // that first tap would be silent -- so wake it as soon as the page is visible again.
   document.addEventListener("visibilitychange", () => {
-    if (!document.hidden) SFX.resume();
+    if (document.hidden) {
+      saveRun();                               // the tab may not come back at all
+      // pause a live run so returning never lands on a board mid-thought
+      if (running && !paused && !tut) {
+        paused = true;
+        renderSettings();
+        $sh("pause").classList.remove("hidden");
+      }
+      return;
+    }
+    SFX.resume();
   });
+  window.addEventListener("pagehide", saveRun);
   window.addEventListener("pageshow", () => SFX.resume());
   // one generic click for every button, in the capture phase so it lands before the handler
   // that may play a more specific sound (buy, reroll, ...) on top of it
@@ -4167,6 +4220,7 @@
   }
   function resumePlay() {
     busy = false; dirty = true;
+    saveRun();                             // back on the board: shop and traits are settled
     $sh("hint").textContent =
       d("hintStage", stageLabel(stage), rules().quota(stage), touchesLeft);
     rollZones();                 // a fresh map each stage
@@ -4511,6 +4565,7 @@
     // fly the payout from the middle of the board -- awarding it position-less meant the
     // counter just ticked up silently, which read as "the coin effect isn't working"
     SFX.play(stage % STAGES_PER_ROUND === 0 ? "round" : "stage");
+    saveRun();                             // a cleared stage is worth keeping
     recordStage();                       // reaching it counts even if the run is abandoned
     tickRelicLife("stages");             // the stage that just ended counts against them
     addCoins(Math.round(COIN_PAYOUT(stage) * payoutMult), (ROWS - 1) / 2, (COLS - 1) / 2);
@@ -4553,6 +4608,7 @@
     // the stage and replayed the sting.
     if (!running) return;
     running = false; busy = false;
+    clearSave();                           // the run is over; nothing to come back to
     SFX.play("over");
     Ads.countGame();
     buzz([30, 60, 30]);
@@ -5811,6 +5867,7 @@
   });
 
   document.getElementById("btn-tomain").addEventListener("click", () => {
+    clearSave();                           // leaving on purpose is not the same as being killed
     paused = false; running = false;
     document.getElementById("shop").classList.add("hidden");
     document.getElementById("pause").classList.add("hidden");
@@ -5829,6 +5886,8 @@
   loadFruitArt();   // load custom SVG art -> sprite cache
   updateHUD();
   mfxStart();       // menu is visible on boot -> start ambient fruit FX
+  // a run that was interrupted comes straight back, paused, instead of the menu
+  if (!TEST_MODE && resumeSavedRun()) mfxStop();
   // ---- test hook ----
   // Deliberately the LAST thing in the file. It used to sit mid-script, which meant every
   // symbol declared below it had to be wrapped in a getter or the object literal died in
@@ -5871,6 +5930,7 @@
       SFX, Ads, setLang, LANGS, PACKS, d, L, applyStaticText, nameOf,
       reviveRun, syncBanner, get revivedThisRun() { return revivedThisRun; },
       resetEffects, get links() { return links; },
+      saveRun, clearSave, loadSave, resumeSavedRun, SAVE_KEY,
       start, showMenu, gameOver,
       set revivedThisRun(v) { revivedThisRun = v; },
       renderSettings, openTraits, openInfo, openSettings, closeSettings, renderMenuSettings,
