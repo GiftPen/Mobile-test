@@ -99,6 +99,7 @@ window.addEventListener('load', () => setTimeout(() => {
     ['traits', () => F.openTraits()],
     ['info',   () => F.openInfo('relics')],
     ['odds',   () => F.openInfo('fruits')],
+    ['help',   () => F.openInfo('help')],
     ['over',   () => document.getElementById('overlay').classList.remove('hidden')],
   ];
   for (const [name, open] of panels) {
