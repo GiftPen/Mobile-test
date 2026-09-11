@@ -200,6 +200,22 @@
   .set-val { font-size: 13px; color: var(--muted); width: 28px; text-align: right; }
   #vol, #s-vol { flex: 1; accent-color: #ffd23e; }
   #vol-row.off, #s-vol-row.off { opacity: .35; }
+  /* The tutorial does NOT cover the board -- it has to be tapped. Only the bubble and the
+     skip button are real elements; the dimming and the ring around the cell you may touch are
+     drawn on the canvas itself, so they line up with the grid at any board size. */
+  /* the lesson is the board. Quota, touch budget, the item bar and the next-stage button all
+     belong to a game that has not started yet, and reading them is not the thing being taught */
+  body.tut-on #rush, body.tut-on #stats, body.tut-on #ishop,
+  body.tut-on #rush-next, body.tut-on #fillgauge { visibility: hidden; }
+  #tut { position: fixed; left: 0; right: 0; bottom: 0; z-index: 26; pointer-events: none;
+    display: flex; flex-direction: column; align-items: center; gap: 10px; padding: 0 16px 18px; }
+  #tut.hidden { display: none; }
+  #tut-bubble { pointer-events: none; max-width: 360px; width: 100%;
+    background: rgba(22,25,38,.96); border: 1px solid #2b3048; border-radius: 16px;
+    padding: 14px 16px; box-shadow: 0 8px 30px rgba(0,0,0,.5); }
+  #tut-text { margin: 0; font-size: 15px; font-weight: 700; line-height: 1.5; color: var(--text);
+    text-align: center; }
+  #tut-skip { pointer-events: auto; margin: 0; padding: 9px 18px; font-size: 13px; }
   #settings { position: fixed; inset: 0; z-index: 30; background: rgba(8,9,15,.92);
     backdrop-filter: blur(6px); display: flex; align-items: center; justify-content: center;
     padding: 18px; }
@@ -564,6 +580,11 @@
     <button class="dock-btn" data-item="brick">🧱</button>
   </div>
 
+  <div id="tut" class="hidden">
+    <div id="tut-bubble"><p id="tut-text"></p></div>
+    <button id="tut-skip" class="ghost-btn" data-i18n="tutSkip">건너뛰기</button>
+  </div>
+
   <div id="settings" class="hidden">
     <div class="set-card">
       <h2 data-i18n="btnSettings">설정</h2>
@@ -581,6 +602,9 @@
       </div>
       <div class="set-row">
         <button id="s-haptic" class="set-toggle"><span id="s-haptic-ic">📳</span> <span id="s-haptic-t" data-i18n="haptics">진동</span></button>
+      </div>
+      <div class="set-row">
+        <button id="s-replay" class="ghost-btn wide" data-i18n="tutReplay">튜토리얼 다시 보기</button>
       </div>
       <div class="set-row">
         <button id="s-reset" class="ghost-btn wide" data-i18n="resetRecords">기록 초기화</button>
@@ -1323,6 +1347,7 @@
   // is JSON-safe, so a long Star Rush run can survive the phone evicting the tab. Session
   // flags (running/busy/paused), effect buffers (particles/waves/...) and layout are
   // deliberately NOT run state -- they are rebuilt, not restored.
+  const TEST_MODE = location.search.includes("test=1");
   const BUILD_VER = "0.9";   // shown in settings so a bug report can name a build
   const RUN_VERSION = 1;
   const layer = fill => Array.from({ length: ROWS }, () => Array(COLS).fill(fill));
@@ -1813,6 +1838,11 @@
       resetRecords: "기록 초기화",
       resetAsk: "최고 점수와 도달 기록을 지웁니다. 계속할까요?",
       resetDone: "기록을 지웠습니다",
+      tut1: "같은 색 과일 옆에 놓으면 터집니다. 빛나는 칸을 탭해보세요",
+      tut2: "한 번에 많이 터뜨릴수록 점수가 커집니다. 가운데를 채워보세요",
+      tut3: "크게 터뜨리면 아이템이 생깁니다. 폭탄을 탭해 터뜨리세요",
+      tutSkip: "건너뛰기",
+      tutReplay: "튜토리얼 다시 보기",
       tierCommon: "일반", tierUncommon: "고급", tierRare: "희귀", tierLegend: "전설",
       soonSettings: "⚙️ 설정은 준비 중이에요", soonRanking: "🏆 랭킹은 준비 중이에요",
     },
@@ -1989,6 +2019,11 @@
       resetRecords: "Reset records",
       resetAsk: "This clears your best score and furthest stage. Continue?",
       resetDone: "Records cleared",
+      tut1: "Place a fruit next to a matching one and they pop. Tap the glowing cell",
+      tut2: "The bigger the cluster, the bigger the score. Fill the gap in the middle",
+      tut3: "Big pops leave items behind. Tap the bomb to set it off",
+      tutSkip: "Skip",
+      tutReplay: "Replay tutorial",
       tierCommon: "Common", tierUncommon: "Uncommon", tierRare: "Rare", tierLegend: "Legendary",
       soonSettings: "⚙️ Settings are on the way", soonRanking: "🏆 Ranking is on the way",
     },
@@ -2164,6 +2199,11 @@
       resetRecords: "記録をリセット",
       resetAsk: "ベストスコアと到達記録を消します。よろしいですか?",
       resetDone: "記録を消しました",
+      tut1: "同じ色のフルーツの隣に置くと割れます。光るマスをタップ",
+      tut2: "一度に多く割るほどスコアが伸びます。真ん中を埋めましょう",
+      tut3: "大きく割るとアイテムが出ます。爆弾をタップして起動",
+      tutSkip: "スキップ",
+      tutReplay: "チュートリアルをもう一度",
       tierCommon: "コモン", tierUncommon: "アンコモン", tierRare: "レア", tierLegend: "レジェンド",
       soonSettings: "⚙️ 設定は準備中です", soonRanking: "🏆 ランキングは準備中です",
     },
@@ -2339,6 +2379,11 @@
       resetRecords: "重置记录",
       resetAsk: "将清除最高分和最远关卡记录，确定吗？",
       resetDone: "记录已清除",
+      tut1: "把水果放在同色旁边就会消除。点击发光的格子",
+      tut2: "一次消除越多分数越高。填上中间的空格",
+      tut3: "大量消除会留下道具。点击炸弹引爆",
+      tutSkip: "跳过",
+      tutReplay: "重看教程",
       tierCommon: "普通", tierUncommon: "优良", tierRare: "稀有", tierLegend: "传说",
       soonSettings: "⚙️ 设置正在准备中", soonRanking: "🏆 排行榜正在准备中",
     },
@@ -3066,6 +3111,7 @@
       placeBoughtItem(r, c);
       return;
     }
+    if (!tutAllows(r, c)) { buzz(8); return; }            // tutorial: one legal tap at a time
     if (grid[r][c] === -1) plant(r, c, nextColor);        // empty -> place next color
     else if (special[r][c]) tapItem(r, c);                // item bud -> trigger it
     // normal fruit or brick -> nothing
@@ -3695,6 +3741,9 @@
   }
 
   function finishBurst(r0, c0, color, popped, chainPopped, placement, pointsPopped, visualEnd = 0) {
+    // the tutorial waits for the burst to finish so the player sees the result of what they
+    // did before the next instruction replaces it
+    if (tut) setTimeout(nextTutStep, Math.max(700, visualEnd - performance.now() + 700));
     // the per-fruit numbers are still flying; hold the total until they have landed
     const totalAt = Math.max(0, visualEnd - performance.now());
     if (placement) {
@@ -4757,6 +4806,26 @@
       ctx.restore();
     }
 
+    // tutorial spotlight: dim the board, then cut a bright ring around the one cell that
+    // will respond. Drawn here rather than as DOM so it tracks the grid at any board size.
+    if (tut && tut.target) {
+      const [tr, tc] = tut.target;
+      ctx.save();
+      ctx.fillStyle = "rgba(8,9,15,.62)";
+      roundRect(0, 0, boardPx, boardH, 18); ctx.fill();
+      const x = pad + tc * cell, y = pad + tr * cell, g = boardPx * 0.006;
+      ctx.globalCompositeOperation = "destination-out";
+      roundRect(x + g, y + g, cell - g*2, cell - g*2, cell*0.22); ctx.fill();
+      ctx.globalCompositeOperation = "source-over";
+      const pulse = 0.5 + 0.5 * Math.sin(frame * 0.09);
+      ctx.strokeStyle = "#ffd23e";
+      ctx.globalAlpha = 0.65 + 0.35 * pulse;
+      ctx.lineWidth = Math.max(2, cell * 0.06);
+      roundRect(x + g, y + g, cell - g*2, cell - g*2, cell*0.22); ctx.stroke();
+      ctx.restore();
+      dirty = true;                        // keep the pulse alive
+    }
+
     // per-fruit score pops
     if (floats.length) {
       ctx.save();
@@ -5043,102 +5112,13 @@
     mctx.clearRect(0, 0, mfxW, mfxH);
   }
 
-  // ---- test hook ----
-  // ?test=1 exposes the pure rule helpers so headless checks can assert the formulas
-  // directly. End-to-end replay can't verify them: draw() consumes Math.random() for
-  // screen-shake every frame, so a seeded run desyncs with frame timing.
-  if (location.search.includes("test=1"))
-    window.__fs = {
-      scorePop, fruitScore, chainBonus, streakMult, pickColor, addScore,
-      resetRun, serializeRun, restoreRun, FRUIT_POINTS, COLS,
-      MODES, activeColors, spawnCount, brickHpLevel, computeMaxLevel,
-      RELICS, notify, modify, applyRelics, activeRelics, relicCap, stageTouches, RELIC_SLOTS,
-      settleSlots, tickRelicLife, lifeUnitLabel, TIERS, TIER_KEYS, relicTier,
-      get birdFlock() { return birdFlock; }, get crossLine() { return crossLine; },
-      get relicLife() { return relicLife; }, set relicLife(v) { relicLife = v; },
-      get fruitFlat() { return fruitFlat; },
-      openShop, closeShop, buyRelic, discardRelic, renderShop, rollOffers,
-      openInfo, closeInfo, renderInfo,
-      endStageEarly, leftoverCoins, takeCoin, updateHUD, closeStage, gameOver, COIN_FRUIT_CHANCE, COIN_PER_LEFTOVER, COIN_PAYOUT,
-      TRAITS, STAGES_PER_ROUND, stageLabel, traitEffects, rollTraits, openTraits, pickTrait, renderTraits,
-      SHOP_OFFERS, SHOP_OFFERS_MAX, shelfSize,
-      get shopSold() { return shopSold; },
-      get traitRerolls() { return traitRerolls; }, set traitRerolls(v) { traitRerolls = v; },
-      get traits() { return traits; }, set traits(v) { traits = v; },
-      get doubles() { return doubles; }, set doubles(v) { doubles = v; },
-      get offerBonus() { return offerBonus; },
-      get traitOffers() { return traitOffers; }, set traitOffers(v) { traitOffers = v; },
-      get graftArmed() { return graftArmed; }, set graftArmed(v) { graftArmed = v; },
-      get coinCell() { return coinCell; }, set coinCell(v) { coinCell = v; },
-      get shopOffers() { return shopOffers; }, set shopOffers(v) { shopOffers = v; },
-      get touchBonus() { return touchBonus; }, get spawnBonus() { return spawnBonus; },
-      get slotBonus()  { return slotBonus; }, get brickChance() { return brickChance; },
-      get chainStep() { return chainStep; }, get coinFruitBonus() { return coinFruitBonus; },
-      get starCoinMult() { return starCoinMult; }, get payoutMult() { return payoutMult; },
-      bombRadius, BOMB_RADIUS_MAX, itemNeed, ITEM_NEED_MIN,
-      gridMult, MULT_GRID, STREAK_STEP_BASE, CHAIN_STEP, multLabel,
-      syncRows, ROWS_BASE, ROWS_MAX, layout, COLS, BOARD_MIN, BOARD_MAX,
-      checkViewport, MIN_PLAY_H,
-      SFX, setLang, LANGS, PACKS, d, L, applyStaticText, nameOf,
-      renderSettings, openTraits, openInfo, openSettings, closeSettings, renderMenuSettings,
-      // these are declared further down, so read them lazily rather than at hook-build time
-      setHaptics, BUILD_VER,
-      get HAPTICS_OK() { return HAPTICS_OK; }, get haptics() { return haptics; },
-      get LANG() { return LANG; },
-      rollZones, zoneAt, zoneCount, fruitScoreAt, ZONE_BASE,
-      announceOffers,
-      get zoneCells() { return zoneCells; }, get zoneMult() { return zoneMult; },
-      get zoneCoin() { return zoneCoin; }, get zoneBonus() { return zoneBonus; },
-      emptyCells, ITEM_PRICES, canBuyItem, armItem, placeBoughtItem, renderItemShop,
-      filledCount, get paused() { return paused; }, set paused(v) { paused = v; },
-      get armedItem() { return armedItem; }, set armedItem(v) { armedItem = v; },
-      get grid() { return grid; }, get special() { return special; },
-      get hp() { return hp; }, get coinCell() { return coinCell; },
-      BIRD_THRESHOLD, LINE_THRESHOLD, BOMB_THRESHOLD, STAR_THRESHOLD,
-      get bombRadiusBonus() { return bombRadiusBonus; }, get itemEase() { return itemEase; },
-      get STREAK_CAP() { return STREAK_CAP; }, get STREAK_STEP() { return STREAK_STEP; },
-      get relics() { return relics; }, set relics(v) { relics = v; },
-      get mode() { return mode; }, set mode(v) { mode = v; },
-      get ROWS()        { return ROWS; },        set ROWS(v)        { ROWS = v; },
-      get grid()        { return grid; },        set grid(v)        { grid = v; },
-      get special()     { return special; },     set special(v)     { special = v; },
-      get hp()          { return hp; },          set hp(v)          { hp = v; },
-      get glow()        { return glow; },        set glow(v)        { glow = v; },
-      get appear()      { return appear; },      set appear(v)      { appear = v; },
-      get nextColor()   { return nextColor; },   set nextColor(v)   { nextColor = v; },
-      get nextColor2()  { return nextColor2; },  set nextColor2(v)  { nextColor2 = v; },
-      get score()       { return score; },       set score(v)       { score = v; },
-      get streak()      { return streak; },      set streak(v)      { streak = v; },
-      get touchCount()  { return touchCount; },  set touchCount(v)  { touchCount = v; },
-      get stage()       { return stage; },       set stage(v)       { stage = v; },
-      get stageScore()  { return stageScore; },  set stageScore(v)  { stageScore = v; },
-      get touchesLeft() { return touchesLeft; }, set touchesLeft(v) { touchesLeft = v; },
-      get coins()       { return coins; },       set coins(v)       { coins = v; },
-      get bestStage()   { return bestStage; },   set bestStage(v)   { bestStage = v; },
-      fitVal, setQuota, fmtNum, fmtShort, NUM_LOCALE, COMPACT_FROM,
-      recordStage, BEST_STAGE_KEY,
-      addCoins, COIN_PAYOUT,
-      rushQuota, RUSH_TOUCHES, RUSH_SPAWNS, RUSH_BUDS, RUSH_QUOTA_1,
-      RUSH_STAGE_MUL, RUSH_ROUND_MUL, RUSH_ROUND_ACCEL, roundSpan, roundMul, rules,
-      get busy()        { return busy; },        set busy(v)        { busy = v; },
-      get running()     { return running; },     set running(v)     { running = v; },
-      get birds()       { return birds; },
-      get floats()      { return floats; },
-      get links()       { return links; },
-      tapItem, spawnBird, chooseBirdTarget,
-      // headless Chrome produces no frames under --virtual-time-budget, so rAF never ticks.
-      // Item landings live in draw(); tests pump it by hand to advance them.
-      draw,
-      get oddsMult()    { return oddsMult; },    set oddsMult(v)    { oddsMult = v; },
-      colorOdds, BASE_ODDS,
-      get fruitMult()   { return fruitMult; },   set fruitMult(v)   { fruitMult = v; },
-      get fruitStack()  { return fruitStack; },  set fruitStack(v)  { fruitStack = v; },
-      get fruitBoost()  { return fruitBoost; },  set fruitBoost(v)  { fruitBoost = v; },
-      fruitScore,
-    };
 
   // ---- boot ----
-  document.getElementById("btn-arcade").addEventListener("click", () => start("arcade"));
+  // ?test=1 goes straight to the game: the suites drive the mode buttons and would otherwise
+  // all be playing the tutorial. The tutorial itself is exercised by calling startTutorial()
+  // directly, so it stays covered.
+  const play = m => (tutorialDone() || TEST_MODE ? start(m) : startTutorial(m));
+  document.getElementById("btn-arcade").addEventListener("click", () => play("arcade"));
   document.getElementById("start-btn").addEventListener("click", () => start());   // retry same mode
   document.getElementById("btn-menu").addEventListener("click", showMenu);    // game-over -> main
   let msgTimer = null;
@@ -5147,9 +5127,15 @@
     el.textContent = txt;
     clearTimeout(msgTimer); msgTimer = setTimeout(() => { el.textContent = ""; }, 2200);
   }
-  document.getElementById("btn-challenge").addEventListener("click", () => start("rush"));
+  document.getElementById("btn-challenge").addEventListener("click", () => play("rush"));
   document.getElementById("btn-settings").addEventListener("click", openSettings);
   document.getElementById("s-close").addEventListener("click", closeSettings);
+  document.getElementById("tut-skip").addEventListener("click", () => finishTutorial(true));
+  document.getElementById("s-replay").addEventListener("click", () => {
+    try { localStorage.removeItem(TUT_KEY); } catch (e) {}
+    closeSettings();
+    startTutorial(mode || "rush");
+  });
   document.getElementById("s-mute").addEventListener("click", () => {
     SFX.setMuted(!SFX.muted); renderMenuSettings();
     if (!SFX.muted) SFX.play("tap");
@@ -5180,6 +5166,77 @@
     renderSettings();
     document.getElementById("pause").classList.remove("hidden");
   });
+  // ---- tutorial -------------------------------------------------------------------
+  // Taught by doing, not by reading: a scripted board, one legal tap at a time, and the rest
+  // of the grid dimmed so there is nothing to get wrong. Three steps is the whole of it --
+  // place, pop a bigger cluster, fire an item -- because everything else in this game is a
+  // number on a card the player can read when it appears.
+  const TUT_KEY = "fs_tut_v1";
+  let tut = null;                          // null when not running
+  const tutorialDone = () => { try { return localStorage.getItem(TUT_KEY) === "1"; } catch (e) { return false; } };
+
+  const TUT_STEPS = [
+    { // 1. the only action in the game
+      text: "tut1",
+      setup() {
+        grid[3][3] = 0; grid[3][4] = 0;    // two cherries side by side
+        nextColor = 0; nextColor2 = 0;
+        return [3, 5];                     // the cell we want tapped
+      },
+    },
+    { // 2. bigger cluster, bigger score
+      text: "tut2",
+      setup() {
+        for (const [r, c] of [[2,2],[2,3],[2,4],[3,2],[3,4],[4,2],[4,3],[4,4]]) grid[r][c] = 2;
+        nextColor = 2; nextColor2 = 2;
+        return [3, 3];                     // the hole in the middle
+      },
+    },
+    { // 3. items are made by popping, and fired by tapping
+      text: "tut3",
+      setup() {
+        grid[4][3] = 6; special[4][3] = "bomb";
+        for (const [r, c] of [[4,2],[4,4],[3,3],[5,3]]) grid[r][c] = 4;
+        nextColor = 4; nextColor2 = 4;
+        return [4, 3];                     // tap the bomb itself
+      },
+    },
+  ];
+
+  function startTutorial(thenMode) {
+    mode = thenMode;
+    resetRun(); resetEffects(); applyRelics();
+    running = true; busy = false; paused = false;
+    tut = { i: -1, then: thenMode, target: null };
+    $sh("overlay").classList.add("hidden");
+    $sh("tut").classList.remove("hidden");
+    document.body.classList.add("tut-on");
+    nextTutStep();
+  }
+  function nextTutStep() {
+    if (!tut) return;
+    tut.i++;
+    if (tut.i >= TUT_STEPS.length) { finishTutorial(true); return; }
+    // a clean slate each step: the lesson is the shape on the board, not what is left over
+    grid = layer(-1); special = layer(null); hp = layer(0); coinCell = layer(0);
+    glow = layer(null); appear = layer(0); ghost = layer(null);
+    const step = TUT_STEPS[tut.i];
+    tut.target = step.setup();
+    document.getElementById("tut-text").textContent = d(step.text);
+    document.getElementById("hint").textContent = "";
+    dirty = true; updateHUD();
+  }
+  function finishTutorial(completed) {
+    const then = tut ? tut.then : "rush";
+    tut = null;
+    $sh("tut").classList.add("hidden");
+    document.body.classList.remove("tut-on");
+    if (completed) { try { localStorage.setItem(TUT_KEY, "1"); } catch (e) {} }
+    start(then);
+  }
+  // the tutorial owns the board while it runs: only the highlighted cell responds
+  const tutAllows = (r, c) => !tut || (tut.target && tut.target[0] === r && tut.target[1] === c);
+
   // ---- haptics ----
   // A tactile game deserves a tick you can feel. navigator.vibrate is Android-only (iOS
   // Safari has no equivalent), so the toggle hides itself where it cannot work rather than
@@ -5311,6 +5368,103 @@
   loadFruitArt();   // load custom SVG art -> sprite cache
   updateHUD();
   mfxStart();       // menu is visible on boot -> start ambient fruit FX
+  // ---- test hook ----
+  // Deliberately the LAST thing in the file. It used to sit mid-script, which meant every
+  // symbol declared below it had to be wrapped in a getter or the object literal died in
+  // the TDZ -- four separate times. Down here everything is already initialised.
+  // ?test=1 exposes the pure rule helpers so headless checks can assert the formulas
+  // directly. End-to-end replay can't verify them: draw() consumes Math.random() for
+  // screen-shake every frame, so a seeded run desyncs with frame timing.
+  if (TEST_MODE)
+    window.__fs = {
+      scorePop, fruitScore, chainBonus, streakMult, pickColor, addScore,
+      resetRun, serializeRun, restoreRun, FRUIT_POINTS, COLS,
+      MODES, activeColors, spawnCount, brickHpLevel, computeMaxLevel,
+      RELICS, notify, modify, applyRelics, activeRelics, relicCap, stageTouches, RELIC_SLOTS,
+      settleSlots, tickRelicLife, lifeUnitLabel, TIERS, TIER_KEYS, relicTier,
+      get birdFlock() { return birdFlock; }, get crossLine() { return crossLine; },
+      get relicLife() { return relicLife; }, set relicLife(v) { relicLife = v; },
+      get fruitFlat() { return fruitFlat; },
+      openShop, closeShop, buyRelic, discardRelic, renderShop, rollOffers,
+      openInfo, closeInfo, renderInfo,
+      endStageEarly, leftoverCoins, takeCoin, updateHUD, closeStage, gameOver, COIN_FRUIT_CHANCE, COIN_PER_LEFTOVER, COIN_PAYOUT,
+      TRAITS, STAGES_PER_ROUND, stageLabel, traitEffects, rollTraits, openTraits, pickTrait, renderTraits,
+      SHOP_OFFERS, SHOP_OFFERS_MAX, shelfSize,
+      get shopSold() { return shopSold; },
+      get traitRerolls() { return traitRerolls; }, set traitRerolls(v) { traitRerolls = v; },
+      get traits() { return traits; }, set traits(v) { traits = v; },
+      get doubles() { return doubles; }, set doubles(v) { doubles = v; },
+      get offerBonus() { return offerBonus; },
+      get traitOffers() { return traitOffers; }, set traitOffers(v) { traitOffers = v; },
+      get graftArmed() { return graftArmed; }, set graftArmed(v) { graftArmed = v; },
+      get coinCell() { return coinCell; }, set coinCell(v) { coinCell = v; },
+      get shopOffers() { return shopOffers; }, set shopOffers(v) { shopOffers = v; },
+      get touchBonus() { return touchBonus; }, get spawnBonus() { return spawnBonus; },
+      get slotBonus()  { return slotBonus; }, get brickChance() { return brickChance; },
+      get chainStep() { return chainStep; }, get coinFruitBonus() { return coinFruitBonus; },
+      get starCoinMult() { return starCoinMult; }, get payoutMult() { return payoutMult; },
+      bombRadius, BOMB_RADIUS_MAX, itemNeed, ITEM_NEED_MIN,
+      gridMult, MULT_GRID, STREAK_STEP_BASE, CHAIN_STEP, multLabel,
+      syncRows, ROWS_BASE, ROWS_MAX, layout, COLS, BOARD_MIN, BOARD_MAX,
+      checkViewport, MIN_PLAY_H,
+      SFX, setLang, LANGS, PACKS, d, L, applyStaticText, nameOf,
+      renderSettings, openTraits, openInfo, openSettings, closeSettings, renderMenuSettings,
+      setHaptics, BUILD_VER, startTutorial, finishTutorial, nextTutStep, tutorialDone,
+      TUT_KEY, TUT_STEPS, tutAllows, get tut() { return tut; },
+      HAPTICS_OK, get haptics() { return haptics; },
+      get LANG() { return LANG; },
+      rollZones, zoneAt, zoneCount, fruitScoreAt, ZONE_BASE,
+      announceOffers,
+      get zoneCells() { return zoneCells; }, get zoneMult() { return zoneMult; },
+      get zoneCoin() { return zoneCoin; }, get zoneBonus() { return zoneBonus; },
+      emptyCells, ITEM_PRICES, canBuyItem, armItem, placeBoughtItem, renderItemShop,
+      filledCount, get paused() { return paused; }, set paused(v) { paused = v; },
+      get armedItem() { return armedItem; }, set armedItem(v) { armedItem = v; },
+      get grid() { return grid; }, get special() { return special; },
+      get hp() { return hp; }, get coinCell() { return coinCell; },
+      BIRD_THRESHOLD, LINE_THRESHOLD, BOMB_THRESHOLD, STAR_THRESHOLD,
+      get bombRadiusBonus() { return bombRadiusBonus; }, get itemEase() { return itemEase; },
+      get STREAK_CAP() { return STREAK_CAP; }, get STREAK_STEP() { return STREAK_STEP; },
+      get relics() { return relics; }, set relics(v) { relics = v; },
+      get mode() { return mode; }, set mode(v) { mode = v; },
+      get ROWS()        { return ROWS; },        set ROWS(v)        { ROWS = v; },
+      get grid()        { return grid; },        set grid(v)        { grid = v; },
+      get special()     { return special; },     set special(v)     { special = v; },
+      get hp()          { return hp; },          set hp(v)          { hp = v; },
+      get glow()        { return glow; },        set glow(v)        { glow = v; },
+      get appear()      { return appear; },      set appear(v)      { appear = v; },
+      get nextColor()   { return nextColor; },   set nextColor(v)   { nextColor = v; },
+      get nextColor2()  { return nextColor2; },  set nextColor2(v)  { nextColor2 = v; },
+      get score()       { return score; },       set score(v)       { score = v; },
+      get streak()      { return streak; },      set streak(v)      { streak = v; },
+      get touchCount()  { return touchCount; },  set touchCount(v)  { touchCount = v; },
+      get stage()       { return stage; },       set stage(v)       { stage = v; },
+      get stageScore()  { return stageScore; },  set stageScore(v)  { stageScore = v; },
+      get touchesLeft() { return touchesLeft; }, set touchesLeft(v) { touchesLeft = v; },
+      get coins()       { return coins; },       set coins(v)       { coins = v; },
+      get bestStage()   { return bestStage; },   set bestStage(v)   { bestStage = v; },
+      fitVal, setQuota, fmtNum, fmtShort, NUM_LOCALE, COMPACT_FROM,
+      recordStage, BEST_STAGE_KEY,
+      addCoins, COIN_PAYOUT,
+      rushQuota, RUSH_TOUCHES, RUSH_SPAWNS, RUSH_BUDS, RUSH_QUOTA_1,
+      RUSH_STAGE_MUL, RUSH_ROUND_MUL, RUSH_ROUND_ACCEL, roundSpan, roundMul, rules,
+      get busy()        { return busy; },        set busy(v)        { busy = v; },
+      get running()     { return running; },     set running(v)     { running = v; },
+      get birds()       { return birds; },
+      get floats()      { return floats; },
+      get links()       { return links; },
+      tapItem, spawnBird, chooseBirdTarget,
+      // headless Chrome produces no frames under --virtual-time-budget, so rAF never ticks.
+      // Item landings live in draw(); tests pump it by hand to advance them.
+      draw,
+      get oddsMult()    { return oddsMult; },    set oddsMult(v)    { oddsMult = v; },
+      colorOdds, BASE_ODDS,
+      get fruitMult()   { return fruitMult; },   set fruitMult(v)   { fruitMult = v; },
+      get fruitStack()  { return fruitStack; },  set fruitStack(v)  { fruitStack = v; },
+      get fruitBoost()  { return fruitBoost; },  set fruitBoost(v)  { fruitBoost = v; },
+      fruitScore,
+    };
+
   requestAnimationFrame(draw);
 })();
 </script>
