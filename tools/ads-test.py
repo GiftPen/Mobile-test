@@ -63,6 +63,27 @@ window.addEventListener('load', () => setTimeout(async () => {
   chk('and touches to play with', F.touchesLeft > 0, true);
   chk('the run is live', F.running, true);
 
+  // --- on retry the ad comes BEFORE the new run, not over a board that is already live ---
+  A.resetForTest(); A.setRemoved(false);
+  try { localStorage.removeItem('fs_games'); } catch (e) {}
+  F.start('rush');
+  let sawAd = false, ranUnderAd = null;
+  for (let i = 0; i < 6 && !sawAd; i++) {
+    F.gameOver('test');
+    await sleep(60);
+    document.getElementById('start-btn').click();
+    await sleep(110);
+    if (shown('adstub')) {
+      sawAd = true;
+      ranUnderAd = F.running;                      // must be false: the run has not begun
+      document.getElementById('adstub-x').click();
+      await sleep(180);
+    }
+  }
+  chk('an interstitial does eventually appear on retry', sawAd, true);
+  chk('and the new run has not started under it', ranUnderAd, false);
+  chk('but it does start once the ad is closed', F.running, true);
+
   // --- the banner never covers the board ---
   F.start('rush');
   await sleep(120);

@@ -5391,7 +5391,19 @@
   // directly, so it stays covered.
   const play = m => (tutorialDone() || TEST_MODE ? start(m) : startTutorial(m));
   document.getElementById("btn-arcade").addEventListener("click", () => play("arcade"));
-  document.getElementById("start-btn").addEventListener("click", () => start());   // retry same mode
+  // Retry: the ad comes BEFORE the new run, not on top of it. Split across two listeners the
+  // async one yielded, start() ran first, and the ad ended up covering a board that was
+  // already live. The game still starts whatever the ad does -- it is rate limited, not a toll.
+  document.getElementById("start-btn").addEventListener("click", async () => {
+    const btn = document.getElementById("start-btn");
+    if (btn.dataset.busy) return;                 // a second tap during the ad must not queue
+    if (Ads.interstitialDue()) {
+      btn.dataset.busy = "1";
+      try { await Ads.show("interstitial"); } catch (e) {}
+      delete btn.dataset.busy;
+    }
+    start();
+  });
   document.getElementById("btn-menu").addEventListener("click", showMenu);    // game-over -> main
   let msgTimer = null;
   function menuMsg(txt) {
@@ -5409,11 +5421,6 @@
     b.disabled = false;
     if (res.ok) reviveRun();               // a failed or dismissed ad simply does not revive
   });
-  // Retry is the core loop, so it is never blocked on an ad -- the interstitial is rate
-  // limited and the game starts either way.
-  document.getElementById("start-btn").addEventListener("click", async () => {
-    if (Ads.interstitialDue()) await Ads.show("interstitial");
-  }, true);
   document.getElementById("tut-skip").addEventListener("click", () => finishTutorial(true));
   document.getElementById("s-noads").addEventListener("click", () => {
     if (Ads.adsRemoved()) return;
