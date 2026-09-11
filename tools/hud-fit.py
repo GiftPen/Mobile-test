@@ -82,9 +82,16 @@ f.onload = () => setTimeout(() => {
     for (const tab of ['fruits', 'relics', 'traits', 'help']) {
       F.openInfo(tab);
       const card = D.querySelector('.info-card').getBoundingClientRect();
+      const bd = D.getElementById('info-body'), wr = bd.parentElement;
+      const scrollable = bd.scrollHeight > bd.clientHeight + 4;
+      const fadeTop = wr.classList.contains('more');
+      bd.scrollTop = bd.scrollHeight; bd.dispatchEvent(new Event('scroll'));
+      const fadeBottom = wr.classList.contains('more');
+      bd.scrollTop = 0; bd.dispatchEvent(new Event('scroll'));
       out[tab] = { top: +card.top.toFixed(1), h: +card.height.toFixed(1),
                    tabs: [...D.querySelectorAll('.itab')].map(b => +b.getBoundingClientRect().width.toFixed(1)),
-                   off: Math.max(0, Math.round(card.bottom - 844)) + Math.max(0, Math.round(-card.top)) };
+                   off: Math.max(0, Math.round(card.bottom - 844)) + Math.max(0, Math.round(-card.top)),
+                   bar: bd.offsetWidth - bd.clientWidth, scrollable, fadeTop, fadeBottom };
     }
     document.title = 'R ' + JSON.stringify(out);
   }, 450);
@@ -106,8 +113,18 @@ if not tm:
 else:
     td = json.loads(tm.group(1))
     for name, v in td.items():
-        print(f"  {name:<8} 상단 {v['top']:>7} · 높이 {v['h']:>6} · 탭 폭 {v['tabs']}")
+        print(f"  {name:<8} 상단 {v['top']:>7} · 높이 {v['h']:>6} · 바 {v['bar']} · "
+              f"{'넘침' if v['scrollable'] else '들어감'} · 페이드 {v['fadeTop']}→{v['fadeBottom']}")
         if v['off']: fails.append(f"정보 패널 {name}: {v['off']}px 화면 밖")
+        # a scrollbar in a help panel reads as a document, so it is hidden -- which makes the
+        # edge fade the only thing telling the player there is more. It has to be honest.
+        if v['bar']: fails.append(f"정보 패널 {name}: 스크롤바가 {v['bar']}px 보임")
+        if v['scrollable'] and not v['fadeTop']:
+            fails.append(f"정보 패널 {name}: 더 있는데 페이드가 없음")
+        if v['fadeBottom']:
+            fails.append(f"정보 패널 {name}: 끝까지 내렸는데 페이드가 남음")
+        if not v['scrollable'] and v['fadeTop']:
+            fails.append(f"정보 패널 {name}: 넘치지 않는데 페이드가 보임")
     tops = {v['top'] for v in td.values()}
     hs   = {v['h'] for v in td.values()}
     ws   = {tuple(v['tabs']) for v in td.values()}

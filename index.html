@@ -221,6 +221,7 @@
     padding: 18px; }
   #settings.hidden { display: none; }
   .set-card { width: 100%; max-width: 340px; max-height: 92vh; overflow-y: auto;
+    scrollbar-width: none; -ms-overflow-style: none;
     background: #161926; border-radius: 20px; padding: 18px; border: 1px solid #262b40;
     text-align: center; }
   .set-card h2 { margin: 0 0 14px; font-size: 22px; font-weight: 900; }
@@ -341,6 +342,7 @@
     display: flex; align-items: center; justify-content: center; padding: 18px; }
   #shop.hidden { display: none; }
   .shop-card { width: 100%; max-width: 400px; max-height: 92vh; overflow-y: auto;
+    scrollbar-width: none; -ms-overflow-style: none;
     background: #161926; border-radius: 20px; padding: 16px; border: 1px solid #262b40; }
   .shop-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px; }
   .shop-title { font-size: 17px; font-weight: 800; color: var(--text); }
@@ -458,7 +460,18 @@
   .help-p b { color: #ffd23e; }
   /* hold the taller tab's height (7 fruit rows) so switching tabs doesn't resize the card
      under your thumb -- it jumped 537px -> 177px before */
-  #info-body { flex: 1; min-height: 0; overflow-y: auto; }
+  /* A scrollbar sitting in a help panel looks like a document, not a game. The bar is hidden
+     and dragging still works; a fade at the bottom edge says there is more, and goes away at
+     the end -- which is the job the bar was doing, without the chrome. */
+  .noscroll { scrollbar-width: none; -ms-overflow-style: none; }
+  .noscroll::-webkit-scrollbar, .set-card::-webkit-scrollbar, .shop-card::-webkit-scrollbar {
+    width: 0; height: 0; display: none; }
+  .fade-wrap { position: relative; flex: 1; min-height: 0; display: flex; }
+  .fade-wrap::after { content: ""; position: absolute; left: 0; right: 0; bottom: 0; height: 34px;
+    pointer-events: none; opacity: 0; transition: opacity .18s;
+    background: linear-gradient(to bottom, rgba(22,25,38,0), rgba(22,25,38,.97)); }
+  .fade-wrap.more::after { opacity: 1; }
+  #info-body { flex: 1; min-height: 0; overflow-y: auto; -webkit-overflow-scrolling: touch; }
   #info-close { width: 100%; margin-top: 8px; flex: none; }
   .top-left { justify-self: start; display: flex; gap: 6px; }
   .shop-actions { display: flex; gap: 8px; margin-top: 10px; }
@@ -490,7 +503,7 @@
         <button class="itab" data-tab="traits" data-i18n="tabTraits">✨ 특성</button>
         <button class="itab" data-tab="help" data-i18n="tabHelp">❔ 도움말</button>
       </div>
-      <div id="info-body"></div>
+      <div class="fade-wrap"><div id="info-body" class="noscroll"></div></div>
       <button id="info-close" class="ghost-btn" data-i18n="btnClose">닫기</button>
     </div>
   </div>
@@ -4286,7 +4299,22 @@
     renderInfo();
     renderShop();
   }
-  function openInfo(tab) { if (tab) infoTab = tab; renderInfo(); $sh("info").classList.remove("hidden"); }
+  // the fade is only honest if it tracks the actual scroll position
+  function syncInfoFade() {
+    const body = document.getElementById("info-body");
+    const wrap = body.parentElement;
+    const more = body.scrollHeight - body.scrollTop - body.clientHeight > 4;
+    wrap.classList.toggle("more", more);
+  }
+  function openInfo(tab) {
+    if (tab) infoTab = tab;
+    renderInfo();
+    $sh("info").classList.remove("hidden");
+    document.getElementById("info-body").scrollTop = 0;
+    // synchronously: renderInfo() has already put the content in, so scrollHeight is correct,
+    // and rAF never fires in a headless check (same trap as the render loop)
+    syncInfoFade();
+  }
   function closeInfo() { $sh("info").classList.add("hidden"); }
 
   // Leaving early trades score for coins: the touches you did not spend come back as
@@ -5471,6 +5499,7 @@
   });
   document.getElementById("info-btn").addEventListener("click", () => openInfo());
   document.getElementById("info-close").addEventListener("click", closeInfo);
+  document.getElementById("info-body").addEventListener("scroll", syncInfoFade, { passive: true });
   for (const b of document.querySelectorAll(".itab"))
     b.addEventListener("click", () => openInfo(b.dataset.tab));
   document.getElementById("sh-reroll").addEventListener("click", () => {
