@@ -35,13 +35,23 @@ window.addEventListener('load', () => setTimeout(async () => {
   A.interstitialDue(); A.interstitialDue();
   chk('merely asking consumes nothing', A.sinceAd, before);
 
+  // --- a death counted twice pulls the ad schedule forward ---
+  A.resetForTest();
+  try { localStorage.removeItem('fs_games'); } catch (e) {}
+  F.start('rush');
+  const gamesBefore = A.games;
+  F.gameOver('test'); F.gameOver('test'); F.gameOver('test');
+  await sleep(80);
+  chk('one death counts once, however many times gameOver runs', A.games, gamesBefore + 1);
+
   // --- revive: offered once, then gone ---
+  // gameOver is idempotent now, so each of these needs a live run to end
   F.mode = 'rush'; F.resetRun(); F.running = true;
   F.revivedThisRun = false;
   F.gameOver('test');
   await sleep(120);
   chk('a revive is offered on game over', shown('btn-revive'), true);
-  F.revivedThisRun = true;
+  F.running = true; F.revivedThisRun = true;
   F.gameOver('test');
   await sleep(120);
   chk('but only once per run', shown('btn-revive'), false);
@@ -69,6 +79,7 @@ window.addEventListener('load', () => setTimeout(async () => {
   F.start('rush');
   let sawAd = false, ranUnderAd = null;
   for (let i = 0; i < 6 && !sawAd; i++) {
+    F.running = true;
     F.gameOver('test');
     await sleep(60);
     document.getElementById('start-btn').click();

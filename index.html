@@ -3359,6 +3359,11 @@
       if (c.state === "suspended" && c.resume) c.resume();
       armed = true;
     }
+    // wake an already-armed context without arming a new one (returning from background)
+    function resume() {
+      if (!armed || !ctx) return;
+      if (ctx.state === "suspended" && ctx.resume) ctx.resume();
+    }
     const live = () => armed && !muted && ctx && ctx.state === "running";
 
     // A voice slot must come back even if onended never fires. Relying on that event alone
@@ -3531,7 +3536,7 @@
       popStyle = k;
       try { localStorage.setItem("fs_pop", k); } catch (e) {}
     }
-    return { play, unlock, setMuted, setVolume, names: Object.keys(S),
+    return { play, unlock, resume, setMuted, setVolume, names: Object.keys(S),
              POP_STYLES, POP_KEYS, setPopStyle, get popStyle() { return popStyle; },
              get voices() { return voices; }, get MAX_VOICES() { return MAX_VOICES; },
              get state() { return ctx ? ctx.state : "none"; },
@@ -3571,6 +3576,12 @@
   // any first gesture wakes the context; harmless to fire more than once
   for (const ev of ["pointerdown", "touchstart", "keydown"])
     window.addEventListener(ev, () => SFX.unlock(), { passive: true });
+  // Coming back from the background leaves the context suspended. A tap would wake it, but
+  // that first tap would be silent -- so wake it as soon as the page is visible again.
+  document.addEventListener("visibilitychange", () => {
+    if (!document.hidden) SFX.resume();
+  });
+  window.addEventListener("pageshow", () => SFX.resume());
   // one generic click for every button, in the capture phase so it lands before the handler
   // that may play a more specific sound (buy, reroll, ...) on top of it
   document.addEventListener("pointerdown", e => {
@@ -4537,6 +4548,10 @@
   }
 
   function gameOver(reason) {
+    // Idempotent. Two paths can reach here for the same death (the fill check and the stage
+    // close), and running it twice counted the run twice toward the ad schedule, re-recorded
+    // the stage and replayed the sting.
+    if (!running) return;
     running = false; busy = false;
     SFX.play("over");
     Ads.countGame();

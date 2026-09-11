@@ -57,6 +57,17 @@ window.addEventListener('load', () => setTimeout(() => {
   } catch (e) { gameThrew = e.message; }
   chk('a scoring turn survives the sound layer', gameThrew, null);
 
+  // Coming back from the background leaves the audio context suspended. Without a wake on
+  // visibility the first tap after returning is silent, and on some browsers it stays dead.
+  chk('there is a way to wake a suspended context', typeof S.resume, 'function');
+  S.unlock();
+  const stateBefore = S.state;
+  // guarded so a missing resume reports as a failed assertion rather than killing the suite
+  if (typeof S.resume === 'function') {
+    S.resume();
+    chk('resuming an already-running context is harmless', S.state, stateBefore);
+  }
+
   // 5) with a live context, every sound must really synthesise -- and the voice cap must
   //    hold. One star clearing 40 fruit fires 40 pops; without the cap that is 80 oscillators
   //    at once, which is where cheap phones start crackling.
