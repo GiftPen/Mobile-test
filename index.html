@@ -19,12 +19,6 @@
   * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
   html, body {
     margin: 0; height: 100%;
-    /* viewport-fit=cover was set but nothing read the insets: the HUD sat under the notch
-       and the item bar under the home indicator. env() falls back to 0 where there are none. */
-    padding-top: env(safe-area-inset-top, 0px);
-    padding-bottom: env(safe-area-inset-bottom, 0px);
-    padding-left: env(safe-area-inset-left, 0px);
-    padding-right: env(safe-area-inset-right, 0px);
     box-sizing: border-box;
     background: radial-gradient(120% 100% at 50% 0%, #1a1d2e 0%, var(--bg) 60%);
     color: var(--text);
@@ -32,6 +26,19 @@
     overflow: hidden; user-select: none;
     display: flex; flex-direction: column; align-items: center;
   }
+  /* Insets go on BODY ONLY. Putting them on html as well applied the notch twice, which on an
+     iPhone 14 Pro is 118px of padding where 59 was wanted. env() is 0 where there is no notch. */
+  body {
+    padding-top: env(safe-area-inset-top, 0px);
+    padding-bottom: env(safe-area-inset-bottom, 0px);
+    padding-left: env(safe-area-inset-left, 0px);
+    padding-right: env(safe-area-inset-right, 0px);
+  }
+  /* fixed elements are positioned against the viewport, not the padded body, so the bar on the
+     bottom edge has to clear the home indicator itself. The value is set from insets() in
+     layout() rather than another env() here: one place reads the insets, everything else asks
+     it -- which also makes it checkable, since env() cannot be simulated in a test. */
+  #tut { padding-bottom: 18px; }
   #top {
     width: 100%; max-width: 520px; padding: 14px 18px 6px;
     /* equal 1fr side columns keep the center (score) truly centered no matter how wide
@@ -1319,14 +1326,26 @@
   // below this the HUD, board and item bar cannot all fit at any board size
   const MIN_PLAY_H = 520;
   function checkViewport() {
-    const bad = window.innerHeight < MIN_PLAY_H;
+    const bad = usableH() < MIN_PLAY_H;
     document.getElementById("rotate").classList.toggle("on", bad);
     return !bad;
   }
+  // viewport-fit=cover means innerHeight/innerWidth INCLUDE the area behind the notch and the
+  // home indicator, which is not usable. Read what the browser actually resolved env() to and
+  // take it off, or the board is sized against space it cannot have.
+  function insets() {
+    const cs = getComputedStyle(document.body);
+    const t = parseFloat(cs.paddingTop) || 0, b = parseFloat(cs.paddingBottom) || 0;
+    const l = parseFloat(cs.paddingLeft) || 0, r = parseFloat(cs.paddingRight) || 0;
+    return { top: t, bottom: b, left: l, right: r, x: l + r, y: t + b };
+  }
+  const usableH = () => window.innerHeight - insets().y;
+  const usableW = () => window.innerWidth - insets().x;
+
   function layout() {
     // the height budget must shrink as ROWS grows or an 8x12 board runs off the screen
-    const byHeight = (window.innerHeight - CHROME_H) * COLS / ROWS;
-    const maxW = Math.min(window.innerWidth - 24, BOARD_MAX, byHeight);
+    const byHeight = (usableH() - CHROME_H) * COLS / ROWS;
+    const maxW = Math.min(usableW() - 24, BOARD_MAX, byHeight);
     // BOARD_MIN keeps the board playable on a wide-but-short screen, but it is a floor, not a
     // licence to overflow: at 320x568 with a grown 12-row board it pushed the item bar 28px
     // off the bottom. Clamp it back under the height budget.
@@ -1336,6 +1355,9 @@
     pad = boardPx * 0.02;
     cell = (boardPx - pad * 2) / COLS;      // cell size comes from the width alone
     boardH = cell * ROWS + pad * 2;         // height follows the row count
+    // anything fixed to an edge gets its clearance from the same source
+    const tutEl = document.getElementById("tut");
+    if (tutEl) tutEl.style.paddingBottom = (18 + insets().bottom) + "px";
     canvas.style.width = boardPx + "px";
     canvas.style.height = boardH + "px";
     canvas.width = boardPx * dpr;
@@ -5570,7 +5592,7 @@
       bombRadius, BOMB_RADIUS_MAX, itemNeed, ITEM_NEED_MIN,
       gridMult, MULT_GRID, STREAK_STEP_BASE, CHAIN_STEP, multLabel,
       syncRows, ROWS_BASE, ROWS_MAX, layout, COLS, BOARD_MIN, BOARD_MAX,
-      checkViewport, MIN_PLAY_H,
+      checkViewport, MIN_PLAY_H, insets, usableH, usableW,
       SFX, setLang, LANGS, PACKS, d, L, applyStaticText, nameOf,
       renderSettings, openTraits, openInfo, openSettings, closeSettings, renderMenuSettings,
       setHaptics, BUILD_VER, startTutorial, finishTutorial, nextTutStep, tutorialDone,

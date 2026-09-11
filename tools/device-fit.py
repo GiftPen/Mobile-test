@@ -95,6 +95,98 @@ for r in rows:
     if r['hScroll'] > 0: fails.append(f"{tag}: 가로 스크롤 {r['hScroll']}px")
     if r['cell'] < MIN_CELL: fails.append(f"{tag}: 셀 {r['cell']}px < {MIN_CELL}px")
 
+# ---- phase 1b: notches. Headless resolves env() to 0, so the real insets are injected ----
+# viewport-fit=cover means innerHeight includes the strip behind the notch and the home
+# indicator. The test that matters is not "is the HUD below the notch" -- body padding does
+# that on its own -- but "does layout() know", which only shows on a height-constrained board:
+# the same viewport with insets must produce a SMALLER board than without.
+NOTCHED = [
+ ("iPhone 14",     390, 844, 47, 34), ("iPhone 14 Pro", 393, 852, 59, 34),
+ ("15 Pro Max",    430, 932, 62, 34), ("iPhone SE2",    375, 667, 20,  0),
+ ("Pixel 8",       412, 915, 24, 24), ("짧은 화면+큰노치", 390, 700, 60, 34),
+]
+NOTCH_HOST = """<!doctype html><meta charset=utf-8><body style="margin:0">
+<script>
+const D = %s; const out = []; let i = 0;
+function next() {
+  if (i >= D.length) { document.title = 'R ' + JSON.stringify(out); return; }
+  const [name, w, h, top, bot] = D[i++];
+  const f = document.createElement('iframe');
+  f.style.cssText = `width:${w}px;height:${h}px;border:0;position:absolute;left:0;top:0`;
+  f.src = 'index.html?test=1'; document.body.appendChild(f);
+  f.onload = () => setTimeout(() => { try {
+    const W = f.contentWindow, D2 = f.contentDocument, F = W.__fs;
+    F.mode = 'rush'; D2.getElementById('btn-challenge').click();
+    setTimeout(() => {
+      // grow the board so HEIGHT is the binding constraint -- otherwise width decides and the
+      // insets make no difference to the size, and the check proves nothing
+      while (F.ROWS < F.ROWS_MAX) F.ROWS++;
+      F.layout();
+      const flat = F.boardPx !== undefined ? null : null;
+      const noInset = D2.getElementById('game').getBoundingClientRect().width;
+      const st = D2.createElement('style');
+      st.textContent = `body { padding-top:${top}px !important; padding-bottom:${bot}px !important; }`;
+      D2.head.appendChild(st);
+      F.layout();
+      const withInset = D2.getElementById('game').getBoundingClientRect().width;
+      const t0  = D2.getElementById('top').getBoundingClientRect();
+      const bar = D2.getElementById('ishop').getBoundingClientRect();
+      const tutPad = parseFloat(getComputedStyle(D2.getElementById('tut')).paddingBottom) || 0;
+      out.push({ name, w, h, top, bot,
+        insetY: F.insets().y, usableH: F.usableH(),
+        board0: Math.round(noInset), board1: Math.round(withInset),
+        underNotch: Math.max(0, top - Math.round(t0.top)),
+        underHome: Math.max(0, Math.round(bar.bottom) - (h - bot)),
+        tutClears: tutPad >= bot });
+      f.remove(); next();
+    }, 420);
+  } catch (e) { out.push({ name, err: String(e) }); f.remove(); next(); } }, 380);
+}
+next();
+</script>""" % json.dumps(NOTCHED)
+open('_notch.html','w',encoding='utf-8').write(NOTCH_HOST)
+try:
+    nout = subprocess.run(['/Applications/Google Chrome.app/Contents/MacOS/Google Chrome',
+        '--headless','--disable-gpu','--no-first-run','--window-size=900,1100',
+        '--virtual-time-budget=45000','--dump-dom','http://localhost:8899/_notch.html'],
+        capture_output=True, text=True, timeout=200).stdout
+finally:
+    os.remove('_notch.html')
+
+print('--- 노치/홈 인디케이터 (인셋 주입 · 12줄로 높이 제약) ---')
+shrank = []
+nm = re.search(r'R (\[.*?\])</title>', nout, re.S)
+if not nm:
+    fails.append('노치 검사: 결과 없음')
+else:
+    for r in json.loads(nm.group(1)):
+        if 'err' in r: fails.append(f"노치 {r['name']}: {r['err'][:70]}"); continue
+        print(f"  {r['name']:<16} 인셋 {r['top']:>2}/{r['bot']:<2} · 쓸 높이 {r['usableH']:>4}"
+              f" · 보드 {r['board0']}→{r['board1']} · 노치밑 {r['underNotch']} · 홈밑 {r['underHome']}")
+        want = r['top'] + r['bot']
+        if r['insetY'] != want:
+            fails.append(f"노치 {r['name']}: 인셋 {r['insetY']} (기대 {want})")
+        if r['usableH'] != r['h'] - want:
+            fails.append(f"노치 {r['name']}: 쓸 높이 {r['usableH']} (기대 {r['h'] - want})")
+        # THE check. Insets must never make the board bigger, and where HEIGHT is what limits
+        # it they must make it smaller. On a tall phone width binds even at 12 rows, so the
+        # size legitimately does not move there -- asserting it would fail for the right reason.
+        widthLimit = min(r['w'] - 24, 520)
+        heightBinds = r['board0'] < widthLimit - 1
+        if r['board1'] > r['board0']:
+            fails.append(f"노치 {r['name']}: 인셋을 넣었는데 보드가 커짐 ({r['board0']}→{r['board1']})")
+        elif heightBinds and r['board1'] >= r['board0']:
+            fails.append(f"노치 {r['name']}: 높이 제약인데 인셋을 넣어도 그대로 "
+                         f"({r['board0']}→{r['board1']}) — layout()이 인셋을 모르고 있음")
+        shrank.append(r['board1'] < r['board0'])
+        if r['underNotch']: fails.append(f"노치 {r['name']}: HUD가 노치 밑으로 {r['underNotch']}px")
+        if r['underHome']:  fails.append(f"노치 {r['name']}: 아이템 바가 홈 인디케이터를 {r['underHome']}px 침범")
+        if not r['tutClears']:
+            fails.append(f"노치 {r['name']}: 튜토리얼 바가 홈 인디케이터를 안 피함")
+    # and at least one case must actually exercise the shrink, or the check proves nothing
+    if not any(shrank):
+        fails.append('노치 검사: 보드가 줄어드는 케이스가 하나도 없음 — 검사가 무의미함')
+
 # ---- phase 2: a foldable resizes the viewport LIVE, mid-run, with no reload ----
 FOLD_STEPS = [("Fold 커버",344,882),("Fold 펼침",673,841),("Fold 커버",344,882),
               ("가로 회전",841,673),("폰 가로",844,390),("Flip 펼침",360,880)]
