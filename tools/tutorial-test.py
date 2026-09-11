@@ -45,9 +45,9 @@ window.addEventListener('load', () => setTimeout(async () => {
   //  - previewShows is what drawNextPreview actually drew. Steps set nextColor by hand, so a
   //    stale preview ships easily, and the player watches a fruit that is not the one landing.
   //  - the board must be populated beyond the shape being taught, or it reads as a diagram.
-  const SCRIPTED = [2, 8, 5];
+  const SCRIPTED = [2, 8, 5, 3];
   const mismatched = [], sparse = [], stepsSeen = [];
-  for (let guard = 0; guard < 6 && F.tut; guard++) {
+  for (let guard = 0; guard < 8 && F.tut; guard++) {
     const i = F.tut.i;
     stepsSeen.push(i);
     if (F.previewShows !== F.nextColor)
@@ -58,7 +58,7 @@ window.addEventListener('load', () => setTimeout(async () => {
     tapCell(t[0], t[1]);
     for (let w = 0; w < 250 && F.tut && F.tut.i === i; w++) { F.draw(); await sleep(16); }
   }
-  chk('every step was reached', stepsSeen, [0, 1, 2]);
+  chk('every step was reached', stepsSeen, [0, 1, 2, 3]);
   chk('the preview always shows the fruit that will land', mismatched, []);
   chk('every board looks like a real one, not a diagram', sparse, []);
 
@@ -69,6 +69,19 @@ window.addEventListener('load', () => setTimeout(async () => {
   chk('in the mode that was asked for', F.mode, 'rush');
   chk('it is marked done', F.tutorialDone(), true);
   chk('no cell is gated afterwards', [F.tutAllows(0,0), F.tutAllows(7,7)], [true, true]);
+
+  // Replayed from settings it must go BACK to the menu, not launch a run nobody asked for.
+  // Driven through the real button, because what decides this is the click handler.
+  F.openSettings();
+  await settle(150);
+  document.getElementById('s-replay').click();
+  await settle(300);
+  chk('a settings replay runs', !!F.tut, true);
+  chk('and closed the settings panel', document.getElementById('settings').classList.contains('hidden'), true);
+  F.finishTutorial(true);
+  await settle(300);
+  chk('and ends at the menu, not in a game', F.running, false);
+  chk('with the menu showing', document.getElementById('overlay').classList.contains('hidden'), false);
 
   // skipping counts as done too, and still starts the game
   try { localStorage.removeItem(F.TUT_KEY); } catch (e) {}

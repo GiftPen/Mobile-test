@@ -67,6 +67,58 @@ for w in WIDTHS:
     print(f"--- {w}px --- 터치칸X {g[0]['touchX']} · 칩X {g[0]['chipX']} · 높이 {g[0]['rowH']} 고정")
     for r in g: print(f"   {r['lab']:<5}{r['txt']:<24}{r['fs']:>5}px")
 
+
+# ---- phase 3: the info panel must not move when you change tab ----
+TABS_HOST = """<!doctype html><meta charset=utf-8><body style="margin:0">
+<script>
+const f = document.createElement('iframe');
+f.style.cssText = 'width:390px;height:844px;border:0;position:absolute;left:0;top:0';
+f.src = 'index.html?test=1'; document.body.appendChild(f);
+f.onload = () => setTimeout(() => {
+  const W = f.contentWindow, D = f.contentDocument, F = W.__fs;
+  F.mode = 'rush'; D.getElementById('btn-challenge').click();
+  setTimeout(() => {
+    const out = {};
+    for (const tab of ['fruits', 'relics', 'traits', 'help']) {
+      F.openInfo(tab);
+      const card = D.querySelector('.info-card').getBoundingClientRect();
+      out[tab] = { top: +card.top.toFixed(1), h: +card.height.toFixed(1),
+                   tabs: [...D.querySelectorAll('.itab')].map(b => +b.getBoundingClientRect().width.toFixed(1)),
+                   off: Math.max(0, Math.round(card.bottom - 844)) + Math.max(0, Math.round(-card.top)) };
+    }
+    document.title = 'R ' + JSON.stringify(out);
+  }, 450);
+}, 400);
+</script>"""
+open('_tabs.html','w',encoding='utf-8').write(TABS_HOST)
+try:
+    tout = subprocess.run(['/Applications/Google Chrome.app/Contents/MacOS/Google Chrome',
+        '--headless','--disable-gpu','--no-first-run','--window-size=900,1000',
+        '--virtual-time-budget=20000','--dump-dom','http://localhost:8899/_tabs.html'],
+        capture_output=True, text=True, timeout=120).stdout
+finally:
+    os.remove('_tabs.html')
+
+print('--- 정보 패널: 탭을 바꿔도 움직이지 않는가 ---')
+tm = re.search(r'R (\{.*?\})</title>', tout, re.S)
+if not tm:
+    fails.append('정보 패널: 결과 없음')
+else:
+    td = json.loads(tm.group(1))
+    for name, v in td.items():
+        print(f"  {name:<8} 상단 {v['top']:>7} · 높이 {v['h']:>6} · 탭 폭 {v['tabs']}")
+        if v['off']: fails.append(f"정보 패널 {name}: {v['off']}px 화면 밖")
+    tops = {v['top'] for v in td.values()}
+    hs   = {v['h'] for v in td.values()}
+    ws   = {tuple(v['tabs']) for v in td.values()}
+    # a card sized to its content jumps every time you change tab, and the longest tab label
+    # steals width from the rest unless the tabs are forced equal
+    if len(tops) > 1: fails.append(f'정보 패널이 탭마다 위아래로 움직임 {sorted(tops)}')
+    if len(hs) > 1:   fails.append(f'정보 패널 높이가 탭마다 다름 {sorted(hs)}')
+    if len(ws) > 1:   fails.append(f'탭 폭이 탭마다 다름 {sorted(ws)}')
+    if len(ws) == 1 and len(set(list(ws)[0])) > 1:
+        fails.append(f'탭들이 서로 다른 폭을 가짐 {list(ws)[0]}')
+
 print()
 if fails:
     print(f'hud-fit: {len(fails)} fail')

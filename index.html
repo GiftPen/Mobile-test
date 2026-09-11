@@ -412,10 +412,16 @@
   #info { position: fixed; inset: 0; z-index: 13; background: rgba(8,9,15,.92);
     backdrop-filter: blur(5px); display: flex; align-items: center; justify-content: center; padding: 18px; }
   #info.hidden { display: none; }
-  .info-card { width: 100%; max-width: 380px; max-height: 88vh; overflow-y: auto;
+  /* Fixed height with the list scrolling inside. Sizing to content meant the card jumped
+     every time you changed tab -- the odds table is seven rows and the help is three screens. */
+  .info-card { width: 100%; max-width: 380px; height: min(86vh, 620px);
+    display: flex; flex-direction: column;
     background: #161926; border-radius: 20px; padding: 14px; border: 1px solid #262b40; }
-  .info-tabs { display: flex; gap: 6px; margin-bottom: 10px; }
-  .itab { flex: 1; margin: 0; padding: 9px 4px; font-size: 12px; font-weight: 800; border-radius: 12px;
+  .info-tabs { display: flex; gap: 6px; margin-bottom: 10px; flex: none; }
+  /* min-width:0 is what actually makes them equal: without it the longest label sets the
+     basis and that one tab grows wider than the rest */
+  .itab { flex: 1 1 0; min-width: 0; white-space: nowrap; overflow: hidden;
+    margin: 0; padding: 9px 4px; font-size: 12px; font-weight: 800; border-radius: 12px;
     background: #1c2032; color: var(--muted); box-shadow: none; font-family: inherit; }
   .itab.on { background: #2a2f4d; color: var(--text); }
   .inf-row { display: flex; align-items: center; gap: 10px; padding: 9px 10px; margin-bottom: 6px;
@@ -452,8 +458,8 @@
   .help-p b { color: #ffd23e; }
   /* hold the taller tab's height (7 fruit rows) so switching tabs doesn't resize the card
      under your thumb -- it jumped 537px -> 177px before */
-  #info-body { min-height: 406px; }   /* = 7 fruit rows */
-  #info-close { width: 100%; margin-top: 4px; }
+  #info-body { flex: 1; min-height: 0; overflow-y: auto; }
+  #info-close { width: 100%; margin-top: 8px; flex: none; }
   .top-left { justify-self: start; display: flex; gap: 6px; }
   .shop-actions { display: flex; gap: 8px; margin-top: 10px; }
   .shop-actions button { flex: 1; margin: 0; padding: 12px 8px; font-size: 14px; border-radius: 14px; }
@@ -1854,13 +1860,15 @@
       helpRule1: "빈 칸을 탭해 과일을 놓습니다. 같은 색 과일 옆(3×3)에 놓으면 <b>이어진 같은 색이 모두 터집니다</b>.",
       helpRule2: "한 번에 많이 터뜨릴수록 <b>덩어리</b> 배율이, 연속으로 성공할수록 <b>콤보</b> 배율이 올라갑니다.",
       helpRule3: "판이 가득 차면 그 자리에서 끝납니다.",
-      helpBird: n => `🐦 <b>참새</b> — ${n}개 이상 터뜨리면 생깁니다. 탭하면 날아가 방해물을 쪼아냅니다.`,
-      helpLine: n => `↔️ <b>라인</b> — ${n}개 이상. 탭하면 가로나 세로 한 줄을 청소합니다.`,
-      helpBomb: (n, w) => `💣 <b>폭탄</b> — ${n}개 이상. 탭하면 ${w}×${w} 범위를 날립니다.`,
-      helpStar: n => `🌟 <b>별</b> — ${n}개 이상. 탭하면 같은 색을 별자리로 이어 정리하고 코인을 떨굽니다.`,
+      helpBird: n => `🐦 <b>참새</b> — ${n}개 이상 터뜨리면 생깁니다. 날아가 방해물을 쪼아냅니다.`,
+      helpLine: n => `↔️ <b>라인</b> — ${n}개 이상. 가로나 세로 한 줄을 청소합니다.`,
+      helpBomb: (n, w) => `💣 <b>폭탄</b> — ${n}개 이상. ${w}×${w} 범위를 날립니다.`,
+      helpStar: n => `🌟 <b>별</b> — ${n}개 이상. 같은 색을 별자리로 이어 정리하고 코인을 떨굽니다.`
+      + "", helpItemFire: "아이템은 <b>직접 탭</b>하거나, <b>바로 옆에서 과일이 터질 때</b> 함께 발동합니다.",
       helpRun1: n => `스테이지마다 <b>목표 점수</b>와 <b>터치 횟수</b>가 있습니다. 터치를 다 쓰기 전에 목표를 채우세요. ${n}스테이지가 한 라운드입니다.`,
       helpRun2: "스테이지 사이마다 <b>상점</b>이 열립니다. 코인으로 산 유물은 그 판 내내 효과가 이어집니다.",
       helpRun3: "라운드가 끝나면 <b>특성</b>을 하나 고릅니다. 목표를 일찍 채우면 남은 터치만큼 코인을 더 받습니다.",
+      tut4: "아이템은 바로 옆에서 과일이 터져도 함께 발동합니다. 빛나는 칸에 놓아보세요",
       tierCommon: "일반", tierUncommon: "고급", tierRare: "희귀", tierLegend: "전설",
       soonSettings: "⚙️ 설정은 준비 중이에요", soonRanking: "🏆 랭킹은 준비 중이에요",
     },
@@ -2047,13 +2055,15 @@
       helpRule1: "Tap an empty cell to place a fruit. Put it next to a matching one (3×3) and <b>the whole connected group pops</b>.",
       helpRule2: "The more you pop at once, the higher the <b>cluster</b> multiplier; the longer your streak, the higher the <b>combo</b>.",
       helpRule3: "If the board fills up, the run ends there.",
-      helpBird: n => `🐦 <b>Sparrow</b> — left behind by popping ${n} or more. Tap it to send it after whatever is in the way.`,
-      helpLine: n => `↔️ <b>Line</b> — ${n} or more. Tap it to clear a whole row or column.`,
-      helpBomb: (n, w) => `💣 <b>Bomb</b> — ${n} or more. Tap it for a ${w}×${w} blast.`,
-      helpStar: n => `🌟 <b>Star</b> — ${n} or more. Tap it to link one colour into a constellation and drop coins.`,
+      helpBird: n => `🐦 <b>Sparrow</b> — left behind by popping ${n} or more. Flies off and pecks whatever is in the way.`,
+      helpLine: n => `↔️ <b>Line</b> — ${n} or more. Clears a whole row or column.`,
+      helpBomb: (n, w) => `💣 <b>Bomb</b> — ${n} or more. A ${w}×${w} blast.`,
+      helpStar: n => `🌟 <b>Star</b> — ${n} or more. Links one colour into a constellation and drops coins.`
+      + "", helpItemFire: "An item goes off when you <b>tap it</b> — or on its own when <b>fruit pops right next to it</b>.",
       helpRun1: n => `Every stage has a <b>goal</b> and a <b>touch budget</b>. Reach the goal before the touches run out. ${n} stages make a round.`,
       helpRun2: "A <b>shop</b> opens between stages. Relics bought with coins last the rest of the run.",
       helpRun3: "At the end of a round you pick a <b>trait</b>. Finish early and the touches you did not use pay out as coins.",
+      tut4: "An item also goes off when fruit pops right beside it. Place on the glowing cell",
       tierCommon: "Common", tierUncommon: "Uncommon", tierRare: "Rare", tierLegend: "Legendary",
       soonSettings: "⚙️ Settings are on the way", soonRanking: "🏆 Ranking is on the way",
     },
@@ -2239,13 +2249,15 @@
       helpRule1: "空いたマスをタップしてフルーツを置きます。同じ色の隣(3×3)に置くと<b>つながった同色がすべて割れます</b>。",
       helpRule2: "一度に多く割るほど<b>かたまり</b>倍率が、連続で成功するほど<b>コンボ</b>倍率が上がります。",
       helpRule3: "盤面が埋まるとその場で終了です。",
-      helpBird: n => `🐦 <b>スズメ</b> — ${n}個以上割ると出ます。タップすると邪魔なものをついばみます。`,
-      helpLine: n => `↔️ <b>ライン</b> — ${n}個以上。タップで縦か横を一列消します。`,
-      helpBomb: (n, w) => `💣 <b>爆弾</b> — ${n}個以上。タップで ${w}×${w} を吹き飛ばします。`,
-      helpStar: n => `🌟 <b>星</b> — ${n}個以上。タップで同じ色を星座でつなぎ、コインを落とします。`,
+      helpBird: n => `🐦 <b>スズメ</b> — ${n}個以上割ると出ます。飛んでいって邪魔なものをついばみます。`,
+      helpLine: n => `↔️ <b>ライン</b> — ${n}個以上。縦か横を一列消します。`,
+      helpBomb: (n, w) => `💣 <b>爆弾</b> — ${n}個以上。${w}×${w} を吹き飛ばします。`,
+      helpStar: n => `🌟 <b>星</b> — ${n}個以上。同じ色を星座でつなぎ、コインを落とします。`
+      + "", helpItemFire: "アイテムは<b>タップ</b>するか、<b>すぐ隣でフルーツが割れた</b>ときにも発動します。",
       helpRun1: n => `ステージごとに<b>目標スコア</b>と<b>タッチ回数</b>があります。使い切る前に目標を達成しましょう。${n}ステージで1ラウンドです。`,
       helpRun2: "ステージの合間に<b>ショップ</b>が開きます。コインで買ったレリックはラン中ずっと効きます。",
       helpRun3: "ラウンドの終わりに<b>特性</b>を1つ選びます。早く達成すると残りタッチ分のコインがもらえます。",
+      tut4: "アイテムはすぐ隣でフルーツが割れても発動します。光るマスに置いてみましょう",
       tierCommon: "コモン", tierUncommon: "アンコモン", tierRare: "レア", tierLegend: "レジェンド",
       soonSettings: "⚙️ 設定は準備中です", soonRanking: "🏆 ランキングは準備中です",
     },
@@ -2431,13 +2443,15 @@
       helpRule1: "点击空格放置水果。放在同色旁边(3×3)时，<b>相连的同色会全部消除</b>。",
       helpRule2: "一次消除越多，<b>成团</b>倍率越高；连续成功越久，<b>连击</b>倍率越高。",
       helpRule3: "棋盘填满就会立刻结束。",
-      helpBird: n => `🐦 <b>麻雀</b> — 消除 ${n} 个以上出现。点击后会啄掉挡路的东西。`,
-      helpLine: n => `↔️ <b>线道</b> — ${n} 个以上。点击清除一整行或一列。`,
-      helpBomb: (n, w) => `💣 <b>炸弹</b> — ${n} 个以上。点击炸开 ${w}×${w} 范围。`,
-      helpStar: n => `🌟 <b>星星</b> — ${n} 个以上。点击把同色连成星座并掉落金币。`,
+      helpBird: n => `🐦 <b>麻雀</b> — 消除 ${n} 个以上出现。飞出去啄掉挡路的东西。`,
+      helpLine: n => `↔️ <b>线道</b> — ${n} 个以上。清除一整行或一列。`,
+      helpBomb: (n, w) => `💣 <b>炸弹</b> — ${n} 个以上。炸开 ${w}×${w} 范围。`,
+      helpStar: n => `🌟 <b>星星</b> — ${n} 个以上。把同色连成星座并掉落金币。`
+      + "", helpItemFire: "道具会在你<b>点击</b>时发动，<b>旁边的水果被消除</b>时也会一起发动。",
       helpRun1: n => `每关都有<b>目标分数</b>和<b>触摸次数</b>。在用完之前达成目标。${n} 关为一轮。`,
       helpRun2: "关卡之间会开<b>商店</b>。用金币买的遗物整局有效。",
       helpRun3: "每轮结束选择一个<b>特性</b>。提前达成，剩余触摸会换成金币。",
+      tut4: "旁边的水果被消除时道具也会发动。放在发光的格子上",
       tierCommon: "普通", tierUncommon: "优良", tierRare: "稀有", tierLegend: "传说",
       soonSettings: "⚙️ 设置正在准备中", soonRanking: "🏆 排行榜正在准备中",
     },
@@ -4229,6 +4243,7 @@
       par(d("helpLine", itemNeed(LINE_THRESHOLD)));
       par(d("helpBomb", itemNeed(BOMB_THRESHOLD), bombRadius() * 2 + 1));
       par(d("helpStar", itemNeed(STAR_THRESHOLD)));
+      par(d("helpItemFire"));
       sec("helpRun");
       par(d("helpRun1", STAGES_PER_ROUND));
       par(d("helpRun2")); par(d("helpRun3"));
@@ -5206,9 +5221,8 @@
   document.getElementById("s-close").addEventListener("click", closeSettings);
   document.getElementById("tut-skip").addEventListener("click", () => finishTutorial(true));
   document.getElementById("s-replay").addEventListener("click", () => {
-    try { localStorage.removeItem(TUT_KEY); } catch (e) {}
     closeSettings();
-    startTutorial(mode || "rush");
+    startTutorial(null);                   // null: finish back at the menu
   });
   document.getElementById("s-mute").addEventListener("click", () => {
     SFX.setMuted(!SFX.muted); renderMenuSettings();
@@ -5292,7 +5306,7 @@
         return target;
       },
     },
-    { // 3. items are made by popping, and fired by tapping
+    { // 3. items are made by popping...
       text: "tut3",
       setup() {
         grid[4][4] = 6; special[4][4] = "bomb";
@@ -5302,10 +5316,24 @@
         return [4, 4];                     // tap the bomb itself
       },
     },
+    { // 4. ...and they also go off on their own when fruit pops beside them. This is the half
+      //    players never discover by accident, so it gets its own step.
+      text: "tut4",
+      setup() {
+        grid[4][5] = 6; special[4][5] = "bomb";   // a bomb sitting to the side
+        grid[4][2] = 1; grid[4][3] = 1;           // a match that does NOT include the bomb
+        const target = [4, 4];                    // popping here is adjacent to the bomb
+        tutScatter(9, ring(4, 4).concat(ring(4, 5), ring(4, 3)));
+        nextColor = 1; nextColor2 = 1;
+        return target;
+      },
+    },
   ];
 
+  // `thenMode` null means it was opened from settings: finish back at the menu instead of
+  // dropping into a run nobody asked to start
   function startTutorial(thenMode) {
-    mode = thenMode;
+    mode = thenMode || mode || "rush";
     resetRun(); resetEffects(); applyRelics();
     running = true; busy = false; paused = false;
     tut = { i: -1, then: thenMode, target: null };
@@ -5337,7 +5365,9 @@
     $sh("tut").classList.add("hidden");
     document.body.classList.remove("tut-on");
     if (completed) { try { localStorage.setItem(TUT_KEY, "1"); } catch (e) {} }
-    start(then);
+    if (then) { start(then); return; }
+    running = false; busy = false;
+    showMenu();                            // replayed from settings: go back, do not start a run
   }
   // the tutorial owns the board while it runs: only the highlighted cell responds
   const tutAllows = (r, c) => !tut || (tut.target && tut.target[0] === r && tut.target[1] === c);
