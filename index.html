@@ -440,6 +440,11 @@
   .of-tier { font-size: 10px; font-weight: 800; letter-spacing: 1px; }
   .of-name { font-size: 14px; font-weight: 800; }
   .of-ic { font-size: 40px; line-height: 1.1; }
+  /* a relic/trait icon that has real art: the emoji is replaced, not overlaid */
+  .art-ic { background: center/contain no-repeat; display: inline-block; }
+  .of-ic.art-ic  { width: 48px; height: 48px; }
+  .inf-ic.art-ic { width: 30px; height: 30px; vertical-align: -7px; }
+  .chip.timed .art-ic { width: 15px; height: 15px; vertical-align: -2px; margin-right: 1px; }
   .of-desc { font-size: 11px; color: var(--muted); line-height: 1.4; white-space: normal;
     min-height: 31px; }
   .of-price { font-size: 13px; font-weight: 800; color: #ffd23e; white-space: nowrap; }
@@ -3302,7 +3307,7 @@
         const R = RELICS[id], left = relicLife[id];
         const sp = document.createElement("span");
         sp.className = "chip timed" + (left <= 1 ? " last" : "");
-        sp.textContent = `${R.icon}${left}`;
+        sp.append(relicIcon(id, ""), String(left));
         sp.title = `${R.name} — ${d("lifeLeft", left, lifeUnitLabel(R.life.unit))}`;
         timed.appendChild(sp);
       }
@@ -4340,7 +4345,7 @@
       const gr = document.createElement("span");
       gr.className = "of-tier"; gr.textContent = tier.name; gr.style.color = tier.color;
       const nm = document.createElement("b"); nm.className = "of-name"; nm.textContent = R.name;
-      const ic = document.createElement("span"); ic.className = "of-ic"; ic.textContent = R.icon;
+      const ic = relicIcon(id, "of-ic");
       // the description always shows: you cannot decide what to sell without knowing what
       // you would be buying. The full shelf is said on the price line instead.
       const ds = document.createElement("span"); ds.className = "of-desc"; ds.textContent = R.desc;
@@ -4512,7 +4517,7 @@
           act.addEventListener("click", e => { e.stopPropagation(); discardRelic(i); });
         }
         const left = relicLife[id];
-        row(R.icon, R.name, inert ? d("relicOff") : R.desc,
+        row(relicIcon(id, "inf-ic"), R.name, inert ? d("relicOff") : R.desc,
             inert ? d("inactive") : (left ? d("lifeLeft", left, lifeUnitLabel(R.life.unit)) : ""),
             inert, act);
       });
@@ -4526,7 +4531,8 @@
       }
       for (const t of standing) {
         const T = TRAITS[t.id];
-        row(T.icon, T.name + (t.amount > 1 ? " " + d("doubled") : ""), T.desc(traitEffects(T, t.amount)), "", false);
+        row(traitIcon(t.id, "inf-ic"), T.name + (t.amount > 1 ? " " + d("doubled") : ""),
+            T.desc(traitEffects(T, t.amount)), "", false);
       }
       if (doubles > 0) row("✨", TRAITS.graft.name, d("nextDouble"), d("charges", doubles), false);
     } else if (infoTab === "help") {
@@ -4966,6 +4972,10 @@
       stage++;
       if (stage === 1) img.src = "assets_new/" + file;
       else if (stage === 2) img.src = "assets/" + file;
+      // no SVG to fall back to: stop here and leave the image broken, which every
+      // *Ready() check reads as "use the drawn/emoji fallback". Calling svgDataURL(null)
+      // threw inside an error handler, where nothing would have reported it.
+      else if (!svg) { img.onerror = null; }
       else { img.onerror = null; img.src = svgDataURL(svg); }
     };
     img.onload = onReady;
@@ -5007,6 +5017,30 @@
       brickImg[hpv] = loadArtImg(`brick${hpv}.png`, svg, () => { dirty = true; });
     });
   }
+  // Relic and trait art arrives a few pieces at a time. Listing what exists beats probing 84
+  // ids and eating a 404 for each of them; tools/art-check.py keeps this list honest against
+  // what is actually in assets_new/, in both directions.
+  const ART_IDS = new Set(["relic_crown", "relic_prism", "relic_big_reclaim"]);
+  const artImgs = {};
+  // An icon that shows the emoji until its art is PROVEN to load. Anything else -- swapping
+  // on the strength of the list alone -- leaves a blank square when a file is missing.
+  function iconEl(key, emoji, cls) {
+    const el = document.createElement("span");
+    el.className = cls;
+    el.textContent = emoji;
+    if (!ART_IDS.has(key)) return el;
+    const img = artImgs[key] || (artImgs[key] = loadArtImg(key + ".png", null, null));
+    const apply = () => {
+      if (!(img.complete && img.naturalWidth)) return;
+      el.textContent = "";
+      el.classList.add("art-ic");
+      el.style.backgroundImage = `url("${img.src}")`;
+    };
+    if (img.complete) apply(); else img.addEventListener("load", apply, { once: true });
+    return el;
+  }
+  const relicIcon = (id, cls) => iconEl("relic_" + id, RELICS[id].icon, cls);
+  const traitIcon = (id, cls) => iconEl("trait_" + id, TRAITS[id].icon, cls);
   const birdReady = () => birdImg && birdImg.complete && birdImg.naturalWidth;
   const coinReady = () => coinImg && coinImg.complete && coinImg.naturalWidth;
   // one coin, drawn the same way everywhere it appears
@@ -6058,6 +6092,7 @@
       SFX, Ads, setLang, LANGS, PACKS, d, L, applyStaticText, nameOf,
       reviveRun, syncBanner, get revivedThisRun() { return revivedThisRun; },
       resetEffects, get links() { return links; }, coinReady, drawCoin,
+      ART_IDS, iconEl, relicIcon, traitIcon,
       COIN_FLY_MS, COIN_STAGGER_MS, flyCoins, clearCoinFly,
       get coinFlyPending() { return coinFlyPending; },
       saveRun, clearSave, loadSave, resumeSavedRun, SAVE_KEY,

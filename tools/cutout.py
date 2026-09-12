@@ -86,7 +86,42 @@ def write_png(path, w, h, px):
         + chunk(b'IEND', b''))
 
 # ---------- cutout ----------
-def cutout(w, h, px, bg, tol, feather=True):
+def downscale(w, h, px, target):
+    """Box-filter down to `target` on the long edge. 1024x1024 is what the generators emit,
+    but a relic icon draws at 48 CSS px -- shipping the full thing is ~800KB of art for a
+    thumbnail, and 65 relics of that would be 50MB of mobile download.
+
+    Averaged in PREMULTIPLIED space: the RGB under a fully transparent pixel is leftover
+    garbage, so averaging it straight drags that garbage into every edge as a dark fringe."""
+    if max(w, h) <= target: return w, h, px
+    nw = max(1, round(w * target / max(w, h)))
+    nh = max(1, round(h * target / max(w, h)))
+    out = bytearray(nw * nh * 4)
+    for y in range(nh):
+        y0 = y * h // nh; y1 = max(y0 + 1, (y + 1) * h // nh)
+        for x in range(nw):
+            x0 = x * w // nw; x1 = max(x0 + 1, (x + 1) * w // nw)
+            r = g = b = a = n = 0
+            for yy in range(y0, y1):
+                base = yy * w
+                for xx in range(x0, x1):
+                    i = (base + xx) * 4
+                    al = px[i+3]
+                    r += px[i] * al; g += px[i+1] * al; b += px[i+2] * al
+                    a += al; n += 1
+            d = (y * nw + x) * 4
+            if a:
+                out[d] = min(255, r // a); out[d+1] = min(255, g // a); out[d+2] = min(255, b // a)
+            out[d+3] = a // n
+    return nw, nh, out
+
+
+HOLE_MIN  = 400    # smaller than this is a highlight, not a hole
+HOLE_TOL  = 8      # how close to the background colour an enclosed region must be
+HOLE_FLAT = 6      # ...and how flat, so shaded pale ART is not mistaken for background
+
+
+def cutout(w, h, px, bg, tol, feather=True, holes_ok=True):
     """Clear background connected to the border. Interior pixels of the same colour survive."""
     d2 = tol * tol * 3
     def far(i):                                   # squared distance from the background colour
@@ -110,6 +145,34 @@ def cutout(w, h, px, bg, tol, feather=True):
                 j = ny*w + nx
                 if not seen[j] and far(j) <= d2:
                     seen[j] = 1; q.append(j)
+    # Holes. A crown's arches, a handle's loop: background the border flood cannot reach
+    # because the drawing encloses it. Left alone they become white blobs on a dark board.
+    # But an enclosed near-background region can also be the ART -- the prism's glass body is
+    # a big pale shape too -- so only regions that are background-coloured to within HOLE_TOL
+    # AND as FLAT as background (low deviation) are opened. Measured on these three: the
+    # crown's arches sit 3 off the background with deviation 2.5; the prism's glass sits 26
+    # off with a blue cast. Nothing in between, so the gap is where the line goes.
+    holes = 0
+    if holes_ok:
+        done = bytearray(seen)
+        for start in range(w*h):
+            if done[start] or far(start) > d2: continue
+            q = deque([start]); done[start] = 1; cells = [start]
+            while q:
+                i = q.popleft(); x, y = i % w, i // w
+                for nx, ny in ((x-1,y),(x+1,y),(x,y-1),(x,y+1)):
+                    if 0 <= nx < w and 0 <= ny < h:
+                        j = ny*w + nx
+                        if not done[j] and far(j) <= d2: done[j] = 1; q.append(j); cells.append(j)
+            if len(cells) < HOLE_MIN: continue
+            n = len(cells)
+            mean = [sum(px[i*4+k] for i in cells) / n for k in range(3)]
+            if max(abs(mean[k] - bg[k]) for k in range(3)) > HOLE_TOL: continue
+            sd = [(sum((px[i*4+k] - mean[k])**2 for i in cells) / n) ** 0.5 for k in range(3)]
+            if max(sd) > HOLE_FLAT: continue
+            for i in cells: seen[i] = 1
+            holes += 1
+
     cleared = 0
     for i in range(w*h):
         if seen[i]: px[i*4+3] = 0; cleared += 1
@@ -153,7 +216,7 @@ def cutout(w, h, px, bg, tol, feather=True):
             a = max(0.0, min(1.0, a))
             px[i*4], px[i*4+1], px[i*4+2] = fr, fg, fb     # true colour, not the blend
             px[i*4+3] = int(round(a * 255))
-    return cleared
+    return cleared, holes
 
 def corner_colour(w, h, px):
     """Average of the four corners -- what a flat background actually is."""
@@ -186,7 +249,7 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 RAW  = os.path.join(HERE, '..', 'assets_raw')
 OUT  = os.path.join(HERE, '..', 'assets_new')
 
-def batch(tol):
+def batch(tol, holes_ok=True, size=None):
     """Everything in assets_raw/ -> assets_new/, named by whatever the file is called.
 
     Files may be named by relic id (reclaim.png) or by the Korean name shown in 유물.md
@@ -234,11 +297,16 @@ def batch(tol):
         if looks_checkered(w, h, px):
             print(f'  ! {f:34} 체크무늬 배경 (프롬프트에서 transparent 를 빼세요)')
         bg = corner_colour(w, h, px)
-        n = cutout(w, h, px, bg, tol)
+        n, holes = cutout(w, h, px, bg, tol, holes_ok=holes_ok)
+        pct = n * 100 // (w*h)          # against the ORIGINAL size, before the downscale
+        # a relic icon draws at 48px, a board piece at ~40px; 1024 is the generator's habit,
+        # not a requirement, and it is the difference between a 50MB download and a 3MB one
+        want = size or (256 if target.startswith(('relic_', 'trait_')) else 512)
+        w, h, px = downscale(w, h, px, want)
         write_png(dst, w, h, px)
-        pct = n * 100 // (w*h)
         flag = '  ⚠️ 확인 필요' if (pct < 5 or pct > 85) else ''
-        print(f'  ✓ {f:34} → {target}.png  ({pct}% 제거){flag}')
+        hole = f' · 막힌 구멍 {holes}개 뚫음' if holes else ''
+        print(f'  ✓ {f:34} → {target}.png  ({pct}% 제거{hole}){flag}')
         done += 1
     print(f'\n배경 제거 {done}개 · 그대로 {skipped}개 · 이름 불명 {unknown}개')
 
@@ -248,10 +316,14 @@ def main():
         tol = 60
         for i, t in enumerate(a):
             if t == '--tol' and i+1 < len(a): tol = int(a[i+1])
-        batch(tol); return
+        size = None
+        for i, t in enumerate(a):
+            if t == '--size' and i+1 < len(a): size = int(a[i+1])
+        batch(tol, holes_ok='--keep-holes' not in a, size=size); return
     if len(a) < 2: print(__doc__); sys.exit(1)
     src, dst = a[0], a[1]
     bg_arg = 'auto'; tol = 60; size = None
+    holes_ok = '--keep-holes' not in a      # a big flat white shape you WANT to keep
     for i, t in enumerate(a):
         if t == '--bg' and i+1 < len(a): bg_arg = a[i+1]
         if t == '--tol' and i+1 < len(a): tol = int(a[i+1])
@@ -272,11 +344,13 @@ def main():
         print('   프롬프트에서 transparent background 를 빼고 단색 배경을 요구하세요.')
     bg = corner_colour(w, h, px) if bg_arg == 'auto' else tuple(
         int(bg_arg.lstrip('#')[i:i+2], 16) for i in (0, 2, 4))
-    n = cutout(w, h, px, bg, tol)
+    n, holes = cutout(w, h, px, bg, tol, holes_ok=holes_ok)
     pct = n * 100 // (w*h)
+    if size: w, h, px = downscale(w, h, px, size)
     write_png(dst, w, h, px)
     print(f'{os.path.basename(src)} → {os.path.basename(dst)}  '
-          f'{w}x{h} · 배경 #{bg[0]:02x}{bg[1]:02x}{bg[2]:02x} · {pct}% 제거')
+          f'{w}x{h} · 배경 #{bg[0]:02x}{bg[1]:02x}{bg[2]:02x} · {pct}% 제거'
+          + (f' · 막힌 구멍 {holes}개 뚫음' if holes else ''))
     if pct < 5:  print('   ⚠️  거의 안 지워졌습니다 — --tol 을 올리거나 --bg 를 직접 지정하세요')
     if pct > 85: print('   ⚠️  너무 많이 지워졌습니다 — --tol 을 낮추세요')
 
