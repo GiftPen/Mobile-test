@@ -85,6 +85,13 @@
   }
   .chip b { color: var(--text); font-weight: 800; }
   .chip.lvl { color: var(--text); font-weight: 800; background: #232744; }
+  /* One coin everywhere. The emoji is the fallback; once coin.png loads, body.coin-art
+     swaps every .cn over to the art in one go, so no site can be left behind. */
+  .cn { display: inline-block; font-style: normal; line-height: 1; }
+  .cn::before { content: "\1FA99"; }
+  body.coin-art .cn { width: 1.15em; height: 1.15em; vertical-align: -.22em;
+                      background: var(--coin-url) center/contain no-repeat; }
+  body.coin-art .cn::before { content: ""; }
   .chip.coin { color: #ffd23e; background: rgba(255,190,40,.12); border: 1px solid rgba(255,190,60,.35); }
   .chip.coin b { color: #ffe9a0; }
   .chip.coin.bump { animation: coinBump .22s ease-out; }
@@ -548,12 +555,12 @@
     <div class="shop-card">
       <div class="shop-head">
         <span class="shop-title"><b id="sh-stage">1-2</b> <span data-i18n="prep">준비</span></span>
-        <span class="chip coin">🪙 <b id="sh-coin">0</b></span>
+        <span class="chip coin"><i class="cn"></i> <b id="sh-coin">0</b></span>
       </div>
       <div id="sh-offers" class="offer-grid"></div>
       <div class="shop-actions">
         <button id="sh-info" class="ghost-btn"><span data-i18n="myRelics">📜 내 유물</span> <b id="sh-slots">0/5</b></button>
-        <button id="sh-reroll" class="ghost-btn">🔄 🪙<b id="sh-reroll-cost">3</b></button>
+        <button id="sh-reroll" class="ghost-btn">🔄 <i class="cn"></i><b id="sh-reroll-cost">3</b></button>
         <button id="sh-next" data-i18n="btnClose">닫기</button>
       </div>
     </div>
@@ -583,7 +590,7 @@
     <span class="chip lvl">Lv.<b id="st-level">1</b><span id="st-max" class="lvmax hidden">MAX</span></span>
     <span class="chip"><span data-i18n="touchChip">👆 터치</span> <b id="st-touch">0</b></span>
     <span class="chip"><span data-i18n="spawnChip">➕ 매턴</span> <b id="st-spawn">1</b></span>
-    <span class="chip coin" id="st-coin">🪙 <b id="st-coin-v">0</b></span>
+    <span class="chip coin" id="st-coin"><i class="cn"></i> <b id="st-coin-v">0</b></span>
     <span id="danger-label" class="hidden" data-i18n="danger">⚠️ 위험!</span>
   </div>
   <div id="rush" class="hidden">
@@ -592,7 +599,7 @@
       <div class="rb-div"></div>
       <div class="rb-cell" id="rb-touch-cell"><span class="rb-val" id="rb-touch">15</span><span class="rb-lab" data-i18n="touchesLeft">남은 터치</span></div>
       <div class="rb-chips">
-        <span class="chip coin" id="rs-coin">🪙 <b id="rs-coin-v">0</b></span>
+        <span class="chip coin" id="rs-coin"><i class="cn"></i> <b id="rs-coin-v">0</b></span>
         <span class="chip">➕ <b id="rs-spawn">1</b></span>
         <span id="danger-label2" class="hidden">⚠️</span>
       </div>
@@ -606,13 +613,13 @@
     <canvas id="game"></canvas>
   </div>
   <div id="ishop">
-    <button class="ib" data-item="bird"><span class="ib-ic">🐦</span><span class="ib-p">🪙10</span></button>
-    <button class="ib" data-item="line"><span class="ib-ic">↔️</span><span class="ib-p">🪙15</span></button>
-    <button class="ib" data-item="bomb"><span class="ib-ic">💣</span><span class="ib-p">🪙30</span></button>
-    <button class="ib" data-item="star"><span class="ib-ic">🌟</span><span class="ib-p">🪙70</span></button>
+    <button class="ib" data-item="bird"><span class="ib-ic">🐦</span><span class="ib-p"><i class="cn"></i>10</span></button>
+    <button class="ib" data-item="line"><span class="ib-ic">↔️</span><span class="ib-p"><i class="cn"></i>15</span></button>
+    <button class="ib" data-item="bomb"><span class="ib-ic">💣</span><span class="ib-p"><i class="cn"></i>30</span></button>
+    <button class="ib" data-item="star"><span class="ib-ic">🌟</span><span class="ib-p"><i class="cn"></i>70</span></button>
   </div>
   <div id="hint" data-i18n="hintPlace">빈 칸을 탭해 과일을 놓으세요</div>
-  <button id="rush-next" class="hidden"><span data-i18n="nextStage">다음 스테이지 ▶</span> <span id="rn-coin">🪙 +0</span></button>
+  <button id="rush-next" class="hidden"><span data-i18n="nextStage">다음 스테이지 ▶</span> <span id="rn-coin"><i class="cn"></i> +0</span></button>
 
   <div id="dock" class="hidden">
     <span class="dock-label" data-i18n="testDock">테스트</span>
@@ -3291,7 +3298,7 @@
     if (rush) {
       const canLeave = running && !busy && stageScore >= rules().quota(stage);
       rn.disabled = !canLeave;
-      document.getElementById("rn-coin").textContent = `🪙 +${leftoverCoins()}`;
+      setCoinText(document.getElementById("rn-coin"), `🪙 +${leftoverCoins()}`);
     }
     // NOT snapped to `coins` here -- tickCoins() eases it so the flying coins look like
     // they are what fills the counter
@@ -4266,7 +4273,7 @@
       const pr = document.createElement("span");
       pr.className = "of-price" + (full ? " nofit" : "");
       const life = R.life ? ` · ${R.life.amount}${lifeUnitLabel(R.life.unit)}` : "";
-      pr.textContent = sold ? d("soldOut") : full ? d("noRoom", R.price) : `🪙 ${R.price}${life}`;
+      setCoinText(pr, sold ? d("soldOut") : full ? d("noRoom", R.price) : `🪙 ${R.price}${life}`);
       card.append(gr, nm, ic, ds, pr);
       card.addEventListener("click", () => buyRelic(id));
       wrap.appendChild(card);
@@ -4427,7 +4434,7 @@
           act.className = "inf-drop";
           // "버리기 🪙5" read as though it cost 5. Say what actually happens: you sell it
           // and money comes back.
-          act.textContent = d("sellFor", Math.floor(R.price / 2));
+          setCoinText(act, d("sellFor", Math.floor(R.price / 2)));
           act.addEventListener("click", e => { e.stopPropagation(); discardRelic(i); });
         }
         const left = relicLife[id];
@@ -4857,6 +4864,15 @@
     tryNext();
     return img;
   }
+  // Language-pack strings carry the coin as an emoji token. Swap it for a .cn node so the
+  // art reaches strings too, without four language packs having to know about markup.
+  function setCoinText(el, str) {
+    el.textContent = "";
+    String(str).split("\u{1FA99}").forEach((t, i) => {
+      if (i) { const c = document.createElement("i"); c.className = "cn"; el.appendChild(c); }
+      if (t) el.appendChild(document.createTextNode(t));
+    });
+  }
   function loadFruits() {   // (re)load the active fruit set into sprite cache
     fruitImg.length = 0; fruitSprite = [];
     for (let i = 0; i < FRUIT_SVG.length; i++) {
@@ -4869,7 +4885,12 @@
     loadFruits();
     birdImg = loadArtImg("bird.png", SPARROW_SVG, () => { dirty = true; });
     // no SVG fallback: if there is no coin.png the drawn disc is the fallback, and it is fine
-    coinImg = loadArtImg("coin.png", null, () => { dirty = true; });
+    coinImg = loadArtImg("coin.png", null, () => {
+      // the DOM coins follow the canvas one: same file, resolved through the same fallback chain
+      document.body.style.setProperty("--coin-url", `url("${coinImg.src}")`);
+      document.body.classList.add("coin-art");
+      dirty = true;
+    });
     bombImg = loadArtImg("bomb.png", BOMB_SVG, () => { dirty = true; });
     lineImg = loadArtImg("line.png", LINE_SVG, () => { dirty = true; });
     starImg = loadArtImg("star.png", STAR_SVG, () => { dirty = true; });

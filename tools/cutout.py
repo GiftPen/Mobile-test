@@ -114,19 +114,45 @@ def cutout(w, h, px, bg, tol, feather=True):
     for i in range(w*h):
         if seen[i]: px[i*4+3] = 0; cleared += 1
     if feather:
-        # soften the rim: a kept pixel touching cleared ones gets partial alpha, so the cut
-        # does not read as a hard jagged edge against the board
-        edge = []
+        # Decontaminate the rim. The source was drawn ON the background, so its anti-aliased
+        # edge pixels are a BLEND of the object and the background -- lowering only their alpha
+        # leaves a pale halo of background colour around everything. Recover the true colour by
+        # solving  observed = a*object + (1-a)*background  for both a and the object colour.
+        fringe = []
         for y in range(h):
             for x in range(w):
                 i = y*w + x
-                if seen[i] or px[i*4+3] == 0: continue
-                n = 0
+                if seen[i]: continue
+                touching = 0
                 for nx, ny in ((x-1,y),(x+1,y),(x,y-1),(x,y+1)):
-                    if 0 <= nx < w and 0 <= ny < h and seen[ny*w+nx]: n += 1
-                if n: edge.append((i, n))
-        for i, n in edge:
-            px[i*4+3] = max(0, min(255, int(255 * (1 - 0.22 * n))))
+                    if 0 <= nx < w and 0 <= ny < h and seen[ny*w+nx]: touching = 1; break
+                if touching: fringe.append((x, y, i))
+        fset = {i for _, _, i in fringe}
+        for x, y, i in fringe:
+            # the object colour here = nearest kept pixel that is NOT itself on the rim
+            best, bd = None, 1 << 30
+            for r in (1, 2, 3):
+                for dy in range(-r, r+1):
+                    for dx in range(-r, r+1):
+                        nx, ny = x+dx, y+dy
+                        if not (0 <= nx < w and 0 <= ny < h): continue
+                        j = ny*w + nx
+                        if seen[j] or j in fset: continue
+                        d = dx*dx + dy*dy
+                        if d < bd: bd, best = d, j
+                if best is not None: break
+            if best is None:                     # a lone speck: just drop it
+                px[i*4+3] = 0
+                continue
+            fr, fg, fb = px[best*4], px[best*4+1], px[best*4+2]
+            # use whichever channel separates object from background most -- the others are noise
+            ch = max(range(3), key=lambda k: abs((fr, fg, fb)[k] - bg[k]))
+            den = (fr, fg, fb)[ch] - bg[ch]
+            obs = px[i*4+ch]
+            a = 1.0 if abs(den) < 8 else (obs - bg[ch]) / den
+            a = max(0.0, min(1.0, a))
+            px[i*4], px[i*4+1], px[i*4+2] = fr, fg, fb     # true colour, not the blend
+            px[i*4+3] = int(round(a * 255))
     return cleared
 
 def corner_colour(w, h, px):
