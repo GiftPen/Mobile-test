@@ -783,10 +783,14 @@
   const BOMB_RADIUS_MAX = 4;   // 9x9. Past this a bomb clears an 8-wide board outright and
                                // there is no placement left to think about
   const STAR_THRESHOLD = 10;   // group size 10+    -> a star bud (color bomb + constellation)
+  // How long the constellation stroke takes to travel ONE node. Per-node rather than a total,
+  // because the path length varies with the cluster -- and on a clock, not on frames, which
+  // used to make the whole flourish run at double speed on a 120Hz phone.
+  const STAR_NODE_MS = 118;
   const BIRD_SCORE = 20;       // score per fruit a bird eats
   // The swoop used to advance a fixed amount per FRAME: ~0.9s at 60Hz and half that on a
   // 120Hz phone, which read as a dart rather than a swoop. Wall clock, and slower.
-  const BIRD_FLY_MS = 1200;
+  const BIRD_FLY_MS = 1050;
   const BRICK = -2;            // grid value for a brick (wall; only items can clear it)
   const BRICK_EVERY = 5;       // one brick spawns every N touches once unlocked
   // ---- Star Rush stage curve (DRAFT numbers, meant to be tuned by feel) ----
@@ -3517,6 +3521,37 @@
         noise({ f: f * 3.2, f2: f * 1.1, dur: 0.055, vol: 0.26, filter: "bandpass", q: 1.2, lead: true });
       } },
     };
+    // A brick giving way should sound like something SNAPPING, and one filtered noise sweep
+    // only ever sounds like "shh". What reads as crisp is granular: a hard transient followed
+    // by a few micro-grains of debris. Marked lead, because a brick usually breaks in the
+    // middle of a big cluster -- on the accent budget it was being dropped exactly then.
+    const grains = (list, filter) => list.forEach(([delay, f, vol]) =>
+      noise({ f, dur: 0.013, vol, filter: filter || "highpass", delay, lead: true }));
+    const BRICK_STYLES = {
+      crunch: { name: "바삭", play() {            // hard snap + crumbs + a little body
+        noise({ f: 3800, dur: 0.022, vol: 0.30, filter: "bandpass", q: 1.4, lead: true });
+        grains([[0.016, 5200, 0.16], [0.034, 4200, 0.13], [0.056, 6000, 0.09]]);
+        noise({ f: 900, f2: 260, dur: 0.07, vol: 0.16, filter: "lowpass", delay: 0.004, lead: true });
+      } },
+      cookie: { name: "쿠키", play() {            // drier and woodier: a biscuit, not masonry
+        noise({ f: 2200, dur: 0.03, vol: 0.28, filter: "bandpass", q: 3, lead: true });
+        tone({ f: 320, f2: 130, dur: 0.06, vol: 0.16, type: "triangle", lead: true });
+        grains([[0.020, 3600, 0.14], [0.042, 2800, 0.10]]);
+      } },
+      shatter: { name: "와작", play() {           // more debris, longer scatter
+        noise({ f: 4500, dur: 0.02, vol: 0.30, filter: "highpass", lead: true });
+        grains([[0.014, 5000, 0.17], [0.030, 3400, 0.15], [0.050, 6200, 0.12],
+                [0.075, 4000, 0.09], [0.100, 5600, 0.06]]);
+        noise({ f: 700, f2: 200, dur: 0.09, vol: 0.15, filter: "lowpass", delay: 0.005, lead: true });
+      } },
+      old: { name: "이전(쉭)", play() {
+        noise({ f: 2600, f2: 700, dur: 0.1, vol: 0.22, filter: "highpass" });
+      } },
+    };
+    const BRICK_KEYS = Object.keys(BRICK_STYLES);
+    let brickStyle = BRICK_KEYS[0];
+    try { const b = localStorage.getItem("fs_brick"); if (BRICK_STYLES[b]) brickStyle = b; } catch (e) {}
+
     const POP_KEYS = Object.keys(POP_STYLES);
     let popStyle = POP_KEYS[0];
     try { const p = localStorage.getItem("fs_pop"); if (POP_STYLES[p]) popStyle = p; } catch (e) {}
@@ -3551,7 +3586,7 @@
                      tone({ f: 1900, f2: 2700, dur: 0.06, vol: 0.13, type: "triangle", delay: 0.08 }); },
       star:  () => PENTA.forEach((n, i) =>
                      tone({ f: hz(n) * 4, dur: 0.14, vol: 0.11, type: "sine", delay: i * 0.045 })),
-      brick: () => noise({ f: 2600, f2: 700, dur: 0.1, vol: 0.22, filter: "highpass" }),
+      brick: () => BRICK_STYLES[brickStyle].play(),
       stage: () => [0, 4, 7].forEach((n, i) =>
                      tone({ f: hz(n) * 2, dur: 0.2, vol: 0.2, type: "triangle", delay: i * 0.1 })),
       // a round is three stages of work, so it has to land bigger than a stage: the same run
@@ -3603,17 +3638,23 @@
       popStyle = k;
       try { localStorage.setItem("fs_pop", k); } catch (e) {}
     }
+    function setBrickStyle(k) {
+      if (!BRICK_STYLES[k]) return;
+      brickStyle = k;
+      try { localStorage.setItem("fs_brick", k); } catch (e) {}
+    }
     return { play, unlock, resume, setMuted, setVolume, names: Object.keys(S),
              POP_STYLES, POP_KEYS, setPopStyle, get popStyle() { return popStyle; },
+             BRICK_STYLES, BRICK_KEYS, setBrickStyle, get brickStyle() { return brickStyle; },
              get voices() { return voices; }, get MAX_VOICES() { return MAX_VOICES; },
              get state() { return ctx ? ctx.state : "none"; },
              get muted() { return muted; }, get volume() { return volume; },
              get armed() { return armed; } };
   })();
-  // TEMPORARY (?pop=1): the juice sound is the one thing that cannot be judged from code, so
-  // it gets picked on a phone. Tapping a chip switches the style AND plays it across three
-  // fruits, which is how you actually hear whether a cluster will sound right.
-  if (/[?&]pop=1/.test(location.search)) {
+  // TEMPORARY (?pop=1 / ?brick=1): a sound is the one thing that cannot be judged from code,
+  // so it gets picked on a phone. Tapping a chip switches the style AND plays it -- the pop
+  // across three fruits, because that is how you hear whether a whole cluster will sound right.
+  function styleProbe(keys, styles, set, current, preview) {
     window.addEventListener("load", () => {
       const bar = document.createElement("div");
       bar.style.cssText = "position:fixed;left:0;right:0;bottom:0;z-index:99;display:flex;" +
@@ -3621,17 +3662,14 @@
         "background:rgba(8,9,15,.94);backdrop-filter:blur(6px)";
       const paint = () => {
         bar.textContent = "";
-        for (const k of SFX.POP_KEYS) {
+        for (const k of keys) {
           const b = document.createElement("button");
-          const on = k === SFX.popStyle;
-          b.textContent = SFX.POP_STYLES[k].name;
+          const on = k === current();
+          b.textContent = styles[k].name;
           b.style.cssText = "font:800 13px/1 inherit;padding:10px 12px;border-radius:11px;" +
             "border:1px solid " + (on ? "#ffd23e" : "#2b3048") + ";" +
             "background:" + (on ? "#3a3316" : "#1c2032") + ";color:" + (on ? "#ffd23e" : "#8a93ad");
-          b.addEventListener("click", () => {
-            SFX.unlock(); SFX.setPopStyle(k); paint();
-            [0, 4, 6].forEach((fruit, n) => setTimeout(() => SFX.play("pop", fruit), n * 110));
-          });
+          b.addEventListener("click", () => { SFX.unlock(); set(k); paint(); preview(); });
           bar.appendChild(b);
         }
       };
@@ -3639,6 +3677,12 @@
       document.body.appendChild(bar);
     });
   }
+  if (/[?&]pop=1/.test(location.search))
+    styleProbe(SFX.POP_KEYS, SFX.POP_STYLES, SFX.setPopStyle, () => SFX.popStyle,
+               () => [0, 4, 6].forEach((fruit, n) => setTimeout(() => SFX.play("pop", fruit), n * 110)));
+  if (/[?&]brick=1/.test(location.search))
+    styleProbe(SFX.BRICK_KEYS, SFX.BRICK_STYLES, SFX.setBrickStyle, () => SFX.brickStyle,
+               () => SFX.play("brick"));
 
   // any first gesture wakes the context; harmless to fire more than once
   for (const ev of ["pointerdown", "touchstart", "keydown"])
@@ -3776,18 +3820,25 @@
     let chainPopped = 0;     // only your own color-chain pops (for item generation)
     let pointsPopped = 0;    // sum of FRUIT_POINTS of every popped fruit (for scoring)
     const hitBricks = new Map();   // brick key -> number of adjacent pops (1 HP each)
+    // A blast does not CHIP a brick, it consumes it whole: budsAround hands bricks straight
+    // to the frontier, which clears them without ever touching hitBricks. So a brick taken by
+    // a bomb or a line made no sound at all. One per ring, so a wide blast is debris, not mush.
+    const brickHeard = new Set();
     let visualEnd = 0;             // timestamp the last staggered pop fires at
     function step() {
       if (!frontier.length) {
-        let broke = 0;
-        if (hitBricks.size) SFX.play("brick");
+        let broke = 0, chipped = 0;
         hitBricks.forEach((dmg, key) => {
           const br = (key / COLS) | 0, bc = key % COLS;
           if (grid[br][bc] !== BRICK) return;   // already destroyed by a blast
+          chipped++;
           hp[br][bc] -= dmg;                    // one HP per adjacent pop
           glow[br][bc] = { c: 0, t: 0.9 };
           if (hp[br][bc] <= 0) { grid[br][bc] = -1; special[br][bc] = null; burst(br, bc, "#9aa0b5"); broke++; }
         });
+        // once, however many were hit -- but only if one really was. It used to fire on the
+        // intent to hit, so a brick a blast had already destroyed still made the sound.
+        if (chipped) SFX.play("brick");
         if (broke) addScore(broke * 30);
         finishBurst(r0, c0, color, popped, chainPopped, placement, pointsPopped, visualEnd);
         return;
@@ -3821,7 +3872,9 @@
         if (popAt > maxD) maxD = popAt;
         setTimeout(() => {
           ghost[r][c] = null;                    // this cell's turn: fruit goes, particles fly
-          burst(r, c, vis);
+          // a brick bursts grey wherever it dies -- vis would paint it the blast's fruit colour
+          burst(r, c, cellColor === BRICK ? "#9aa0b5" : vis);
+          if (cellColor === BRICK && !brickHeard.has(popAt)) { brickHeard.add(popAt); SFX.play("brick"); }
           popScoreText(r, c, cellColor, fruitScoreAt(r, c, cellColor));
           if (cellColor >= 0) SFX.play("pop", cellColor);
           if (cellColor >= 0) notify("onFruitPop", { r, c, color: cellColor });
@@ -4141,8 +4194,12 @@
       // constellation draw (~0.7-1.5s), and links paint over the grid -- spawning into those
       // cells would put a new fruit under an old ghost. Wait the animation out.
       // links only drain inside draw(), so if rendering stalls -- a backgrounded tab, say --
-      // this would wait forever and the turn would never end. Give up after a second and a half.
-      const deadline = performance.now() + 1500;
+      // this would wait forever and the turn would never end. Give up, but not before the
+      // stroke could possibly have finished: a flat 1500ms cut long constellations short, and
+      // cutting one short is exactly what this wait exists to prevent.
+      const strokeMs = links.reduce(
+        (m, L) => Math.max(m, (L.nodes.length - L.prog) * STAR_NODE_MS), 0);
+      const deadline = performance.now() + strokeMs + 600;
       const whenSettled = () => {
         if (links.length && performance.now() < deadline) { setTimeout(whenSettled, 80); return; }
         endTurn();
@@ -5328,7 +5385,9 @@
     // star constellation — one-stroke path links same-colour fruits, then clears them
     for (let i = links.length - 1; i >= 0; i--) {
       const L = links[i];
-      L.prog += 0.19;                                  // nodes traversed per frame — star line-draw (~5% faster)
+      const lnow = performance.now();                  // nodes traversed, paced by the clock
+      L.prog += (lnow - (L.last || lnow)) / STAR_NODE_MS;
+      L.last = lnow;
       const nodes = L.nodes, maxIdx = nodes.length - 1;
       const p = Math.min(L.prog, maxIdx);              // continuous position along path
       // pop fruits as the stroke reaches each node (juice)
@@ -5421,6 +5480,8 @@
             const isBrick = col === BRICK;
             const beak = takeCoin(f.tr, f.tc);
             grid[f.tr][f.tc] = -1; special[f.tr][f.tc] = null; hp[f.tr][f.tc] = 0;
+            // a brick broken by a bird is still a brick breaking: this path never said so
+            if (isBrick) SFX.play("brick");
             if (beak) addCoins(1, f.tr, f.tc);
             burst(f.tr, f.tc, isBrick ? "#9aa0b5" : col);   // bricks burst grey, as they do elsewhere
             if (!isBrick) popScoreText(f.tr, f.tc, col);
@@ -6018,7 +6079,8 @@
       get armedItem() { return armedItem; }, set armedItem(v) { armedItem = v; },
       get grid() { return grid; }, get special() { return special; },
       get hp() { return hp; }, get coinCell() { return coinCell; },
-      BIRD_THRESHOLD, LINE_THRESHOLD, BOMB_THRESHOLD, STAR_THRESHOLD, BIRD_FLY_MS,
+      BIRD_THRESHOLD, LINE_THRESHOLD, BOMB_THRESHOLD, STAR_THRESHOLD, BIRD_FLY_MS, STAR_NODE_MS,
+      BRICK,
       get bombRadiusBonus() { return bombRadiusBonus; }, get itemEase() { return itemEase; },
       get STREAK_CAP() { return STREAK_CAP; }, get STREAK_STEP() { return STREAK_STEP; },
       get relics() { return relics; }, set relics(v) { relics = v; },

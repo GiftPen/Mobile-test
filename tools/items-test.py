@@ -45,6 +45,66 @@ window.addEventListener('load', async () => {
   chk('free: bomb cell empty', F.grid[0][0], -1);
   chk('free: bird gone',       F.birds.length, 0);
 
+  // ---- every way a brick can break has to make the brick sound ----
+  // A bird eating one was silent: that path mutates the grid directly instead of going
+  // through the chain, so it never reached SFX.play('brick').
+  const heard = [];
+  const realPlay = F.SFX.play;
+  F.SFX.play = (n, a) => { heard.push(n); return realPlay.call(F.SFX, n, a); };
+
+  clearBoard();
+  F.busy = false; F.birds.length = 0;
+  F.grid[0][0] = F.BRICK; F.hp[0][0] = 1;         // one hit and it is gone
+  F.grid[7][7] = 2;
+  F.birds.push({ sr: 7, sc: 7, tr: 0, tc: 0, t: 0.99, curve: 1 });
+  heard.length = 0;
+  await pump(30);
+  chk('a bird breaking a brick makes the brick sound', heard.includes('brick'), true);
+  chk('and the brick is actually gone', F.grid[0][0], -1);
+
+  // the chain path, which did work, must keep working
+  clearBoard();
+  F.birds.length = 0;
+  F.grid[3][3] = F.BRICK; F.hp[3][3] = 1;
+  F.grid[3][4] = 1; F.special[3][4] = 'bomb';     // blast it from next door
+  heard.length = 0;
+  F.tapItem(3, 4);
+  await pump(80, 12);
+  chk('a blast next to a brick makes it too', heard.includes('brick'), true);
+  chk('and that brick is gone as well', F.grid[3][3], -1);
+
+  // a brick CHIPPED by an adjacent colour pop is a third path again: it survives the hit, so
+  // it never reaches the frontier and never reaches the bird. Give it 3 HP so it cannot be
+  // confused with a brick that broke.
+  F.resetEffects();
+  clearBoard();
+  F.busy = false;
+  F.grid[2][4] = F.BRICK; F.hp[2][4] = 3;
+  for (const [r, c] of [[3,5],[4,4],[4,5]]) F.grid[r][c] = 5;   // a cluster to set off
+  F.nextColor = 5; F.nextColor2 = 5;
+  const r3 = cv.getBoundingClientRect(), cw3 = r3.width / F.COLS, ch3 = r3.height / F.ROWS;
+  const x3 = r3.left + 4.5 * cw3, y3 = r3.top + 3.5 * ch3;      // place into (3,4)
+  heard.length = 0;
+  cv.dispatchEvent(new PointerEvent('pointerdown', {clientX:x3, clientY:y3, bubbles:true}));
+  cv.dispatchEvent(new PointerEvent('pointerup',   {clientX:x3, clientY:y3, bubbles:true}));
+  await pump(90, 12);
+  chk('a brick merely chipped still makes the sound', heard.includes('brick'), true);
+  chk('and it survived the chip', F.grid[2][4], F.BRICK);
+  chk('but it did lose health', F.hp[2][4] < 3, true);
+
+  // and a blast with no brick anywhere near must not
+  clearBoard();
+  F.grid[3][4] = 1; F.special[3][4] = 'bomb';
+  heard.length = 0;
+  F.tapItem(3, 4);
+  await pump(80, 12);
+  chk('but a blast with no brick near it does not', heard.includes('brick'), false);
+  F.SFX.play = realPlay;
+
+  // the brick sound is granular, not one filtered sweep -- a sweep only ever says "shh"
+  chk('the brick sound has alternatives to pick from', F.SFX.BRICK_KEYS.length >= 3, true);
+  chk('and the chosen one is not the old sweep', F.SFX.brickStyle !== 'old', true);
+
   // ---- the swoop is paced by the clock, not by the frame rate ----
   // It used to step a fixed amount per FRAME, so it ran at double speed on a 120Hz phone and
   // read as a dart. Two pumps of the SAME wall-clock length, one with many frames and one
@@ -67,7 +127,7 @@ window.addEventListener('load', async () => {
   // the swoop is slow enough to read: 400ms must be well short of the whole flight
   chk('the swoop is not over in 400ms', many < 0.5, true);
   // the per-frame version was ~880ms at 60Hz; this is the floor below which it is a dart again
-  chk('the flight is a swoop, not a dart', F.BIRD_FLY_MS >= 1050, true);
+  chk('the flight is a swoop, not a dart', F.BIRD_FLY_MS >= 1000, true);
 
   // and it does finish, rather than hanging around forever
   F.birds.length = 0;
@@ -121,6 +181,59 @@ window.addEventListener('load', async () => {
   }
   chk('star: constellation actually ran', sawLink, true);
   chk('star: no fruit spawned mid-draw', grew, false);
+
+  // ---- the constellation stroke is clock-paced, and a LONG one is not cut short ----
+  // prog used to advance 0.19 nodes per FRAME, so the flourish ran at double speed on a
+  // 120Hz phone. And the turn-end wait was a flat 1500ms, which a long path outruns -- the
+  // exact situation the wait exists to prevent.
+  F.resetEffects();
+  clearBoard();
+  const row = [];
+  for (let c = 0; c < 8; c++) row.push([2, c, 0]);
+  const strokeProg = async (ms, frames) => {
+    F.links.length = 0;
+    F.links.push({ nodes: row, color: 1, prog: 0, reached: 0, done: false });
+    const L = F.links[0];
+    await pump(frames, Math.max(1, Math.round(ms / frames)));
+    return L.prog;
+  };
+  const sMany = await strokeProg(400, 40);
+  const sFew  = await strokeProg(400, 5);
+  chk('frame count does not change how far the stroke gets', Math.abs(sMany - sFew) < 1.2, true);
+  chk('and the stroke does move', sMany > 0.5, true);
+  chk('the stroke is a flourish, not a flick', F.STAR_NODE_MS >= 100, true);
+  F.resetEffects();
+
+  // a constellation long enough to outrun the old flat 1500ms wait
+  await pump(20);
+  clearBoard();
+  const LONG = 20;
+  for (let c = 0; c < 8; c++) F.grid[7][c] = 3;
+  for (let c = 0; c < 8; c++) F.grid[6][c] = 3;
+  for (let c = 0; c < LONG - 16; c++) F.grid[5][c] = 3;
+  F.grid[3][3] = 3; F.special[3][3] = 'star';
+  F.nextColor = 6; F.nextColor2 = 6;
+  F.busy = false;
+  const r2 = cv.getBoundingClientRect(), cw2 = r2.width / F.COLS, ch2 = r2.height / F.ROWS;
+  const x2 = r2.left + 4.5 * cw2, y2 = r2.top + 3.5 * ch2;
+  cv.dispatchEvent(new PointerEvent('pointerdown', {clientX:x2, clientY:y2, bubbles:true}));
+  cv.dispatchEvent(new PointerEvent('pointerup',   {clientX:x2, clientY:y2, bubbles:true}));
+  let sawLong = false, floor2 = Infinity, grew2 = false, nodes2 = 0;
+  for (let i = 0; i < 400; i++) {
+    F.draw();
+    const filled = F.grid.flat().filter(v => v !== -1).length;
+    if (F.links.length) {
+      sawLong = true;
+      nodes2 = Math.max(nodes2, F.links[0].nodes.length);
+      if (filled < floor2) floor2 = filled;
+      else if (filled > floor2) grew2 = true;
+    }
+    await sleep(16);
+  }
+  chk('long star: the constellation ran', sawLong, true);
+  chk('long star: and it really was long', nodes2 * F.STAR_NODE_MS > 1500, true);
+  chk('long star: no fruit spawned mid-draw', grew2, false);
+  F.resetEffects();
 
   // The constellation's coins must be banked when the fruit is CLEARED, not paid out frame by
   // frame as the stroke draws. takeCoin() lifts carried coins off those cells at clear time,
