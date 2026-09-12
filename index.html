@@ -1333,6 +1333,7 @@
   const fruitImg = [];        // loaded SVG Images per color slot
   let fruitSprite = [];       // pre-rendered offscreen canvases (sprite cache) per color slot
   let birdImg = null;         // loaded sparrow (참새) SVG image for the bird item
+  let coinImg = null;         // optional coin art; falls back to the drawn disc below
   let bombImg = null;         // loaded bomb SVG image for the bomb item
   let lineImg = null;         // loaded line (double-arrow) SVG image
   let starImg = null;         // loaded star SVG image
@@ -4867,6 +4868,8 @@
   function loadFruitArt() {
     loadFruits();
     birdImg = loadArtImg("bird.png", SPARROW_SVG, () => { dirty = true; });
+    // no SVG fallback: if there is no coin.png the drawn disc is the fallback, and it is fine
+    coinImg = loadArtImg("coin.png", null, () => { dirty = true; });
     bombImg = loadArtImg("bomb.png", BOMB_SVG, () => { dirty = true; });
     lineImg = loadArtImg("line.png", LINE_SVG, () => { dirty = true; });
     starImg = loadArtImg("star.png", STAR_SVG, () => { dirty = true; });
@@ -4875,6 +4878,15 @@
     });
   }
   const birdReady = () => birdImg && birdImg.complete && birdImg.naturalWidth;
+  const coinReady = () => coinImg && coinImg.complete && coinImg.naturalWidth;
+  // one coin, drawn the same way everywhere it appears
+  function drawCoin(cx, cy, r) {
+    if (coinReady()) { ctx.drawImage(coinImg, cx - r, cy - r, r * 2, r * 2); return; }
+    ctx.fillStyle = "#ffd23e";
+    ctx.beginPath(); ctx.arc(cx, cy, r, 0, PI2); ctx.fill();
+    ctx.fillStyle = "#fff3b0";
+    ctx.beginPath(); ctx.arc(cx - r * 0.26, cy - r * 0.3, r * 0.42, 0, PI2); ctx.fill();
+  }
   const bombReady = () => bombImg && bombImg.complete && bombImg.naturalWidth;
   const lineReady = () => lineImg && lineImg.complete && lineImg.naturalWidth;
   const starReady = () => starImg && starImg.complete && starImg.naturalWidth;
@@ -5120,12 +5132,10 @@
         if (coinCell[r][c] && grid[r][c] >= 0) {
           const bx = x + cell * 0.76, by = y + cell * 0.76, br = cell * 0.15;
           ctx.save();
+          // the dark disc stays: it separates the badge from whatever fruit is under it
           ctx.fillStyle = "rgba(0,0,0,.45)";
           ctx.beginPath(); ctx.arc(bx, by, br * 1.28, 0, PI2); ctx.fill();
-          ctx.fillStyle = "#ffd23e";
-          ctx.beginPath(); ctx.arc(bx, by, br, 0, PI2); ctx.fill();
-          ctx.fillStyle = "#fff3b0";
-          ctx.beginPath(); ctx.arc(bx - br * 0.26, by - br * 0.3, br * 0.42, 0, PI2); ctx.fill();
+          drawCoin(bx, by, br * (coinReady() ? 1.25 : 1));
           ctx.restore();
         }
       }
@@ -5167,10 +5177,7 @@
         const y = cf.sy + (ty - cf.sy) * e - Math.sin(e * Math.PI) * cell * cf.lift;
         const rad = cell * 0.15 * (1 - e * 0.35);
         ctx.globalAlpha = cf.t > 0.82 ? (1 - cf.t) / 0.18 : 1;
-        ctx.fillStyle = "#ffd23e";
-        ctx.beginPath(); ctx.arc(x, y, rad, 0, PI2); ctx.fill();
-        ctx.fillStyle = "#fff3b0";
-        ctx.beginPath(); ctx.arc(x - rad * 0.25, y - rad * 0.28, rad * 0.42, 0, PI2); ctx.fill();
+        drawCoin(x, y, rad * (coinReady() ? 1.35 : 1));
       }
       ctx.restore();
     }
@@ -5929,7 +5936,7 @@
       checkViewport, MIN_PLAY_H, insets, usableH, usableW,
       SFX, Ads, setLang, LANGS, PACKS, d, L, applyStaticText, nameOf,
       reviveRun, syncBanner, get revivedThisRun() { return revivedThisRun; },
-      resetEffects, get links() { return links; },
+      resetEffects, get links() { return links; }, coinReady, drawCoin,
       saveRun, clearSave, loadSave, resumeSavedRun, SAVE_KEY,
       start, showMenu, gameOver,
       set revivedThisRun(v) { revivedThisRun = v; },

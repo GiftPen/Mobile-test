@@ -165,10 +165,21 @@ def batch(tol):
 
     Files may be named by relic id (reclaim.png) or by the Korean name shown in 유물.md
     (개간.png), because those are the two things actually in front of whoever made the art."""
+    # game pieces are not relics, so they are not in the generated map -- but they are exactly
+    # the things most likely to be drawn next, so they get names too
+    names = {
+        'coin': 'coin', '동전': 'coin', 'bomb': 'bomb', '폭탄': 'bomb',
+        'bird': 'bird', '참새': 'bird', 'star': 'star', '별': 'star',
+        'line': 'line', '라인': 'line',
+        'brick1': 'brick1', 'brick2': 'brick2', 'brick3': 'brick3',
+        '벽돌1': 'brick1', '벽돌2': 'brick2', '벽돌3': 'brick3',
+    }
+    for i, n in enumerate(['체리', '오렌지', '키위', '레몬', '포도', '복숭아', '바나나']):
+        names[n] = f'fruit{i}'; names[f'fruit{i}'] = f'fruit{i}'
     try:
-        names = json.load(open(os.path.join(HERE, 'art-names.json'), encoding='utf-8'))
+        names.update(json.load(open(os.path.join(HERE, 'art-names.json'), encoding='utf-8')))
     except Exception:
-        names = {}
+        pass
     if not os.path.isdir(RAW):
         os.makedirs(RAW, exist_ok=True)
         print(f'assets_raw/ 를 만들었습니다. 여기에 PNG를 넣고 다시 실행하세요.')
