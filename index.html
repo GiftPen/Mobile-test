@@ -88,6 +88,11 @@
   /* One coin everywhere. The emoji is the fallback; once coin.png loads, body.coin-art
      swaps every .cn over to the art in one go, so no site can be left behind. */
   .cn { display: inline-block; font-style: normal; line-height: 1; }
+  /* Coins fly across this, not across the canvas: the canvas is exactly the board, so a
+     canvas coin was clipped the instant it left the top edge -- which is where the chip it
+     is flying to lives. Under the shop/pause overlays (z 11+), over the HUD. */
+  #coinfx { position: fixed; inset: 0; z-index: 6; pointer-events: none; overflow: hidden; }
+  #coinfx .cn { position: absolute; will-change: transform, opacity; }
   .cn::before { content: "\1FA99"; }
   body.coin-art .cn { width: 1.15em; height: 1.15em; vertical-align: -.22em;
                       background: var(--coin-url) center/contain no-repeat; }
@@ -608,6 +613,7 @@
   </div>
   <div id="fillgauge" aria-label="판 채움/위험도"></div>
 
+  <div id="coinfx" aria-hidden="true"></div>
   <div id="banner" class="hidden">AD</div>
   <div id="stage-wrap">
     <canvas id="game"></canvas>
@@ -1321,7 +1327,13 @@
   let stage, stageScore, touchesLeft;   // Star Rush: current stage, its score, its budget
   let coins;                   // shared currency, kept separate from score (doc 4)
   let coinsShown = 0;          // display value, eased toward `coins` so it ticks up
-  let coinFly = [];            // coins arcing from the cell that dropped them to the HUD chip
+  let coinFlyPending = 0;      // coins still arcing toward the HUD chip; the chip waits for them
+  // coins in flight are DOM nodes in #coinfx, so clearing them is clearing that
+  function clearCoinFly() {
+    coinFlyPending = 0;
+    const fx = document.getElementById("coinfx");
+    if (fx) fx.textContent = "";
+  }
   let running = false;
   let busy = false;            // wave animating -> block input
   let paused = false;          // pause overlay open -> block input
@@ -1451,7 +1463,7 @@
     zoneMult = 1; zoneCoin = false; zoneBonus = 0; zoneCells = new Set();
     STREAK_STEP = STREAK_STEP_BASE; STREAK_CAP = 2.0;
     traits = []; doubles = 0; armedItem = null;
-    coins = 0; coinsShown = 0; coinFly = [];
+    coins = 0; coinsShown = 0; clearCoinFly();
     oddsMult = [0, 0, 0, 0, 0, 0, 0];
     fruitMult = [1, 1, 1, 1, 1, 1, 1];
     fruitStack = [0, 0, 0, 0, 0, 0, 0];
@@ -1473,7 +1485,7 @@
     ({ grid, special, hp, coinCell, nextColor, nextColor2, score, streak, touchCount,
        stage, stageScore, touchesLeft, coins, oddsMult, fruitMult,
        fruitStack, fruitBoost, relics, relicLife, traits, doubles } = o);
-    coinsShown = coins; coinFly = [];
+    coinsShown = coins; clearCoinFly();
     glow = layer(null); appear = layer(0); ghost = layer(null);
     layout(); dirty = true;
     return true;
@@ -1520,7 +1532,7 @@
   }
 
   function resetEffects() {
-    particles = []; birds = []; flares = []; waves = []; links = []; floats = []; coinFly = [];
+    particles = []; birds = []; flares = []; waves = []; links = []; floats = []; clearCoinFly();
     shake = 0; flash = 0; dirty = true;
   }
   function randInt(n) { return Math.floor(Math.random() * n); }
@@ -3239,10 +3251,12 @@
     }
   }
   function tickCoins() {
-    if (coinsShown === coins) return;
-    const d = coins - coinsShown;
+    // a coin still in the air has not been delivered yet, so the chip may not count it
+    const target = coins - coinFlyPending;
+    if (coinsShown === target) return;
+    const d = target - coinsShown;
     coinsShown += Math.sign(d) * Math.max(1, Math.ceil(Math.abs(d) * 0.18));
-    if (Math.sign(coins - coinsShown) !== Math.sign(d)) coinsShown = coins;
+    if (Math.sign(target - coinsShown) !== Math.sign(d)) coinsShown = target;
     paintCoins();
   }
 
@@ -4689,13 +4703,57 @@
   }
   // the flight, with no value attached. Used where the coins were already banked at the
   // moment the fruit was cleared and only the picture still has to catch up.
+  // Slow enough to read. The canvas version stepped t by a fixed amount per FRAME, so it
+  // was both ~0.6s and faster on a 120Hz phone; this is wall-clock and the same everywhere.
+  const COIN_FLY_MS = 900, COIN_STAGGER_MS = 80, COIN_FLY_MAX = 40;
   function flyCoins(n, r, c) {
     if (!(n > 0) || r == null) return;
     SFX.play("coin");
-    for (let i = 0; i < n && coinFly.length < 60; i++)
-      coinFly.push({ sx: pad + c * cell + cell / 2, sy: pad + r * cell + cell / 2,
-                     t: -i * 0.05, lift: 0.5 + Math.random() * 0.7 });
-    dirty = true;
+    const fx = document.getElementById("coinfx");
+    if (!fx) return;
+    const b = canvas.getBoundingClientRect();
+    const chip = document.getElementById(rules().touchBudget ? "rs-coin" : "st-coin");
+    const a = chip && chip.getBoundingClientRect();
+    const sx = b.left + pad + c * cell + cell / 2;
+    const sy = b.top + pad + r * cell + cell / 2;
+    const tx = a && a.width ? a.left + a.width / 2 : b.left + b.width / 2;
+    const ty = a && a.width ? a.top + a.height / 2 : b.top;
+    const sz = cell * 0.46;
+    for (let i = 0; i < n && fx.childElementCount < COIN_FLY_MAX; i++) {
+      const el = document.createElement("i");
+      el.className = "cn";
+      el.style.cssText = `width:${sz}px;height:${sz}px;font-size:${sz}px;` +
+                         `left:${sx - sz / 2}px;top:${sy - sz / 2}px`;
+      const lift = cell * (0.8 + Math.random() * 1.0);      // how high the arc bows
+      const wob = (Math.random() - 0.5) * cell * 0.9;       // so a handful do not fly as one
+      const frames = [];
+      for (let k = 0; k <= 10; k++) {
+        const e = k / 10, t = e * e * (3 - 2 * e);          // smoothstep along the path
+        const x = (tx - sx) * t + wob * Math.sin(t * Math.PI);
+        const y = (ty - sy) * t - Math.sin(t * Math.PI) * lift;
+        frames.push({ transform: `translate(${x}px, ${y}px) scale(${1 - t * 0.3})`,
+                      opacity: e > 0.88 ? (1 - e) / 0.12 : 1 });
+      }
+      fx.appendChild(el);                                  // attach first: animations on a
+      const an = el.animate(frames, { duration: COIN_FLY_MS, // detached node are not live
+                                      delay: i * COIN_STAGGER_MS,
+                                      easing: "linear", fill: "backwards" });
+      coinFlyPending++;
+      // The counter must not run ahead of the coins: it ticks up as they land (see tickCoins).
+      // Which means a coin that never lands would freeze it for the rest of the run -- and a
+      // backgrounded tab pauses the animation timeline, so onfinish is not a promise. Land it
+      // on a wall clock too, whichever comes first, the same way SFX.claim() releases a voice.
+      let landed = false;
+      const land = () => {
+        if (landed) return;
+        landed = true;
+        el.remove();
+        if (coinFlyPending > 0) coinFlyPending--;
+        dirty = true;
+      };
+      an.onfinish = land; an.oncancel = land;
+      setTimeout(land, COIN_FLY_MS + i * COIN_STAGGER_MS + 400);
+    }
   }
   function addCoins(n, r, c) {
     if (!(n > 0)) return;
@@ -4703,15 +4761,6 @@
     flyCoins(n, r, c);
     dirty = true;
   }
-  // where the coins fly to: the HUD coin chip, mapped into board space
-  function coinTargetX() {
-    const chip = document.getElementById(rules().touchBudget ? "rs-coin" : "st-coin");
-    if (!chip) return boardPx / 2;
-    const a = chip.getBoundingClientRect(), b = canvas.getBoundingClientRect();
-    if (!a.width) return boardPx / 2;
-    return a.left + a.width / 2 - b.left;
-  }
-
   function burst(r, c, color) {
     const col = typeof color === "number" ? (COLORS[color] || "#fff") : (color || "#fff");
     const cx = pad + c * cell + cell / 2;
@@ -5003,7 +5052,7 @@
 
     // idle-skip: when nothing is animating and no change is pending, don't redraw (saves heat)
     let live = particles.length || birds.length || flares.length || waves.length || links.length
-             || floats.length || coinFly.length || coinsShown !== coins
+             || floats.length || coinsShown !== coins
              || shake > 0.3 || flash > 0.01;
     if (!live) for (let r = 0; r < ROWS && !live; r++) for (let c = 0; c < COLS; c++)
       if (glow[r][c] || appear[r][c] > 0 || special[r][c] === "bomb") { live = true; break; }
@@ -5184,24 +5233,7 @@
       ctx.restore();
     }
 
-    // coins arcing from the cell that dropped them up toward the HUD chip
-    if (coinFly.length) {
-      const tx = coinTargetX(), ty = -cell * 0.15;
-      ctx.save();
-      for (let i = coinFly.length - 1; i >= 0; i--) {
-        const cf = coinFly[i];
-        cf.t += 0.028;
-        if (cf.t >= 1) { coinFly.splice(i, 1); continue; }
-        if (cf.t <= 0) continue;                                  // staggered start
-        const e = cf.t * cf.t * (3 - 2 * cf.t);                   // smoothstep
-        const x = cf.sx + (tx - cf.sx) * e;
-        const y = cf.sy + (ty - cf.sy) * e - Math.sin(e * Math.PI) * cell * cf.lift;
-        const rad = cell * 0.15 * (1 - e * 0.35);
-        ctx.globalAlpha = cf.t > 0.82 ? (1 - cf.t) / 0.18 : 1;
-        drawCoin(x, y, rad * (coinReady() ? 1.35 : 1));
-      }
-      ctx.restore();
-    }
+    // coins in flight are DOM (#coinfx) so they can leave the board -- see flyCoins()
 
     // tutorial spotlight: dim the board, then cut a bright ring around the one cell that
     // will respond. Drawn here rather than as DOM so it tracks the grid at any board size.
@@ -5958,6 +5990,8 @@
       SFX, Ads, setLang, LANGS, PACKS, d, L, applyStaticText, nameOf,
       reviveRun, syncBanner, get revivedThisRun() { return revivedThisRun; },
       resetEffects, get links() { return links; }, coinReady, drawCoin,
+      COIN_FLY_MS, COIN_STAGGER_MS, flyCoins, clearCoinFly,
+      get coinFlyPending() { return coinFlyPending; },
       saveRun, clearSave, loadSave, resumeSavedRun, SAVE_KEY,
       start, showMenu, gameOver,
       set revivedThisRun(v) { revivedThisRun = v; },
