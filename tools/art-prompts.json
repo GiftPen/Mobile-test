@@ -92,7 +92,14 @@
     "peach_tree": "a single round-crowned peach tree in a terracotta pot, three peaches showing",
     "cherry_ruby": "a faceted ruby gemstone cut into the shape of a cherry, deep red, sparkling",
     "orange_gold": "a solid gold orange on a small pedestal, polished metal, radiant",
-    "grape_violet": "a bunch of grapes made of polished violet amethyst crystal, glowing from within"
+    "grape_violet": "a bunch of grapes made of polished violet amethyst crystal, glowing from within",
+    "rich_eye": "a cartoon eye whose pupil is a gold coin, greedy sparkle",
+    "interest": "a small marble bank building with columns and a coin slot in the pediment",
+    "compound": "a rising bar chart made of stacked gold coins, an arrow curving up over it",
+    "vault": "a heavy round bank vault door, dial and spokes, gold gleam at the seam",
+    "silver_clover": "a four leaf clover made of polished silver, cool metallic shine",
+    "golden_clover": "a four leaf clover made of polished gold, warm radiant shine",
+    "star_king": "a crowned star at the centre of a web of constellation lines linking many small fruits"
   },
   "traits": {
     "cherry_taste": "a cherry (#ff5a7a) inside a laurel wreath badge",

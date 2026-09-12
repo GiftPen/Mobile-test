@@ -31,8 +31,11 @@ window.addEventListener('load', () => setTimeout(() => {
     [1,3,5,9].map(k => F.chainBonus(k)),
     F.STREAK_CAP, F.streakMult(),
     F.brickChance, F.coinFruitBonus, F.payoutMult,
+    F.coinFlat, F.interestPer, F.interestPct, F.interestCap, F.starEverything, F.interestDue(),
   ]);
-  const fresh = () => { F.mode = 'rush'; F.resetRun(); F.streak = 3; };
+  // A coin-scaled relic is invisible at zero coins, so the audit would call it dead. Hold
+  // money while auditing -- which is also the only state in which such a relic means anything.
+  const fresh = () => { F.mode = 'rush'; F.resetRun(); F.streak = 3; F.coins = 40; };
 
   for (const id of Object.keys(F.RELICS)) {
     const R = F.RELICS[id];

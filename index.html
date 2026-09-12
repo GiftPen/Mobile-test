@@ -1476,6 +1476,8 @@
     stage = 1; stageScore = 0; touchesLeft = RUSH_TOUCHES;
     touchBonus = 0; spawnBonus = 0; slotBonus = 0; brickChance = 0; offerBonus = 0;
     chainStep = 0; coinFruitBonus = 0; starCoinMult = 1; payoutMult = 1;
+    coinFlat = 0; interestPer = 0; interestPct = 0; interestCap = INTEREST_CAP;
+    starEverything = false;
     bombRadiusBonus = 0; itemEase = 0; birdFlock = 1; crossLine = false;
     zoneMult = 1; zoneCoin = false; zoneBonus = 0; zoneCells = new Set();
     STREAK_STEP = STREAK_STEP_BASE; STREAK_CAP = 2.0;
@@ -1623,6 +1625,17 @@
   // derived from the owned relics -- never written directly, always recomputed by applyRelics()
   let touchBonus = 0, spawnBonus = 0, slotBonus = 0, brickChance = 0, offerBonus = 0;
   // more knobs for relics to turn. All derived: applyRelics() resets them every recompute.
+  // ---- coin economy ----
+  // Coins are currency AND, with these, score. That is a hoarding incentive, so interest is
+  // CAPPED: uncapped it compounds into "never buy anything", which is not a build, it is a
+  // refusal to play. 금고 raises the cap, which is what turns hoarding into a real choice.
+  const COIN_FLAT_PER   = 10;   // coins held per +1 fruit score, for 부자 감각
+  const INTEREST_CAP    = 5;    // most coins interest can pay in one round, before 금고
+  let coinFlat = 0;             // +N to every fruit per COIN_FLAT_PER coins held
+  let interestPer = 0;          // +1 coin per this many held (0 = no flat interest)
+  let interestPct = 0;          // + this fraction of coins held
+  let interestCap = INTEREST_CAP;
+  let starEverything = false;   // the star links the whole board, not one colour
   let chainStep = 0, coinFruitBonus = 0, starCoinMult = 1, payoutMult = 1,
       bombRadiusBonus = 0, itemEase = 0, birdFlock = 1, crossLine = false;
   // Bonus zones. Marked cells that pay extra when you pop on them -- the map layer the design
@@ -1728,9 +1741,12 @@
     return gridMult(1 + Math.max(0, cleared - 1) * (CHAIN_STEP + chainStep));
   }
   // (base + what popping it has banked) x banked doublings x the relics you carry
+  // read live rather than baked into fruitFlat by applyRelics: the coin count changes on
+  // every pop, and applyRelics only runs when the relic list does
+  const coinFlatBonus = () => coinFlat ? Math.floor(coins / COIN_FLAT_PER) * coinFlat : 0;
   function fruitScore(colorIdx) {          // one fruit's worth, before chain/streak
     const base = (FRUIT_POINTS[colorIdx] || 1) + (fruitStack[colorIdx] || 0)
-               + (fruitFlat[colorIdx] || 0);
+               + (fruitFlat[colorIdx] || 0) + coinFlatBonus();
     // rounded here so multipliers can never leak a decimal onto the board
     return Math.round(base * (fruitBoost[colorIdx] || 1) * (fruitMult[colorIdx] || 1));
   }
@@ -1875,6 +1891,13 @@
       bombRadius: n => `폭탄 폭발 범위 +${n}`,
       bombSize:   n => `폭탄이 ${n}×${n}로 터집니다`,
       itemEase:   n => `아이템이 ${n}개 적게 터뜨려도 생깁니다`,
+      coinFlat: (n, v) => `코인 ${n}개마다 모든 과일 점수 +${v}`,
+      interest: (n, cap) => `라운드가 끝나면 코인 ${n}개당 이자 +1 (최대 +${cap})`,
+      interestPct: n => `라운드가 끝나면 보유 코인의 ${n}%를 이자로`,
+      interestCap: n => `이자 상한 +${n}`,
+      coinOdds: n => `코인 달린 과일 확률 +${n}%p`,
+      starAll: () => "별이 판의 모든 과일을 연결합니다",
+      interestPaid: n => `이자 +${n}코인`,
       birds:      n => `참새가 ${n}마리씩 날아갑니다`,
       birdsMore:  n => `참새가 ${n}마리 더 날아갑니다`,
       starCoin:   (a, b) => `별이 과일당 코인 ${a}개 → ${b}개`,
@@ -1893,6 +1916,13 @@
         banana_cellar: "바나나 저장고",
         banana_grove: "바나나 농장",
         banana_hunter: "바나나 사냥꾼",
+        rich_eye: "부자 감각",
+        interest: "이자",
+        compound: "복리",
+        vault: "금고",
+        silver_clover: "은빛 클로버",
+        golden_clover: "황금 클로버",
+        star_king: "별자리 왕",
         cherry_farm: "체리 농장",
         lemon_farm: "레몬 농장",
         orange_farm: "오렌지 농장",
@@ -2092,6 +2122,13 @@
       bombRadius: n => `Bomb blast radius +${n}`,
       bombSize:   n => `Bombs blast ${n}×${n}`,
       itemEase:   n => `Items need ${n} fewer pops`,
+      coinFlat: (n, v) => `+${v} to every fruit per ${n} coins held`,
+      interest: (n, cap) => `Interest at round end: +1 per ${n} coins held (max +${cap})`,
+      interestPct: n => `Interest at round end: ${n}% of the coins you hold`,
+      interestCap: n => `Interest cap +${n}`,
+      coinOdds: n => `Coin-carrying fruit +${n}%p`,
+      starAll: () => "The star links every fruit on the board",
+      interestPaid: n => `Interest +${n}`,
       birds:      n => `${n} sparrows fly at once`,
       birdsMore:  n => `+${n} sparrow${n > 1 ? "s" : ""} fly`,
       starCoin:   (a, b) => `Stars pay ${a} → ${b} coins per fruit`,
@@ -2108,6 +2145,13 @@
         banana_cellar: "Banana Cellar",
         banana_grove: "Banana Plantation",
         banana_hunter: "Banana Hunter",
+        rich_eye: "Nose for Money",
+        interest: "Interest",
+        compound: "Compound",
+        vault: "Vault",
+        silver_clover: "Silver Clover",
+        golden_clover: "Golden Clover",
+        star_king: "Star Sovereign",
         cherry_farm: "Cherry Farm",
         lemon_farm: "Lemon Farm",
         orange_farm: "Orange Grove",
@@ -2307,6 +2351,13 @@
       bombRadius: n => `爆弾の爆発範囲 +${n}`,
       bombSize:   n => `爆弾が ${n}×${n} で爆発`,
       itemEase:   n => `アイテムが ${n} 個 少なく割っても出る`,
+      coinFlat: (n, v) => `コイン ${n} 枚ごとに全フルーツのスコア +${v}`,
+      interest: (n, cap) => `ラウンド終了時、コイン ${n} 枚ごとに利息 +1（最大 +${cap}）`,
+      interestPct: n => `ラウンド終了時、所持コインの ${n}% を利息に`,
+      interestCap: n => `利息の上限 +${n}`,
+      coinOdds: n => `コイン付きフルーツの確率 +${n}%p`,
+      starAll: () => "スターが盤面のすべてのフルーツをつなぎます",
+      interestPaid: n => `利息 +${n}`,
       birds:      n => `スズメが ${n} 羽ずつ飛ぶ`,
       birdsMore:  n => `スズメが ${n} 羽 多く飛ぶ`,
       starCoin:   (a, b) => `星のコインが フルーツごとに ${a} → ${b}`,
@@ -2323,6 +2374,13 @@
         banana_cellar: "バナナ貯蔵庫",
         banana_grove: "バナナ農園",
         banana_hunter: "バナナ狩人",
+        rich_eye: "金持ちの勘",
+        interest: "利息",
+        compound: "複利",
+        vault: "金庫",
+        silver_clover: "銀のクローバー",
+        golden_clover: "金のクローバー",
+        star_king: "星座の王",
         cherry_farm: "さくらんぼ農場",
         lemon_farm: "レモン農場",
         orange_farm: "オレンジ農場",
@@ -2521,6 +2579,13 @@
       bombRadius: n => `炸弹范围 +${n}`,
       bombSize:   n => `炸弹以 ${n}×${n} 爆炸`,
       itemEase:   n => `道具少消除 ${n} 个也能出现`,
+      coinFlat: (n, v) => `每持有 ${n} 金币，所有水果分数 +${v}`,
+      interest: (n, cap) => `回合结束时，每 ${n} 金币生息 +1（最多 +${cap}）`,
+      interestPct: n => `回合结束时，获得持有金币的 ${n}%`,
+      interestCap: n => `生息上限 +${n}`,
+      coinOdds: n => `带金币水果概率 +${n}%p`,
+      starAll: () => "星星连接盘面上所有水果",
+      interestPaid: n => `利息 +${n}`,
       birds:      n => `麻雀每次飞出 ${n} 只`,
       birdsMore:  n => `麻雀多飞出 ${n} 只`,
       starCoin:   (a, b) => `星星每个水果给 ${a} → ${b} 金币`,
@@ -2537,6 +2602,13 @@
         banana_cellar: "香蕉仓库",
         banana_grove: "香蕉农场",
         banana_hunter: "香蕉猎人",
+        rich_eye: "财感",
+        interest: "利息",
+        compound: "复利",
+        vault: "金库",
+        silver_clover: "银三叶草",
+        golden_clover: "金三叶草",
+        star_king: "星座之王",
         cherry_farm: "樱桃农场",
         lemon_farm: "柠檬农场",
         orange_farm: "橙子农场",
@@ -2916,6 +2988,27 @@
     peach_tree:   { icon: "🍑", price: 12,
       desc: () => d("odds", [5], 1), apply() { oddsMult[5] += 1; } },
 
+    // ---- E. coin economy ----
+    // The coin build: coins are worth score (부자 감각), coins make more coins (이자/복리,
+    // capped, with 금고 to lift the cap), and coin fruit is the fuel (the clover ladder).
+    rich_eye: { icon: "🤑", price: 20,
+      desc: () => d("coinFlat", COIN_FLAT_PER, 1), apply() { coinFlat += 1; } },
+    interest: { icon: "🏦", price: 18, lifts: "interest",
+      desc: () => d("interest", 5, INTEREST_CAP), apply() { interestPer = 5; } },
+    compound: { icon: "📊", price: 25, lifts: "interest",
+      desc: () => d("interestPct", 20), apply() { interestPct = 0.2; } },
+    // dead on its own -- an interest cap with no interest is nothing -- so it is not offered
+    // until there is interest to cap, the same rule 측량 follows
+    vault: { icon: "🔐", price: 26,
+      requires: () => relics.some(id => RELICS[id] && RELICS[id].lifts === "interest"),
+      desc: () => d("interestCap", 10), apply() { interestCap += 10; } },
+    silver_clover: { icon: "🍀", price: 17,
+      desc: () => d("coinOdds", 15), apply() { coinFruitBonus += 0.15; } },
+    golden_clover: { icon: "🍀", price: 24,
+      desc: () => d("coinOdds", 25), apply() { coinFruitBonus += 0.25; } },
+    star_king: { icon: "🌌", price: 36,
+      desc: () => d("starAll"), apply() { starEverything = true; } },
+
     // ---- B. score ----
     chain_master: { icon: "🫧", price: 17,
       desc: () => d("clusterStep", 0.2, CHAIN_STEP, gridMult(CHAIN_STEP + 0.2)), apply() { chainStep += 0.2; } },
@@ -3160,6 +3253,8 @@
     fruitFlat = [0, 0, 0, 0, 0, 0, 0];
     touchBonus = 0; spawnBonus = 0; brickChance = 0; offerBonus = 0;
     chainStep = 0; coinFruitBonus = 0; starCoinMult = 1; payoutMult = 1;
+    coinFlat = 0; interestPer = 0; interestPct = 0; interestCap = INTEREST_CAP;
+    starEverything = false;
     bombRadiusBonus = 0; itemEase = 0; birdFlock = 1; crossLine = false;
     zoneMult = 1; zoneCoin = false; zoneBonus = 0;
     STREAK_STEP = STREAK_STEP_BASE; STREAK_CAP = 2.0;      // relics may raise these; reset first
@@ -4024,16 +4119,21 @@
           flashBox(r, c, R, cellColor);
           addShake(5);
           const target = mode === "color" ? it.color : mostCommonColor();
-          // collect same-color cells, clear them NOW (logic) but hold them as ghosts (visual)
+          // 별자리 왕 takes every fruit on the board instead of one colour: the same stroke,
+          // the same coin per node, but it clears the board and pays for all of it.
+          const all = starEverything;
+          // collect the cells, clear them NOW (logic) but hold them as ghosts (visual)
           const tCells = [];
-          if (target >= 0)
+          if (all || target >= 0)
             for (let rr = 0; rr < ROWS; rr++)
               for (let cc = 0; cc < COLS; cc++)
-                if (!visited[rr][cc] && grid[rr][cc] === target) {
+                if (!visited[rr][cc] && (all ? grid[rr][cc] >= 0 : grid[rr][cc] === target)) {
+                  const col = grid[rr][cc];
                   visited[rr][cc] = true;
                   grid[rr][cc] = -1; special[rr][cc] = null; popped++;
-                  pointsPopped += fruitScore(target);
-                  tCells.push([rr, cc, takeCoin(rr, cc)]);
+                  pointsPopped += fruitScore(col);
+                  // the colour rides along: a mixed constellation cannot burst in one hue
+                  tCells.push([rr, cc, takeCoin(rr, cc), col]);
                   // chip bricks adjacent to each star-cleared cell (was missing)
                   for (let dr = -1; dr <= 1; dr++)
                     for (let dc = -1; dc <= 1; dc++) {
@@ -4043,7 +4143,7 @@
                     }
                 }
           // order nearest-neighbor from the star origin = a one-stroke path
-          const path = [[r, c]];
+          const path = [[r, c, 0, cellColor]];
           let cur = [r, c];
           while (tCells.length) {
             let bi = 0, bd = Infinity;
@@ -4051,7 +4151,7 @@
               const dr = tCells[k][0]-cur[0], dc = tCells[k][1]-cur[1], d = dr*dr+dc*dc;
               if (d < bd) { bd = d; bi = k; }
             }
-            cur = tCells.splice(bi, 1)[0]; path.push(cur);
+            cur = tCells.splice(bi, 1)[0]; path.push(cur);   // [r, c, coin, colour]
           }
           // Bank the whole constellation NOW. takeCoin() has already lifted the carried coins
           // off those cells at this point, so paying out during the animation meant an
@@ -4751,16 +4851,37 @@
     saveRun();                             // a cleared stage is worth keeping
     recordStage();                       // reaching it counts even if the run is abandoned
     tickRelicLife("stages");             // the stage that just ended counts against them
+    // Interest first, on the balance you CHOSE to keep. After the payout it would partly be
+    // interest on money everyone gets, which blunts the only decision it exists to create.
+    // Paid on the round, not the stage, so saving up has to survive a whole round to matter.
+    const interest = stage % STAGES_PER_ROUND === 0 ? payInterest() : 0;
     addCoins(Math.round(COIN_PAYOUT(stage) * payoutMult), (ROWS - 1) / 2, (COLS - 1) / 2);
     stage++;
     stageScore = 0;
     touchesLeft = stageTouches();
     flash = Math.max(flash, 0.5); addShake(7);
+    // interest has to be SEEN or it is not a strategy, just a number that moved
     document.getElementById("hint").textContent =
-      d("hintStage", stageLabel(stage), rules().quota(stage), touchesLeft);
+      d("hintStage", stageLabel(stage), rules().quota(stage), touchesLeft)
+      + (interest ? " · " + d("interestPaid", interest) : "");
     updateHUD();
     dirty = true;
     setTimeout(openShop, 700);          // let the payout coins fly first; busy stays true
+  }
+
+  // What the coins you did NOT spend are worth. Capped, and the cap is a relic's job to lift.
+  // split from the payment so it can be asked without being paid -- a tooltip, a test or an
+  // audit snapshot must be able to read it without quietly handing out money
+  function interestDue() {
+    if (!interestPer && !interestPct) return 0;
+    const flat = interestPer ? Math.floor(coins / interestPer) : 0;
+    const pct  = interestPct ? Math.floor(coins * interestPct) : 0;
+    return Math.min(interestCap, flat + pct);
+  }
+  function payInterest() {
+    const n = interestDue();
+    if (n > 0) addCoins(n, (ROWS - 1) / 2, (COLS - 1) / 2);
+    return n;
   }
 
   let revivedThisRun = false;
@@ -5524,8 +5645,9 @@
         L.reached++;
         const nd = nodes[L.reached];
         if (nd) {
-          burst(nd[0], nd[1], L.color); popScoreText(nd[0], nd[1], L.color);
-          notify("onFruitPop", { r: nd[0], c: nd[1], color: L.color });
+          const ncol = nd[3] == null ? L.color : nd[3];
+          burst(nd[0], nd[1], ncol); popScoreText(nd[0], nd[1], ncol);
+          notify("onFruitPop", { r: nd[0], c: nd[1], color: ncol });
           flyCoins(starCoinMult + (nd[2] || 0), nd[0], nd[1]);   // already banked; this is the picture
         }
       }
@@ -6165,6 +6287,7 @@
       openShop, closeShop, buyRelic, discardRelic, renderShop, rollOffers,
       openInfo, closeInfo, renderInfo,
       endStageEarly, leftoverCoins, takeCoin, updateHUD, closeStage, gameOver, COIN_FRUIT_CHANCE, COIN_PER_LEFTOVER, COIN_PAYOUT,
+      stageClear,
       TRAITS, STAGES_PER_ROUND, stageLabel, traitEffects, rollTraits, openTraits, pickTrait, renderTraits,
       SHOP_OFFERS, SHOP_OFFERS_MAX, shelfSize,
       get shopSold() { return shopSold; },
@@ -6200,6 +6323,10 @@
       HAPTICS_OK, get haptics() { return haptics; },
       get LANG() { return LANG; },
       rollZones, zoneAt, zoneCount, fruitScoreAt, ZONE_BASE,
+      payInterest, interestDue, coinFlatBonus, COIN_FLAT_PER, INTEREST_CAP,
+      get coinFlat() { return coinFlat; }, get interestPer() { return interestPer; },
+      get interestPct() { return interestPct; }, get interestCap() { return interestCap; },
+      get starEverything() { return starEverything; },
       MIN_ODDS,
       announceOffers,
       get zoneCells() { return zoneCells; }, get zoneMult() { return zoneMult; },

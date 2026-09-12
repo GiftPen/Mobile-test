@@ -752,10 +752,27 @@ window.addEventListener('load', () => setTimeout(() => {
     F.relics.push('survey'); F.applyRelics(); F.rollZones();
     schk('and then really widens the map', F.zoneCells.size, F.ZONE_BASE + 3);
 
-    // the gate must not quietly swallow anything else
+    // The gate must not quietly swallow anything else. Checked as a PROPERTY rather than
+    // against a list of names: a list has to be edited every time a gated relic is added,
+    // and the edit is what gets forgotten. Every gate must be shut on a fresh run (or it is
+    // pointless) and must open for something (or the relic is unreachable).
     F.resetRun();
     const gated = Object.keys(F.RELICS).filter(id => F.RELICS[id].requires);
-    schk('only the relics that need a prerequisite are gated', gated, ['survey']);
+    schk('there are gated relics to check', gated.length > 0, true);
+    const openAtStart = gated.filter(id => F.RELICS[id].requires());
+    schk('no gate is already open on a fresh run', openAtStart, []);
+    const neverOpens = gated.filter(id => {
+      F.resetRun();
+      for (const other of Object.keys(F.RELICS)) {
+        if (other === id) continue;
+        F.relics = [other]; F.applyRelics(); F.rollZones();
+        if (F.RELICS[id].requires()) { F.relics = []; F.applyRelics(); return false; }
+      }
+      F.relics = []; F.applyRelics();
+      return true;
+    });
+    schk('every gate can be opened by some relic', neverOpens, []);
+    F.resetRun();
     F.resetRun();
   })();
 
@@ -1011,6 +1028,89 @@ window.addEventListener('load', () => setTimeout(() => {
     F.relics = ['streak_amp']; F.applyRelics();
     schk('불꽃 증폭 lifts the combo cap to 3.0', F.STREAK_CAP, 3.0);
     F.relics = []; F.applyRelics();
+  })();
+
+  // ---- the coin build ----
+  (() => {
+    F.mode = 'rush'; F.resetRun();
+    const withRelics = (ids, coins) => { F.relics = ids.slice(); F.applyRelics(); F.coins = coins; };
+
+    // 1. coins are worth score, and it tracks the balance LIVE -- applyRelics only runs when
+    //    the relic list changes, so baking this in would freeze it at whatever you held then
+    withRelics([], 100);
+    const plain = F.fruitScore(0);
+    withRelics(['rich_eye'], 0);
+    schk('broke, the coin relic adds nothing', F.fruitScore(0), plain);
+    F.coins = 30;
+    schk('30 coins is +3 a fruit', F.fruitScore(0), plain + 3);
+    F.coins = 35;
+    schk('and it rounds down, per 10', F.fruitScore(0), plain + 3);
+    F.coins = 100;
+    schk('it follows the balance without re-applying', F.fruitScore(0), plain + 10);
+
+    // 2. interest is capped -- uncapped it compounds into "never buy anything"
+    withRelics(['interest'], 20);
+    schk('interest pays 1 per 5 held', F.interestDue(), 4);
+    F.coins = 1000;
+    schk('but never more than the cap', F.interestDue(), F.INTEREST_CAP);
+    withRelics(['compound'], 1000);
+    schk('the percentage one is capped too', F.interestDue(), F.INTEREST_CAP);
+    withRelics([], 1000);
+    schk('and with no interest relic there is none', F.interestDue(), 0);
+
+    // 3. the vault is what makes hoarding a real decision, and it is not sold on its own
+    withRelics(['interest', 'vault'], 1000);
+    schk('the vault lifts the cap', F.interestDue(), F.INTEREST_CAP + 10);
+    F.resetRun();
+    schk('the vault is not offered with no interest to cap', F.RELICS.vault.requires(), false);
+    F.relics = ['compound']; F.applyRelics();
+    schk('either interest relic unlocks it', F.RELICS.vault.requires(), true);
+    F.relics = []; F.applyRelics();
+
+    // 4. interest is paid on the ROUND, not on every stage, and it really lands
+    F.mode = 'rush'; F.resetRun();
+    F.relics = ['interest']; F.applyRelics();
+    F.coins = 20;
+    const paid = F.payInterest();
+    schk('paying hands over exactly what was due', F.coins, 24);
+    schk('and reports it, so the hint can say so', paid, 4);
+
+    // 4b. ...and stageClear is what has to call it. Testing payInterest() alone leaves the
+    //     wiring untested, and the wiring is the whole feature: interest nobody pays is not
+    //     a strategy. Driven through a real stage clear, on and off a round boundary.
+    const clearAt = (st, held) => {
+      F.mode = 'rush'; F.resetRun();
+      F.relics = ['interest']; F.applyRelics();
+      F.stage = st; F.coins = held;
+      F.stageClear();
+      return F.coins - held;
+    };
+    const payoutAt = st => Math.round(F.COIN_PAYOUT(st));
+    schk('mid-round pays the stage payout only', clearAt(1, 20), payoutAt(1));
+    schk('the round boundary adds interest on top', clearAt(3, 20), payoutAt(3) + 4);
+    schk('and interest scales with what was kept', clearAt(3, 5), payoutAt(3) + 1);
+    F.closeShop(); F.mode = 'rush'; F.resetRun(); F.relics = []; F.applyRelics();
+
+    // 5. 별자리 왕 takes the whole board, not one colour
+    F.resetRun(); F.relics = []; F.applyRelics();
+    const fillBoard = () => { for (let r = 0; r < F.ROWS; r++) for (let c = 0; c < F.COLS; c++)
+      { F.grid[r][c] = (r + c) % 3; F.special[r][c] = null; F.coinCell[r][c] = 0; } };
+    fillBoard();
+    const total = F.grid.flat().filter(v => v >= 0).length;
+    const onlyOne = F.grid.flat().filter(v => v === 0).length;
+    schk('the board holds more than one colour', onlyOne < total, true);
+    F.grid[4][4] = 0; F.special[4][4] = 'star';
+    F.coins = 0; F.tapItem(4, 4);
+    const leftPlain = F.grid.flat().filter(v => v >= 0).length;
+    schk('a plain star leaves the other colours', leftPlain > 0, true);
+
+    F.resetRun(); F.relics = ['star_king']; F.applyRelics();
+    fillBoard();
+    F.grid[4][4] = 0; F.special[4][4] = 'star';
+    F.coins = 0; F.tapItem(4, 4);
+    schk('별자리 왕 clears the board', F.grid.flat().filter(v => v >= 0).length, 0);
+    schk('and pays for every fruit it took', F.coins >= total - 1, true);
+    F.resetEffects(); F.relics = []; F.applyRelics(); F.resetRun();
   })();
 
   // ---- number display: compact only where precision is decoration ----
