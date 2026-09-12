@@ -65,8 +65,25 @@ if _missing or _stale:
     if _stale:   print('게임에 없는데 남아있는 프롬프트:', ', '.join(_stale))
     sys.exit(1)
 
+# ---- which art actually exists, read off disk and off the game's list ----
+# Not a hand-kept checklist: a hand-kept one goes stale the first time art lands and nobody
+# remembers to tick it. ✅ means the file is there AND the game is using it, which is the
+# only state that means anything to a player.
+import glob
+_files = {os.path.basename(f)[:-4] for d_ in ('assets_new', 'assets')
+          for f in glob.glob(d_ + '/*.png')}
+_listed = set(re.findall(r'"((?:relic|trait)_[a-z0-9_]+)"',
+                         re.search(r'const ART_IDS = new Set\(\[(.*?)\]\)',
+                                   open('index.html', encoding='utf-8').read(), re.S).group(1)))
+def art_mark(key):
+    if key in _files and key in _listed: return '✅'
+    if key in _files:                    return '⚠️ 미연결'
+    return ''
+_done_r = sum(1 for r in d['relics'] if art_mark('relic_' + r['id']) == '✅')
+_done_t = sum(1 for t in d['traits'] if art_mark('trait_' + t['id']) == '✅')
+
 L.append('# 유물 · 특성 도감\n')
-L.append(f"> `tools/gen-catalog.py`가 **게임 코드에서 자동 생성**합니다. 직접 고치지 마세요 — 유물이나 특성을 추가한 뒤 다시 돌리면 됩니다.\n>\n> 생성: {datetime.date.today()} · 유물 {len(d['relics'])}종 · 특성 {len(d['traits'])}종\n")
+L.append(f"> `tools/gen-catalog.py`가 **게임 코드에서 자동 생성**합니다. 직접 고치지 마세요 — 유물이나 특성을 추가한 뒤 다시 돌리면 됩니다.\n>\n> 생성: {datetime.date.today()} · 유물 {len(d['relics'])}종 · 특성 {len(d['traits'])}종\n>\n> **이미지 진행: 유물 {_done_r}/{len(d['relics'])} · 특성 {_done_t}/{len(d['traits'])}** — ✅ 는 게임에 실제로 적용된 것만 표시됩니다.\n")
 
 L.append('## 등급과 출현율\n')
 L.append('상점 진열은 **' + str(d['shopOffers']) + '장**, 유물 칸은 기본 **' + str(d['slots']) + '개**.\n')
@@ -108,22 +125,23 @@ for t in d['tiers']:
     rs = sorted([r for r in d['relics'] if r['tier'] == t['key']], key=lambda r: (r['price'], r['name']))
     if not rs: continue
     L.append(f"### {t['name']} · {t['odds']}% · {len(rs)}종\n")
-    L.append('| | 이름 | 가격 | 지속 | 효과 | AI 이미지 프롬프트 |')
-    L.append('|---|---|---|---|---|---|')
+    L.append('| | 이름 | 이미지 | 가격 | 지속 | 효과 | AI 이미지 프롬프트 |')
+    L.append('|---|---|---|---|---|---|---|')
     for r in rs:
-        L.append(f"| {r['icon']} | {r['name']} | {r['price']} | {r['life'] or '영구'} | {r['desc']} | "
-                 f"`{PROMPTS['relics'].get(r['id'], '—')}` |")
+        L.append(f"| {r['icon']} | {r['name']} | {art_mark('relic_' + r['id'])} | {r['price']} | "
+                 f"{r['life'] or '영구'} | {r['desc']} | `{PROMPTS['relics'].get(r['id'], '—')}` |")
     L.append('')
 
 L.append('## 특성\n')
 L.append('라운드가 끝날 때 3개 중 1개를 고릅니다. 화면마다 **무료 리롤 1회**.\n')
-L.append('| | 이름 | 효과 | ✨2배 | 비고 | AI 이미지 프롬프트 |')
-L.append('|---|---|---|---|---|---|')
+L.append('| | 이름 | 이미지 | 효과 | ✨2배 | 비고 | AI 이미지 프롬프트 |')
+L.append('|---|---|---|---|---|---|---|')
 for tr in sorted(d['traits'], key=lambda x: x['name']):
     notes = []
     if tr['once']: notes.append('한 게임에 1회 등장')
     if not tr['scalable']: notes.append('2배 불가')
-    L.append(f"| {tr['icon']} | {tr['name']} | {tr['desc']} | {tr['doubled'] or '—'} | {' · '.join(notes) or ''} | "
+    L.append(f"| {tr['icon']} | {tr['name']} | {art_mark('trait_' + tr['id'])} | {tr['desc']} | "
+             f"{tr['doubled'] or '—'} | {' · '.join(notes) or ''} | "
              f"`{PROMPTS['traits'].get(tr['id'], '—')}` |")
 L.append('')
 
