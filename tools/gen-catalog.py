@@ -14,11 +14,30 @@ window.addEventListener('load', () => setTimeout(() => {
   const F = window.__fs;
   F.setLang('ko');   // 유물.md is the Korean reference; do not follow the browser locale
   if (!F) { document.title = 'RESULT {"err":"no hook"}'; return; }
+  // Which fruit a relic is ABOUT, derived by applying it and seeing what moved. Written out
+  // by hand this list would be wrong the first time a relic is renamed or added.
+  const fruitsTouched = (setup) => {
+    F.mode = 'rush'; F.resetRun();
+    const base = [F.oddsMult.slice(), F.fruitMult.slice(), F.fruitFlat.slice(), F.fruitBoost.slice()];
+    setup();
+    const now = [F.oddsMult, F.fruitMult, F.fruitFlat, F.fruitBoost];
+    const hit = new Set();
+    for (let a = 0; a < 4; a++) for (let i = 0; i < 7; i++) if (now[a][i] !== base[a][i]) hit.add(i);
+    // stacking relics only move when a fruit actually pops, so poke each colour
+    for (let i = 0; i < 7; i++) {
+      const before = F.fruitStack[i];
+      F.notify('onFruitPop', { r: 0, c: 0, color: i });
+      if (F.fruitStack[i] !== before) hit.add(i);
+    }
+    F.relics = []; F.traits = []; F.applyRelics();
+    return [...hit].sort((a, b) => a - b);
+  };
   const relics = Object.keys(F.RELICS).map(id => {
     const R = F.RELICS[id];
     return { id, name: R.name, icon: R.icon, price: R.price, desc: R.desc,
              tier: F.relicTier(R), slots: R.slots || 0,
              life: R.life ? (R.life.amount + F.lifeUnitLabel(R.life.unit)) : "",
+             fruits: fruitsTouched(() => { F.relics = [id]; F.applyRelics(); }),
              hooks: ["apply","modify","onFruitPop","onPop","onSpawn","onTurn","onStageStart","onRunStart"]
                       .filter(k => R[k]).join(", ") };
   });
@@ -27,9 +46,10 @@ window.addEventListener('load', () => setTimeout(() => {
     return { id, name: T.name, icon: T.icon, desc: T.desc(F.traitEffects(T, 1)),
              doubled: T.scalable ? T.desc(F.traitEffects(T, 2)) : "",
              scalable: !!T.scalable, once: !!T.once,
+             fruits: fruitsTouched(() => { F.traits = [{ id, amount: 1 }]; F.applyRelics(); }),
              stats: T.effects.map(e => e.stat).join(", ") };
   });
-  document.title = 'RESULT ' + JSON.stringify({ relics, traits,
+  document.title = 'RESULT ' + JSON.stringify({ relics, traits, colors: F.COLORS,
     tiers: F.TIER_KEYS.map(t => ({ key: t, name: F.TIERS[t].name, odds: F.TIERS[t].odds })),
     shopOffers: F.SHOP_OFFERS, slots: F.RELIC_SLOTS });
 }, 900));
@@ -53,6 +73,46 @@ L = []
 PROMPTS = json.load(open(os.path.join(os.path.dirname(os.path.abspath(__file__)),
                                       'art-prompts.json'), encoding='utf-8'))
 ST = PROMPTS['_style']
+
+# ---- fruit colour, taken from the game rather than from a copy of it ----
+# The palette in art-prompts.json had already drifted (peach #ffc0cb vs the game's #ffab8f),
+# which is what a hand-kept copy does. The game is the source; the file has to agree.
+FRUIT_EN = ['cherry', 'orange', 'kiwi', 'lemon', 'grape', 'peach', 'banana']
+GAME_COLORS = [c.lower() for c in d['colors']]
+_stale_cols = [f'{FRUIT_EN[i]}: {ST["colors"].get(FRUIT_EN[i])} -> {GAME_COLORS[i]}'
+               for i in range(7) if (ST['colors'].get(FRUIT_EN[i]) or '').lower() != GAME_COLORS[i]]
+if _stale_cols:
+    print('art-prompts.json 의 _style.colors 가 게임과 다릅니다:')
+    for t in _stale_cols: print('   ', t)
+    sys.exit(1)
+
+# A generator draws a yellow banana and a pink peach unless told otherwise, so every prompt
+# that is ABOUT a fruit says which colour that fruit is here -- and the odd ones say so twice.
+ODD = {6: 'BLUE (not yellow)', 2: 'green', 5: 'soft coral'}
+OWN_COLOUR = set(ST.get('own_colour', []))   # art whose concept overrides the fruit colour
+PALETTE = ', use this game\'s fruit palette: ' + ', '.join(
+    f'{FRUIT_EN[i]} {GAME_COLORS[i]}' + (f' ({ODD[i]})' if i in ODD else '') for i in range(7))
+# "a fruit" in a prompt, not the word orange used as a colour. 십자로 is "glossy golden-orange"
+# and 불꽃 증폭 is "an orange flame" -- neither is about fruit, and neither should be told
+# what colour oranges are.
+# 'orange' is left out on purpose: it is a colour word as often as a fruit here (십자로 is
+# "glossy golden-orange", 불꽃 증폭 is "an orange flame"), and neither should be told what
+# colour oranges are. An orange-only prompt is caught by its effect instead.
+GENERIC = re.compile(r'\bfruits?\b|\bcherr(y|ies)\b|\bkiwis?\b|\blemons?\b'
+                     r'|\bgrapes?\b|\bpeach(es)?\b|\bbananas?\b', re.I)
+
+def colour_clause(fruits, rid, prompt):
+    """What to tell the generator about colour. Named fruit gets named colours; a picture of
+    fruit in general gets the palette; anything else gets nothing."""
+    if rid in OWN_COLOUR: return ''
+    if fruits and len(fruits) <= 3:
+        return ', ' + ', '.join(
+            f'{FRUIT_EN[i]} in this game is ' + (f'{ODD[i]} ' if i in ODD else '') + GAME_COLORS[i]
+            for i in fruits)
+    # 4+ fruits means "all of them", which is about the EFFECT, not necessarily the picture:
+    # 한 줌 and 설탕 폭발 raise every fruit but draw sugar. Only palette what draws fruit.
+    if GENERIC.search(prompt or ''): return PALETTE
+    return ''
 
 # A relic added without an art prompt would silently print "—" in the catalogue and be
 # forgotten, so the generator refuses instead.
@@ -81,6 +141,24 @@ def art_mark(key):
     return ''
 _done_r = sum(1 for r in d['relics'] if art_mark('relic_' + r['id']) == '✅')
 _done_t = sum(1 for t in d['traits'] if art_mark('trait_' + t['id']) == '✅')
+
+# A fruit prompt that also spells its own hex is a second source of truth, and the one that
+# goes stale. The colour comes from the game now; the subject must not repeat it.
+_byid = {x['id']: x for x in d['relics']}
+_tbyid = {x['id']: x for x in d['traits']}
+_hexed = ([f"relic {k}" for k, v in PROMPTS['relics'].items()
+           if _byid.get(k, {}).get('fruits') and re.search(r'#[0-9a-fA-F]{6}', v)] +
+          [f"trait {k}" for k, v in PROMPTS['traits'].items()
+           if _tbyid.get(k, {}).get('fruits') and re.search(r'#[0-9a-fA-F]{6}', v)])
+if _hexed:
+    print('과일 색은 게임에서 붙습니다 — 프롬프트에 직접 쓴 색을 지우세요:', ', '.join(_hexed))
+    sys.exit(1)
+
+_own_bad = [k for k in OWN_COLOUR
+            if not (_byid.get(k, {}).get('fruits') or _tbyid.get(k, {}).get('fruits'))]
+if _own_bad:
+    print('_style.own_colour 에 과일과 무관하거나 존재하지 않는 항목:', ', '.join(_own_bad))
+    sys.exit(1)
 
 L.append('# 유물 · 특성 도감\n')
 L.append(f"> `tools/gen-catalog.py`가 **게임 코드에서 자동 생성**합니다. 직접 고치지 마세요 — 유물이나 특성을 추가한 뒤 다시 돌리면 됩니다.\n>\n> 생성: {datetime.date.today()} · 유물 {len(d['relics'])}종 · 특성 {len(d['traits'])}종\n>\n> **이미지 진행: 유물 {_done_r}/{len(d['relics'])} · 특성 {_done_t}/{len(d['traits'])}** — ✅ 는 게임에 실제로 적용된 것만 표시됩니다.\n")
@@ -129,7 +207,8 @@ for t in d['tiers']:
     L.append('|---|---|---|---|---|---|---|')
     for r in rs:
         L.append(f"| {r['icon']} | {r['name']} | {art_mark('relic_' + r['id'])} | {r['price']} | "
-                 f"{r['life'] or '영구'} | {r['desc']} | `{PROMPTS['relics'].get(r['id'], '—')}` |")
+                 f"{r['life'] or '영구'} | {r['desc']} | "
+                 f"`{(lambda pr: pr + colour_clause(r['fruits'], r['id'], pr))(PROMPTS['relics'].get(r['id'], '—'))}` |")
     L.append('')
 
 L.append('## 특성\n')
@@ -142,7 +221,7 @@ for tr in sorted(d['traits'], key=lambda x: x['name']):
     if not tr['scalable']: notes.append('2배 불가')
     L.append(f"| {tr['icon']} | {tr['name']} | {art_mark('trait_' + tr['id'])} | {tr['desc']} | "
              f"{tr['doubled'] or '—'} | {' · '.join(notes) or ''} | "
-             f"`{PROMPTS['traits'].get(tr['id'], '—')}` |")
+             f"`{(lambda pr: pr + colour_clause(tr['fruits'], tr['id'], pr))(PROMPTS['traits'].get(tr['id'], '—'))}` |")
 L.append('')
 
 open('유물.md', 'w', encoding='utf-8').write('\n'.join(L))
