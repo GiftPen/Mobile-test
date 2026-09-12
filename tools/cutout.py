@@ -13,7 +13,7 @@ calls for is what stops the flood getting in.
 
 No third-party libraries; pure zlib.
 """
-import sys, zlib, struct, os, json
+import sys, zlib, struct, os, json, unicodedata
 from collections import deque
 
 # ---------- PNG ----------
@@ -117,8 +117,13 @@ def downscale(w, h, px, target):
 
 
 HOLE_MIN  = 400    # smaller than this is a highlight, not a hole
-HOLE_TOL  = 8      # how close to the background colour an enclosed region must be
-HOLE_FLAT = 6      # ...and how flat, so shaded pale ART is not mistaken for background
+# Colour is what actually separates a hole from pale art, and it separates them by a mile:
+# measured across these icons, holes sit 1-3 off the background while the prism's glass body
+# sits 26 off and a tractor window 19. Flatness is only a backstop against a SHADED pale
+# shape -- at 6 it was rejecting half of 별자리 왕's gaps, whose thin crossing lines leave
+# just enough anti-alias noise to push the deviation over.
+HOLE_TOL  = 6      # how close to the background colour an enclosed region must be
+HOLE_FLAT = 14     # ...and how flat, so shaded pale ART is not mistaken for background
 
 
 def cutout(w, h, px, bg, tol, feather=True, holes_ok=True):
@@ -273,6 +278,11 @@ def batch(tol, holes_ok=True, size=None):
         os.makedirs(RAW, exist_ok=True)
         print(f'assets_raw/ 를 만들었습니다. 여기에 PNG를 넣고 다시 실행하세요.')
         return
+    # Match loosely. "바나나농장" and "바나나 농장" are the same name to a person, and macOS
+    # hands back NFD Hangul where GitHub hands back NFC -- neither is the user's problem.
+    def key(t):
+        return unicodedata.normalize('NFC', t).replace(' ', '').replace('_', '').lower()
+    names = {key(k): v for k, v in names.items()}
     files = sorted(f for f in os.listdir(RAW) if f.lower().endswith('.png'))
     if not files:
         print('assets_raw/ 가 비어 있습니다. 받은 PNG를 넣어주세요.')
@@ -280,7 +290,7 @@ def batch(tol, holes_ok=True, size=None):
     done = skipped = unknown = 0
     for f in files:
         stem = os.path.splitext(f)[0].strip()
-        target = names.get(stem)
+        target = names.get(key(stem))
         if not target:
             print(f'  ? {f:34} 이름을 못 알아봤습니다 — 유물 id 나 한글 이름으로 바꿔주세요')
             unknown += 1

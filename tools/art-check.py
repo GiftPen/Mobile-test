@@ -25,7 +25,9 @@ missing = sorted(listed - on_disk)
 unused  = sorted(on_disk - listed)
 
 # every listed id must also be a real relic/trait, or the art is named after nothing
-ids = set(re.findall(r'^    ([a-z0-9_]+): \{', src, re.M))
+# tolerate the alignment spacing in the table ("grape_farm:  {"): this check exists to catch
+# art named after nothing, not to police whitespace, and it false-flagged a real relic
+ids = set(re.findall(r'^    ([a-z0-9_]+):\s*\{', src, re.M))
 unknown = sorted(k for k in listed if k.split('_', 1)[1] not in ids)
 
 # and the art must be small enough to ship: 65 relics at a megabyte each is not a mobile game
