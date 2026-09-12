@@ -399,43 +399,48 @@
     background: linear-gradient(115deg, transparent 35%, rgba(255,255,255,.16) 50%, transparent 65%);
     transform: translateX(-120%); animation: sheen 2.6s ease-in-out infinite;
   }
-  .offer.shine-rare   { box-shadow: 0 0 0 1px rgba(196,139,255,.5), 0 0 18px rgba(196,139,255,.28);
-    animation: pulseRare 2.4s ease-in-out infinite; }
-  /* rare's sweep hangs back so legendary's has somewhere to go */
-  .offer.shine-rare::after { animation-duration: 3.4s; opacity: .5; }
+  .offer.shine-epic   { box-shadow: 0 0 0 1px rgba(196,139,255,.5), 0 0 18px rgba(196,139,255,.28);
+    animation: pulseEpic 2.4s ease-in-out infinite; }
+  /* epic's sweep hangs back so the two top grades' have somewhere to go */
+  .offer.shine-epic::after { animation-duration: 3.4s; opacity: .5; }
 
-  /* Legendary is a 1% draw, so it reads as a different KIND of card rather than a brighter
-     rare: gold body, doubled rim, a fast bright sweep, a breathing icon and a shimmering
-     label. Same glow in two colours was landing as the same grade at a glance. */
-  .offer.shine-legend { border-width: 2px;
-    background: linear-gradient(155deg, rgba(84,64,16,.55) 0%, #1c2032 58%);
-    box-shadow: 0 0 0 1px rgba(255,201,60,.6), 0 0 22px rgba(255,201,60,.36);
-    animation: pulseLegend 2.1s ease-in-out infinite; }
-  .offer.shine-legend::after { animation-duration: 1.9s;
-    background: linear-gradient(115deg, transparent 30%, rgba(255,233,160,.34) 50%, transparent 70%); }
-  .offer.shine-legend .of-ic { animation: legendIcon 2.1s ease-in-out infinite; }
-  .offer.shine-legend .of-tier {
-    background: linear-gradient(90deg, #ffc93c 0%, #fff8d6 45%, #ffc93c 90%);
+  /* Unique (3%) and legendary (1%) read as a different KIND of card rather than a brighter
+     epic: coloured body, doubled rim, a fast bright sweep, a breathing icon and a shimmering
+     label. One treatment, driven by --sh, so the two cannot drift apart: unique keeps the
+     gold that used to mean legendary, legendary moves up to mint. */
+  .offer.shine-top { border-width: 2px;
+    background: linear-gradient(155deg, rgba(var(--sh), .22) 0%, #1c2032 58%);
+    box-shadow: 0 0 0 1px rgba(var(--sh), .6), 0 0 22px rgba(var(--sh), .36);
+    animation: pulseTop 2.1s ease-in-out infinite; }
+  .offer.shine-unique { --sh: 255,201,60;  --sh2: 255,243,190; }
+  .offer.shine-legend { --sh: 78,240,200;  --sh2: 214,255,244; }
+  .offer.shine-top::after { animation-duration: 1.9s;
+    background: linear-gradient(115deg, transparent 30%, rgba(var(--sh2), .34) 50%, transparent 70%); }
+  .offer.shine-top .of-ic { animation: topIcon 2.1s ease-in-out infinite; }
+  .offer.shine-top .of-tier {
+    background: linear-gradient(90deg, rgb(var(--sh)) 0%, rgb(var(--sh2)) 45%, rgb(var(--sh)) 90%);
     background-size: 220% 100%; -webkit-background-clip: text; background-clip: text;
     -webkit-text-fill-color: transparent; animation: tierShimmer 2.4s linear infinite; }
+  /* legendary is the rarer of the two, so it breathes harder */
+  .offer.shine-legend { animation-duration: 1.7s; }
   .offer.sold.shine::after { animation: none; }
-  .offer.sold.shine-rare, .offer.sold.shine-legend { box-shadow: none; animation: none; }
-  /* sold is sold: grayscale alone left the gold body and the moving parts alive */
-  .offer.sold.shine-legend { background: #1c2032; border-width: 1px; }
-  .offer.sold.shine-legend .of-ic { animation: none; }
-  .offer.sold.shine-legend .of-tier { animation: none; -webkit-text-fill-color: currentColor; }
+  .offer.sold.shine-epic, .offer.sold.shine-top { box-shadow: none; animation: none; }
+  /* sold is sold: grayscale alone left the coloured body and the moving parts alive */
+  .offer.sold.shine-top { background: #1c2032; border-width: 1px; }
+  .offer.sold.shine-top .of-ic { animation: none; }
+  .offer.sold.shine-top .of-tier { animation: none; -webkit-text-fill-color: currentColor; }
   @keyframes sheen { 0% { transform: translateX(-120%); } 55%, 100% { transform: translateX(120%); } }
-  @keyframes pulseRare {
+  @keyframes pulseEpic {
     0%, 100% { box-shadow: 0 0 0 1px rgba(196,139,255,.5), 0 0 14px rgba(196,139,255,.22); }
     50%      { box-shadow: 0 0 0 1px rgba(196,139,255,.8), 0 0 26px rgba(196,139,255,.45); } }
-  @keyframes pulseLegend {
-    0%, 100% { box-shadow: 0 0 0 1px rgba(255,201,60,.55), 0 0 16px rgba(255,201,60,.28);
+  @keyframes pulseTop {
+    0%, 100% { box-shadow: 0 0 0 1px rgba(var(--sh), .55), 0 0 16px rgba(var(--sh), .28);
                transform: scale(1); }
-    50%      { box-shadow: 0 0 0 2px rgba(255,201,60,1), 0 0 40px rgba(255,201,60,.75);
+    50%      { box-shadow: 0 0 0 2px rgba(var(--sh), 1), 0 0 40px rgba(var(--sh), .75);
                transform: scale(1.022); } }
-  @keyframes legendIcon {
-    0%, 100% { transform: scale(1);    filter: drop-shadow(0 0 3px rgba(255,201,60,.45)); }
-    50%      { transform: scale(1.12); filter: drop-shadow(0 0 12px rgba(255,201,60,.95)); } }
+  @keyframes topIcon {
+    0%, 100% { transform: scale(1);    filter: drop-shadow(0 0 3px rgba(var(--sh), .45)); }
+    50%      { transform: scale(1.12); filter: drop-shadow(0 0 12px rgba(var(--sh), .95)); } }
   @keyframes tierShimmer { 0% { background-position: 120% 0; } 100% { background-position: -120% 0; } }
   .of-tier { font-size: 10px; font-weight: 800; letter-spacing: 1px; }
   .of-name { font-size: 14px; font-weight: 800; }
@@ -1888,6 +1893,19 @@
         banana_cellar: "바나나 저장고",
         banana_grove: "바나나 농장",
         banana_hunter: "바나나 사냥꾼",
+        cherry_farm: "체리 농장",
+        lemon_farm: "레몬 농장",
+        orange_farm: "오렌지 농장",
+        kiwi_farm: "키위 농장",
+        grape_farm: "포도 농장",
+        peach_farm: "복숭아 농장",
+        orange_tree: "오렌지 나무",
+        lemon_branch: "레몬 가지",
+        grape_vine: "포도 덩굴",
+        peach_tree: "복숭아 나무",
+        cherry_ruby: "루비 체리",
+        orange_gold: "황금 오렌지",
+        grape_violet: "보랏빛 포도",
         banana_master: "바나나 숙성가",
         banana_taste: "바나나 취향",
         basket: "바구니",
@@ -2042,7 +2060,7 @@
       doubleCoins: "▶ 광고 보고 코인 2배",
       removeAds: "광고 제거",
       adsRemoved: "광고가 제거되었습니다",
-      tierCommon: "일반", tierUncommon: "고급", tierRare: "희귀", tierLegend: "전설",
+      tierCommon: "일반", tierUncommon: "고급", tierEpic: "에픽", tierUnique: "유니크", tierLegend: "전설",
       soonSettings: "⚙️ 설정은 준비 중이에요", soonRanking: "🏆 랭킹은 준비 중이에요",
     },
     en: {
@@ -2090,6 +2108,19 @@
         banana_cellar: "Banana Cellar",
         banana_grove: "Banana Plantation",
         banana_hunter: "Banana Hunter",
+        cherry_farm: "Cherry Farm",
+        lemon_farm: "Lemon Farm",
+        orange_farm: "Orange Grove",
+        kiwi_farm: "Kiwi Farm",
+        grape_farm: "Grape Farm",
+        peach_farm: "Peach Farm",
+        orange_tree: "Orange Tree",
+        lemon_branch: "Lemon Branch",
+        grape_vine: "Grape Vine",
+        peach_tree: "Peach Tree",
+        cherry_ruby: "Ruby Cherry",
+        orange_gold: "Golden Orange",
+        grape_violet: "Violet Grape",
         banana_master: "Banana Ripener",
         banana_taste: "Banana Craving",
         basket: "Basket",
@@ -2244,7 +2275,7 @@
       doubleCoins: "▶ Watch an ad to double coins",
       removeAds: "Remove ads",
       adsRemoved: "Ads removed",
-      tierCommon: "Common", tierUncommon: "Uncommon", tierRare: "Rare", tierLegend: "Legendary",
+      tierCommon: "Common", tierUncommon: "Uncommon", tierEpic: "Epic", tierUnique: "Unique", tierLegend: "Legendary",
       soonSettings: "⚙️ Settings are on the way", soonRanking: "🏆 Ranking is on the way",
     },
     ja: {
@@ -2292,6 +2323,19 @@
         banana_cellar: "バナナ貯蔵庫",
         banana_grove: "バナナ農園",
         banana_hunter: "バナナ狩人",
+        cherry_farm: "さくらんぼ農場",
+        lemon_farm: "レモン農場",
+        orange_farm: "オレンジ農場",
+        kiwi_farm: "キウイ農場",
+        grape_farm: "ぶどう農場",
+        peach_farm: "もも農場",
+        orange_tree: "オレンジの木",
+        lemon_branch: "レモンの枝",
+        grape_vine: "ぶどうのつる",
+        peach_tree: "ももの木",
+        cherry_ruby: "ルビーさくらんぼ",
+        orange_gold: "黄金オレンジ",
+        grape_violet: "紫のぶどう",
         banana_master: "バナナ熟成家",
         banana_taste: "バナナ好み",
         basket: "かご",
@@ -2445,7 +2489,7 @@
       doubleCoins: "▶ 広告を見てコイン2倍",
       removeAds: "広告を非表示",
       adsRemoved: "広告は非表示です",
-      tierCommon: "コモン", tierUncommon: "アンコモン", tierRare: "レア", tierLegend: "レジェンド",
+      tierCommon: "コモン", tierUncommon: "アンコモン", tierEpic: "エピック", tierUnique: "ユニーク", tierLegend: "レジェンド",
       soonSettings: "⚙️ 設定は準備中です", soonRanking: "🏆 ランキングは準備中です",
     },
     zh: {
@@ -2493,6 +2537,19 @@
         banana_cellar: "香蕉仓库",
         banana_grove: "香蕉农场",
         banana_hunter: "香蕉猎人",
+        cherry_farm: "樱桃农场",
+        lemon_farm: "柠檬农场",
+        orange_farm: "橙子农场",
+        kiwi_farm: "猕猴桃农场",
+        grape_farm: "葡萄农场",
+        peach_farm: "桃子农场",
+        orange_tree: "橙子树",
+        lemon_branch: "柠檬枝",
+        grape_vine: "葡萄藤",
+        peach_tree: "桃树",
+        cherry_ruby: "红宝石樱桃",
+        orange_gold: "黄金橙子",
+        grape_violet: "紫葡萄",
         banana_master: "香蕉催熟师",
         banana_taste: "香蕉偏好",
         basket: "篮子",
@@ -2646,7 +2703,7 @@
       doubleCoins: "▶ 看广告金币翻倍",
       removeAds: "移除广告",
       adsRemoved: "广告已移除",
-      tierCommon: "普通", tierUncommon: "优良", tierRare: "稀有", tierLegend: "传说",
+      tierCommon: "普通", tierUncommon: "优良", tierEpic: "史诗", tierUnique: "独特", tierLegend: "传说",
       soonSettings: "⚙️ 设置正在准备中", soonRanking: "🏆 排行榜正在准备中",
     },
   };
@@ -2784,12 +2841,15 @@
   const TIERS = {
     common:   { get name() { return d("tierCommon"); },   odds: 50, color: "#8a93ad" },
     uncommon: { get name() { return d("tierUncommon"); }, odds: 33, color: "#5fa8ff" },
-    rare:     { get name() { return d("tierRare"); },     odds: 16, color: "#c48bff" },
-    legend:   { get name() { return d("tierLegend"); },   odds:  1, color: "#ffc93c" },
+    epic:     { get name() { return d("tierEpic"); },     odds: 13, color: "#c48bff" },
+    unique:   { get name() { return d("tierUnique"); },   odds:  3, color: "#ffc93c" },
+    legend:   { get name() { return d("tierLegend"); },   odds:  1, color: "#4ef0c8" },
   };
+  // Price IS the grade: a relic cannot be priced like an epic and shine like a legendary.
   const relicTier = R => R.tier ||
-    (R.price >= 25 ? "legend" : R.price >= 16 ? "rare" : R.price >= 8 ? "uncommon" : "common");
-  const TIER_KEYS = ["common", "uncommon", "rare", "legend"];
+    (R.price >= 30 ? "legend" : R.price >= 23 ? "unique"
+     : R.price >= 16 ? "epic" : R.price >= 8 ? "uncommon" : "common");
+  const TIER_KEYS = ["common", "uncommon", "epic", "unique", "legend"];
 
   // id -> { name, icon, desc, price, apply?, modify?, ...events }
   // apply() may only set derived state (oddsMult / fruitMult / *Bonus); applyRelics wipes
@@ -2828,18 +2888,52 @@
       desc: () => d("odds", [1, 3], 1), apply() { oddsMult[1] += 1; oddsMult[3] += 1; } },
     orchard: { icon: "🍑", price: 14,
       desc: () => d("odds", [4, 5], 1), apply() { oddsMult[4] += 1; oddsMult[5] += 1; } },
-    banana_grove: { icon: "🌴", price: 22,
+    // 유니크: one farm per fruit, +3 odds. Priced by what the fruit is worth, since the
+    // effect is identical -- a banana farm is worth more than a cherry one.
+    cherry_farm: { icon: "🍒", price: 23,
+      desc: () => d("odds", [0], 3), apply() { oddsMult[0] += 3; } },
+    lemon_farm:  { icon: "🍋", price: 23,
+      desc: () => d("odds", [3], 3), apply() { oddsMult[3] += 3; } },
+    orange_farm: { icon: "🍊", price: 24,
+      desc: () => d("odds", [1], 3), apply() { oddsMult[1] += 3; } },
+    kiwi_farm:   { icon: "🥝", price: 24,
+      desc: () => d("odds", [2], 3), apply() { oddsMult[2] += 3; } },
+    grape_farm:  { icon: "🍇", price: 26,
+      desc: () => d("odds", [4], 3), apply() { oddsMult[4] += 3; } },
+    peach_farm:  { icon: "🍑", price: 26,
+      desc: () => d("odds", [5], 3), apply() { oddsMult[5] += 3; } },
+    banana_grove: { icon: "🌴", price: 28,
       desc: () => d("odds", [6], 3), apply() { oddsMult[6] += 3; } },
+
+    // 고급: the +1 rung of the same ladder. Cherry/kiwi/banana already had one; the other
+    // four were missing, which made those fruits impossible to build around.
+    orange_tree:  { icon: "🍊", price: 10,
+      desc: () => d("odds", [1], 1), apply() { oddsMult[1] += 1; } },
+    lemon_branch: { icon: "🍋", price: 9,
+      desc: () => d("odds", [3], 1), apply() { oddsMult[3] += 1; } },
+    grape_vine:   { icon: "🍇", price: 12,
+      desc: () => d("odds", [4], 1), apply() { oddsMult[4] += 1; } },
+    peach_tree:   { icon: "🍑", price: 12,
+      desc: () => d("odds", [5], 1), apply() { oddsMult[5] += 1; } },
 
     // ---- B. score ----
     chain_master: { icon: "🫧", price: 17,
       desc: () => d("clusterStep", 0.2, CHAIN_STEP, gridMult(CHAIN_STEP + 0.2)), apply() { chainStep += 0.2; } },
     streak_amp: { icon: "🔥", price: 16,
-      desc: () => d("comboCap", 2.0, 2.8), apply() { STREAK_CAP += 0.8; } },
+      desc: () => d("comboCap", 2.0, 3.0), apply() { STREAK_CAP += 1.0; } },
     streak_step: { icon: "📈", price: 13,
       desc: () => d("comboStep", 0.2, STREAK_STEP_BASE, gridMult(STREAK_STEP_BASE + 0.2)), apply() { STREAK_STEP += 0.2; } },
-    golden_banana: { icon: "🏆", price: 20,
-      desc: () => d("fruitMult", 6, 1), apply() { fruitMult[6] += 1; } },
+    // 에픽: the same +1.2 on every fruit, so the price is the only thing that differs --
+    // and it tracks what the fruit is worth. 0.8/1.0/1.2 across the set meant the cheap
+    // fruits were quietly the better buy.
+    golden_banana: { icon: "🏆", price: 21,
+      desc: () => d("fruitMult", 6, 1.2), apply() { fruitMult[6] += 1.2; } },
+    cherry_ruby:  { icon: "❤️", price: 16,
+      desc: () => d("fruitMult", 0, 1.2), apply() { fruitMult[0] += 1.2; } },
+    orange_gold:  { icon: "🏅", price: 17,
+      desc: () => d("fruitMult", 1, 1.2), apply() { fruitMult[1] += 1.2; } },
+    grape_violet: { icon: "🔮", price: 19,
+      desc: () => d("fruitMult", 4, 1.2), apply() { fruitMult[4] += 1.2; } },
     sweet_tooth: { icon: "🍬", price: 15,
       desc: () => d("fruitsMult", [4, 5], 0.5), apply() { fruitMult[4] += 0.5; fruitMult[5] += 0.5; } },
     humble: { icon: "🥄", price: 11,
@@ -2943,11 +3037,11 @@
     grape_press: { icon: "🍷", price: 16,
       desc: () => d("stackOnPop", 4, 3),
       onFruitPop: p => { if (p.color === 4) fruitStack[4] += 3; } },
-    peach_favour: { icon: "🍑", price: 17,
-      desc: () => d("fruitMult", 5, 0.8), apply() { fruitMult[5] += 0.8; } },
-    lemon_gold: { icon: "🍋", price: 18,
+    peach_favour: { icon: "🍑", price: 19,
+      desc: () => d("fruitMult", 5, 1.2), apply() { fruitMult[5] += 1.2; } },
+    lemon_gold: { icon: "🍋", price: 16,
       desc: () => d("fruitMult", 3, 1.2), apply() { fruitMult[3] += 1.2; } },
-    kiwi_king: { icon: "👑", price: 19,
+    kiwi_king: { icon: "👑", price: 17,
       desc: () => d("fruitMult", 2, 1.2), apply() { fruitMult[2] += 1.2; } },
 
     // ---- rare: the ones a build is actually built around ----
@@ -2960,7 +3054,7 @@
       modify: { pop: v => v * 2 } },
 
     // ---- E. map / zones: the category the design listed and nothing had built ----
-    hotspot: { icon: "🟩", price: 17, tier: "rare",
+    hotspot: { icon: "🟩", price: 17, tier: "epic",
       desc: () => d("zoneMult", 2),
       apply() { zoneMult += 1; } },
     gold_vein: { icon: "🪙", price: 14,
@@ -2976,7 +3070,7 @@
     // ---- board growth: the one thing that buys you room instead of points ----
     // `rows` is read by syncRows(), not applied here -- growing the board is monotonic and
     // an apply() that mutated it would run again on every recompute.
-    reclaim: { icon: "🌾", price: 21, tier: "rare",
+    reclaim: { icon: "🌾", price: 21, tier: "epic",
       desc: () => d("rows", 1), rows: 1 },
     big_reclaim: { icon: "🚜", price: 30, tier: "legend",
       desc: () => d("rows", 2), rows: 2 },
@@ -2984,7 +3078,7 @@
     // ---- F. item upgrades ----
     bomb_mod: { icon: "💣", price: 19,
       desc: () => d("bombSize", 7), apply() { bombRadiusBonus += 1; } },
-    tinkerer: { icon: "🔧", price: 18,
+    tinkerer: { icon: "🔧", price: 24,
       desc: () => d("itemEase", 1), apply() { itemEase += 1; } },
 
     satchel: {                                                  // capacity (doc 6)
@@ -4338,7 +4432,8 @@
       const grade = relicTier(R);
       card.className = "offer"
         + (sold ? " sold" : (poor || full ? " off" : ""))
-        + (grade === "rare" || grade === "legend" ? " shine shine-" + grade : "");
+        + (grade === "epic" ? " shine shine-epic" : "")
+        + (grade === "unique" || grade === "legend" ? " shine shine-top shine-" + grade : "");
       card.disabled = sold || poor || full;
       const tier = TIERS[relicTier(R)];
       card.style.borderColor = tier.color + "66";

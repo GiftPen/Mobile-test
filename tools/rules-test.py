@@ -881,8 +881,12 @@ window.addEventListener('load', () => setTimeout(() => {
     F.shopOffers = (byTier.common || []).slice(0, 3);
     schk('a plain shelf stays quiet', F.announceOffers(), false);
 
-    F.shopOffers = (byTier.uncommon || []).concat(byTier.rare || []).slice(0, 4);
-    schk('rare is not legendary', F.announceOffers(), false);
+    F.shopOffers = (byTier.uncommon || []).concat(byTier.epic || []).slice(0, 4);
+    schk('epic is not legendary', F.announceOffers(), false);
+    // unique wears the gold that used to mean legendary, so this is the one most likely to
+    // start chiming by accident
+    F.shopOffers = (byTier.unique || []).slice(0, 3);
+    schk('unique is not legendary either', F.announceOffers(), false);
 
     F.shopOffers = (byTier.common || []).slice(0, 2).concat([(byTier.legend || [])[0]]);
     schk('a legendary on the shelf announces itself', F.announceOffers(), true);
@@ -895,46 +899,118 @@ window.addEventListener('load', () => setTimeout(() => {
   })();
 
 
-  // ---- legendary must not read as "rare, but yellow" ----
+  // ---- five grades must read as five grades, not as three plus two recolours ----
   (() => {
     const byTier = {};
     for (const id of Object.keys(F.RELICS)) {
       const t = F.relicTier(F.RELICS[id]);
       (byTier[t] = byTier[t] || []).push(id);
     }
-    const legends = byTier.legend || [], rares = byTier.rare || [];
-    schk('there are legendaries to show', legends.length > 0, true);
-    schk('there are rares to show', rares.length > 0, true);
+    for (const t of F.TIER_KEYS) schk('grade ' + t + ' has relics', (byTier[t] || []).length > 0, true);
+    schk('the grades add up to 100%',
+         F.TIER_KEYS.reduce((a, t) => a + F.TIERS[t].odds, 0), 100);
+    schk('rarer means rarer, all the way down',
+         F.TIER_KEYS.every((t, i) => !i || F.TIERS[F.TIER_KEYS[i-1]].odds > F.TIERS[t].odds), true);
+    // price IS the grade -- an epic priced like a unique would shine wrong
+    schk('every grade owns a price band above the one below it',
+         F.TIER_KEYS.every((t, i) => !i ||
+           Math.min(...(byTier[t]).map(id => F.RELICS[id].price)) >
+           Math.max(...(byTier[F.TIER_KEYS[i-1]]).map(id => F.RELICS[id].price))), true);
+
     F.mode = 'rush'; F.resetRun(); F.coins = 9999;
     F.openShop();
-    F.shopOffers = [rares[0], legends[0]].concat(legends[1] ? [legends[1]] : []);
-    if (legends[1]) F.shopSold.add(legends[1]);   // getter-only: mutate, do not reassign
+    F.shopOffers = [byTier.epic[0], byTier.unique[0], byTier.legend[0], byTier.legend[1]];
+    F.shopSold.add(byTier.legend[1]);          // getter-only: mutate, do not reassign
     F.renderShop();
     const cards = [...document.querySelectorAll('.offer')];
-    const rare = cards[0], leg = cards[1], soldLeg = cards[2];
+    const [epic, uniq, leg] = cards;
+    const soldLeg = cards[3];
     const cs = (el, pseudo) => getComputedStyle(el, pseudo || null);
-    schk('rare is tagged rare',   rare.classList.contains('shine-rare'), true);
+    schk('epic is tagged epic',     epic.classList.contains('shine-epic'), true);
+    schk('unique is tagged unique', uniq.classList.contains('shine-unique'), true);
     schk('legend is tagged legend', leg.classList.contains('shine-legend'), true);
-    // the difference has to be structural, not just a different hue
-    schk('legend has a tinted body, rare does not',
-         cs(leg).backgroundImage !== 'none' && cs(rare).backgroundImage === 'none', true);
-    schk('legend has the thicker rim',
-         parseFloat(cs(leg).borderTopWidth) > parseFloat(cs(rare).borderTopWidth), true);
-    schk('legend sweeps faster than rare',
-         parseFloat(cs(leg, '::after').animationDuration) < parseFloat(cs(rare, '::after').animationDuration), true);
-    schk('and brighter',
-         parseFloat(cs(leg, '::after').opacity) > parseFloat(cs(rare, '::after').opacity), true);
-    schk('only legend animates its icon',
-         cs(leg.querySelector('.of-ic')).animationName !== 'none' &&
-         cs(rare.querySelector('.of-ic')).animationName === 'none', true);
-    if (soldLeg) {
-      schk('a sold legendary stops shouting',
-           cs(soldLeg).animationName === 'none' &&
-           cs(soldLeg.querySelector('.of-ic')).animationName === 'none' &&
-           cs(soldLeg.querySelector('.of-tier')).animationName === 'none' &&
-           cs(soldLeg).backgroundImage === 'none', true);
+
+    // the top two differ from epic STRUCTURALLY, not just in hue
+    for (const [what, top] of [['unique', uniq], ['legend', leg]]) {
+      schk(what + ' has a tinted body, epic does not',
+           cs(top).backgroundImage !== 'none' && cs(epic).backgroundImage === 'none', true);
+      schk(what + ' has the thicker rim',
+           parseFloat(cs(top).borderTopWidth) > parseFloat(cs(epic).borderTopWidth), true);
+      schk(what + ' sweeps faster than epic',
+           parseFloat(cs(top, '::after').animationDuration) < parseFloat(cs(epic, '::after').animationDuration), true);
+      schk(what + ' sweeps brighter',
+           parseFloat(cs(top, '::after').opacity) > parseFloat(cs(epic, '::after').opacity), true);
+      schk('only ' + what + ' animates its icon',
+           cs(top.querySelector('.of-ic')).animationName !== 'none' &&
+           cs(epic.querySelector('.of-ic')).animationName === 'none', true);
     }
+    // ...and from EACH OTHER, which is the new risk: one treatment driven by a colour var
+    schk('unique and legend are not the same colour',
+         cs(uniq).boxShadow !== cs(leg).boxShadow && cs(uniq).backgroundImage !== cs(leg).backgroundImage, true);
+    schk('legend breathes faster than unique',
+         parseFloat(cs(leg).animationDuration) < parseFloat(cs(uniq).animationDuration), true);
+    schk('the three grade labels are three colours',
+         new Set(['epic', 'unique', 'legend'].map(t => F.TIERS[t].color)).size, 3);
+
+    schk('a sold legendary stops shouting',
+         cs(soldLeg).animationName === 'none' &&
+         cs(soldLeg.querySelector('.of-ic')).animationName === 'none' &&
+         cs(soldLeg.querySelector('.of-tier')).animationName === 'none' &&
+         cs(soldLeg).backgroundImage === 'none', true);
     F.closeShop();
+  })();
+
+  // ---- every fruit gets the same ladder ----
+  // Banana used to be the only fruit you could actually build around: it had a +1, a +3 and
+  // a multiplier, while orange had nothing at all. Measured by APPLYING each relic and
+  // reading the state, not by reading its description -- a description can lie.
+  (() => {
+    F.mode = 'rush'; F.resetRun();
+    const solo = { odds: {}, mult: {} };     // fruit -> { amount -> [ids] }
+    for (const id of Object.keys(F.RELICS)) {
+      F.relics = [id]; F.applyRelics();
+      const od = F.oddsMult.map((v, i) => [i, v]).filter(([, v]) => v);
+      const mu = F.fruitMult.map((v, i) => [i, +(v - 1).toFixed(2)]).filter(([, v]) => v);
+      if (od.length === 1 && !mu.length) {
+        const [f, v] = od[0];
+        ((solo.odds[f] = solo.odds[f] || {})[v] = (solo.odds[f][v] || [])).push(id);
+      }
+      if (mu.length === 1 && !od.length) {
+        const [f, v] = mu[0];
+        ((solo.mult[f] = solo.mult[f] || {})[v] = (solo.mult[f][v] || [])).push(id);
+      }
+    }
+    F.relics = []; F.applyRelics();
+
+    const grade = id => F.relicTier(F.RELICS[id]);
+    const missing = { plus1: [], plus3: [], mult: [] }, wrongGrade = [], wrongMult = [];
+    for (let f = 0; f < 7; f++) {
+      const o = solo.odds[f] || {}, m = solo.mult[f] || {};
+      if (!(o[1] || []).length) missing.plus1.push(f); else
+        (o[1] || []).forEach(id => { if (grade(id) !== 'uncommon') wrongGrade.push(id + ':+1@' + grade(id)); });
+      if (!(o[3] || []).length) missing.plus3.push(f); else
+        (o[3] || []).forEach(id => { if (grade(id) !== 'unique') wrongGrade.push(id + ':+3@' + grade(id)); });
+      const amounts = Object.keys(m).map(Number);
+      if (!amounts.length) missing.mult.push(f);
+      else {
+        if (!amounts.includes(1.2)) wrongMult.push(f + ':' + amounts.join('/'));
+        (m[1.2] || []).forEach(id => { if (grade(id) !== 'epic') wrongGrade.push(id + ':x@' + grade(id)); });
+      }
+    }
+    schk('every fruit has a +1 등장 relic', missing.plus1, []);
+    schk('every fruit has a +3 등장 relic', missing.plus3, []);
+    schk('every fruit has a score-multiplier relic', missing.mult, []);
+    schk('every solo multiplier is the same +1.2', wrongMult, []);
+    schk('each rung sits in its own grade', wrongGrade, []);
+
+    // the promotions the design asked for, pinned by name rather than by price band
+    schk('손재주 is unique', F.relicTier(F.RELICS.tinkerer), 'unique');
+    schk('바나나 농장 is unique', F.relicTier(F.RELICS.banana_grove), 'unique');
+
+    // combo cap
+    F.relics = ['streak_amp']; F.applyRelics();
+    schk('불꽃 증폭 lifts the combo cap to 3.0', F.STREAK_CAP, 3.0);
+    F.relics = []; F.applyRelics();
   })();
 
   // ---- number display: compact only where precision is decoration ----
@@ -977,8 +1053,10 @@ window.addEventListener('load', () => setTimeout(() => {
 
   // ---- grades: rarer tiers really do show up less ----
   F.resetRun(); F.mode = 'rush';
-  const tierSeen = {common:0, uncommon:0, rare:0, legend:0};
-  const tierPool = {common:0, uncommon:0, rare:0, legend:0};
+  // built from TIER_KEYS, not written out: a hardcoded list silently stops covering the
+  // moment a grade is added, which is exactly what happened when 유니크 went in
+  const tierSeen = Object.fromEntries(F.TIER_KEYS.map(t => [t, 0]));
+  const tierPool = Object.fromEntries(F.TIER_KEYS.map(t => [t, 0]));
   for (const id of Object.keys(F.RELICS)) tierPool[F.relicTier(F.RELICS[id])]++;
   const SHOPS = 4000;
   for (let i = 0; i < SHOPS; i++)
