@@ -13,7 +13,7 @@ calls for is what stops the flood getting in.
 
 No third-party libraries; pure zlib.
 """
-import sys, zlib, struct, os
+import sys, zlib, struct, os, json
 from collections import deque
 
 # ---------- PNG ----------
@@ -156,8 +156,62 @@ def looks_checkered(w, h, px):
     flips = sum(1 for k in range(1, len(row)) if (row[k] > mid) != (row[k-1] > mid))
     return flips >= 2
 
+HERE = os.path.dirname(os.path.abspath(__file__))
+RAW  = os.path.join(HERE, '..', 'assets_raw')
+OUT  = os.path.join(HERE, '..', 'assets_new')
+
+def batch(tol):
+    """Everything in assets_raw/ -> assets_new/, named by whatever the file is called.
+
+    Files may be named by relic id (reclaim.png) or by the Korean name shown in 유물.md
+    (개간.png), because those are the two things actually in front of whoever made the art."""
+    try:
+        names = json.load(open(os.path.join(HERE, 'art-names.json'), encoding='utf-8'))
+    except Exception:
+        names = {}
+    if not os.path.isdir(RAW):
+        os.makedirs(RAW, exist_ok=True)
+        print(f'assets_raw/ 를 만들었습니다. 여기에 PNG를 넣고 다시 실행하세요.')
+        return
+    files = sorted(f for f in os.listdir(RAW) if f.lower().endswith('.png'))
+    if not files:
+        print('assets_raw/ 가 비어 있습니다. 받은 PNG를 넣어주세요.')
+        return
+    done = skipped = unknown = 0
+    for f in files:
+        stem = os.path.splitext(f)[0].strip()
+        target = names.get(stem)
+        if not target:
+            print(f'  ? {f:34} 이름을 못 알아봤습니다 — 유물 id 나 한글 이름으로 바꿔주세요')
+            unknown += 1
+            continue
+        src = os.path.join(RAW, f)
+        dst = os.path.join(OUT, target + '.png')
+        w, h, px = read_png(src)
+        clear = sum(1 for i in range(w*h) if px[i*4+3] < 8)
+        if clear * 100 // (w*h) >= 5:
+            print(f'  = {f:34} 이미 투명 — 그대로 복사')
+            open(dst, 'wb').write(open(src, 'rb').read())
+            skipped += 1
+            continue
+        if looks_checkered(w, h, px):
+            print(f'  ! {f:34} 체크무늬 배경 (프롬프트에서 transparent 를 빼세요)')
+        bg = corner_colour(w, h, px)
+        n = cutout(w, h, px, bg, tol)
+        write_png(dst, w, h, px)
+        pct = n * 100 // (w*h)
+        flag = '  ⚠️ 확인 필요' if (pct < 5 or pct > 85) else ''
+        print(f'  ✓ {f:34} → {target}.png  ({pct}% 제거){flag}')
+        done += 1
+    print(f'\n배경 제거 {done}개 · 그대로 {skipped}개 · 이름 불명 {unknown}개')
+
 def main():
     a = sys.argv[1:]
+    if a and a[0] in ('--all', '-a'):
+        tol = 60
+        for i, t in enumerate(a):
+            if t == '--tol' and i+1 < len(a): tol = int(a[i+1])
+        batch(tol); return
     if len(a) < 2: print(__doc__); sys.exit(1)
     src, dst = a[0], a[1]
     bg_arg = 'auto'; tol = 60; size = None

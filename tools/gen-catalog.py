@@ -128,4 +128,11 @@ for tr in sorted(d['traits'], key=lambda x: x['name']):
 L.append('')
 
 open('유물.md', 'w', encoding='utf-8').write('\n'.join(L))
+
+# a name -> id map so art files can be dropped in named either way (개간.png or reclaim.png)
+NAMES = {}
+for r in d['relics']: NAMES[r['name']] = 'relic_' + r['id']; NAMES[r['id']] = 'relic_' + r['id']
+for t in d['traits']: NAMES[t['name']] = 'trait_' + t['id']; NAMES[t['id']] = 'trait_' + t['id']
+json.dump(NAMES, open(os.path.join('tools', 'art-names.json'), 'w', encoding='utf-8'),
+          ensure_ascii=False, indent=0)
 print(f"유물.md 생성 — 유물 {len(d['relics'])}종 / 특성 {len(d['traits'])}종")
