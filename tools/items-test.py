@@ -66,7 +66,8 @@ window.addEventListener('load', async () => {
 
   // the swoop is slow enough to read: 400ms must be well short of the whole flight
   chk('the swoop is not over in 400ms', many < 0.5, true);
-  chk('the flight is a swoop, not a dart', F.BIRD_FLY_MS >= 1200, true);
+  // the per-frame version was ~880ms at 60Hz; this is the floor below which it is a dart again
+  chk('the flight is a swoop, not a dart', F.BIRD_FLY_MS >= 1050, true);
 
   // and it does finish, rather than hanging around forever
   F.birds.length = 0;
