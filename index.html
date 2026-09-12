@@ -784,6 +784,9 @@
                                // there is no placement left to think about
   const STAR_THRESHOLD = 10;   // group size 10+    -> a star bud (color bomb + constellation)
   const BIRD_SCORE = 20;       // score per fruit a bird eats
+  // The swoop used to advance a fixed amount per FRAME: ~0.9s at 60Hz and half that on a
+  // 120Hz phone, which read as a dart rather than a swoop. Wall clock, and slower.
+  const BIRD_FLY_MS = 1500;
   const BRICK = -2;            // grid value for a brick (wall; only items can clear it)
   const BRICK_EVERY = 5;       // one brick spawns every N touches once unlocked
   // ---- Star Rush stage curve (DRAFT numbers, meant to be tuned by feel) ----
@@ -4565,7 +4568,7 @@
   // filled the board, after the loss had already been decided.
   function closeStage(reason, deadline) {
     if (!running) return;
-    deadline = deadline || performance.now() + 2500;
+    deadline = deadline || performance.now() + BIRD_FLY_MS * 2 + 600;   // flight + a retry hop
     if (birds.length && performance.now() < deadline) {     // let them land first
       setTimeout(() => closeStage(reason, deadline), 100);
       return;
@@ -5369,7 +5372,11 @@
     // birds (참새) swooping along a curved path to their target fruit
     for (let i = birds.length - 1; i >= 0; i--) {
       const f = birds[i];
-      f.t += 0.019;   // graceful swoop
+      // graceful swoop, on a wall clock: t is still the progress, but what advances it is
+      // elapsed time, so the swoop lasts BIRD_FLY_MS on a 60Hz phone and on a 120Hz one alike
+      const now = performance.now();
+      f.t += (now - (f.last || now)) / BIRD_FLY_MS;
+      f.last = now;
       const tt = Math.min(1, f.t);
       const [sx, sy] = cellCenter(f.sr, f.sc);
       const [tx, ty] = cellCenter(f.tr, f.tc);
@@ -6011,7 +6018,7 @@
       get armedItem() { return armedItem; }, set armedItem(v) { armedItem = v; },
       get grid() { return grid; }, get special() { return special; },
       get hp() { return hp; }, get coinCell() { return coinCell; },
-      BIRD_THRESHOLD, LINE_THRESHOLD, BOMB_THRESHOLD, STAR_THRESHOLD,
+      BIRD_THRESHOLD, LINE_THRESHOLD, BOMB_THRESHOLD, STAR_THRESHOLD, BIRD_FLY_MS,
       get bombRadiusBonus() { return bombRadiusBonus; }, get itemEase() { return itemEase; },
       get STREAK_CAP() { return STREAK_CAP; }, get STREAK_STEP() { return STREAK_STEP; },
       get relics() { return relics; }, set relics(v) { relics = v; },

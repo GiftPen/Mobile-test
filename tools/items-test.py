@@ -45,6 +45,36 @@ window.addEventListener('load', async () => {
   chk('free: bomb cell empty', F.grid[0][0], -1);
   chk('free: bird gone',       F.birds.length, 0);
 
+  // ---- the swoop is paced by the clock, not by the frame rate ----
+  // It used to step a fixed amount per FRAME, so it ran at double speed on a 120Hz phone and
+  // read as a dart. Two pumps of the SAME wall-clock length, one with many frames and one
+  // with few, have to leave the bird in the same place.
+  clearBoard();
+  F.busy = false;
+  const flyFor = async (ms, frames) => {
+    F.birds.length = 0;
+    F.grid[0][0] = 1;                                    // a target, so it does not retarget
+    F.birds.push({ sr: 7, sc: 7, tr: 0, tc: 0, t: 0, curve: 1 });
+    const b = F.birds[0], gap = Math.max(1, Math.round(ms / frames));
+    await pump(frames, gap);
+    return b.t;
+  };
+  const many = await flyFor(400, 40);      // 40 frames over ~400ms
+  const few  = await flyFor(400, 5);       //  5 frames over ~400ms
+  chk('frame count does not change how far the bird gets', Math.abs(many - few) < 0.12, true);
+  chk('and it does get somewhere in 400ms', many > 0.1 && many < 0.9, true);
+
+  // the swoop is slow enough to read: 400ms must be well short of the whole flight
+  chk('the swoop is not over in 400ms', many < 0.5, true);
+  chk('the flight is a swoop, not a dart', F.BIRD_FLY_MS >= 1200, true);
+
+  // and it does finish, rather than hanging around forever
+  F.birds.length = 0;
+  F.grid[0][0] = 1;
+  F.birds.push({ sr: 7, sc: 7, tr: 0, tc: 0, t: 0, curve: 1 });
+  await pump(60, Math.round(F.BIRD_FLY_MS / 50));
+  chk('the bird lands', F.birds.length, 0);
+
   // ---- bird whose target vanishes mid-flight gets one more hop ----
   // settle everything the previous phase left in flight before setting this one up, or the
   // board can be mutated out from under it and the bird finds no target
