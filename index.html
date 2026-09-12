@@ -3976,7 +3976,14 @@
     coinsSpent += itemPrice(kind);
     SFX.play("buy");
     const color = pickColor();
-    grid[r][c] = color; special[r][c] = kind;
+    // "line" is a shop CATEGORY; the board only knows lineH/lineV/lineX. Writing the category
+    // straight in left a special that nothing draws and nothing fires -- the cell looked like
+    // an ordinary fruit and the 15 coins bought nothing. 십자로 applies here as it does to an
+    // earned line, or the relic would quietly not cover anything you paid for.
+    grid[r][c] = color;
+    special[r][c] = kind === "line"
+      ? (crossLine ? "lineX" : (randInt(2) ? "lineH" : "lineV"))
+      : kind;
     appear[r][c] = 1;
     armedItem = null;
     dirty = true; renderItemShop(); updateHUD();

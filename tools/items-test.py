@@ -45,6 +45,55 @@ window.addEventListener('load', async () => {
   chk('free: bomb cell empty', F.grid[0][0], -1);
   chk('free: bird gone',       F.birds.length, 0);
 
+  // ---- a bought item has to BE the item ----
+  // "line" is the shop's word; the board's words are lineH/lineV/lineX. Writing the shop's
+  // word into the cell left something nothing draws and nothing fires: an ordinary-looking
+  // fruit that cost 15 coins. Checked by behaviour, not by the name it was given.
+  const buyAndPlace = async (kind, relics) => {
+    F.mode = 'rush'; F.resetRun(); F.relics = (relics || []).slice(); F.applyRelics();
+    clearBoard();
+    F.running = true; F.busy = false; F.paused = false;
+    F.coins = 500;
+    F.armItem(kind);
+    const ok = F.placeBoughtItem(4, 4);
+    await pump(10);
+    return { ok, sp: F.special[4][4], col: F.grid[4][4] };
+  };
+  for (const kind of ['bird', 'line', 'bomb', 'star']) {
+    const r = await buyAndPlace(kind);
+    chk(kind + ': the purchase goes through', r.ok, true);
+    chk(kind + ': the cell holds a fruit', r.col >= 0, true);
+    chk(kind + ': and a special the board knows',
+        ['bird', 'lineH', 'lineV', 'lineX', 'bomb', 'star'].includes(r.sp), true);
+  }
+
+  // and the bought line must actually sweep a row or a column when it goes off
+  {
+    await buyAndPlace('line');
+    const row = [], col = [];
+    for (let c = 0; c < F.COLS; c++) { if (c !== 4) { F.grid[4][c] = 2; row.push(c); } }
+    for (let r = 0; r < F.ROWS; r++) { if (r !== 4) { F.grid[r][4] = 2; col.push(r); } }
+    const sp = F.special[4][4];
+    F.busy = false;
+    F.tapItem(4, 4);
+    await pump(90, 12);
+    const rowGone = row.every(c => F.grid[4][c] === -1);
+    const colGone = col.every(r => F.grid[r][4] === -1);
+    chk('a bought line clears its line', sp === 'lineH' ? rowGone : sp === 'lineV' ? colGone
+                                        : rowGone && colGone, true);
+  }
+
+  // 십자로 must cover what you paid for, the same as an earned line
+  {
+    let sawX = false;
+    for (let i = 0; i < 12 && !sawX; i++) {
+      const r = await buyAndPlace('line', ['crossing']);
+      if (r.sp === 'lineX') sawX = true; else chk('crossing: bought line is a cross', r.sp, 'lineX');
+    }
+    chk('십자로 applies to a bought line too', sawX, true);
+  }
+  F.relics = []; F.applyRelics(); F.resetEffects();
+
   // ---- 금빛 수확: the coin-fruit bonus has to reach the SCORE, not just the modifier ----
   // Testing modify() with a hand-made ctx proves the relic; it does not prove that anything
   // ever counts the coin fruit and passes it in. This blows up a real cluster.
