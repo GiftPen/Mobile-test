@@ -72,6 +72,29 @@ window.addEventListener('load', () => setTimeout(() => {
   chk('no description is empty in any language', blanks, []);
   chk('no Korean leaks into another language', leaks, {});
 
+  // 2b) "런" is roguelite jargon from the design notes. A player meets a GAME, not a run, so
+  //      it must not survive into anything Korean-facing. Written as a literal syllable with
+  //      no escapes, so nothing is lost crossing the Python heredoc.
+  F.setLang('ko');
+  const RUN_WORD = /(^|[ .,(\u00b7])\ub7f0(?=[ .,)\u00b7]|\ub0b4|\ub2f9|\uc911|$)/;
+  const jargon = [];
+  for (const id of Object.keys(F.RELICS)) {
+    const t = F.RELICS[id].desc;
+    if (RUN_WORD.test(t)) jargon.push('relic ' + id + ': ' + t);
+  }
+  for (const id of Object.keys(F.TRAITS)) {
+    const T = F.TRAITS[id];
+    for (const mult of [1, 2]) {
+      const t = T.desc(F.traitEffects(T, mult));
+      if (RUN_WORD.test(t)) jargon.push('trait ' + id + ': ' + t);
+    }
+  }
+  for (const k of Object.keys(F.PACKS.ko)) {
+    const v = F.PACKS.ko[k];
+    if (typeof v === 'string' && RUN_WORD.test(v)) jargon.push(k + ': ' + v);
+  }
+  chk('no roguelite jargon in Korean player text', jargon, []);
+
   // 3) a genuinely missing key must fall back to Korean, never to blank or "undefined"
   F.setLang('en');
   const madeUp = F.d('a_pattern_that_does_not_exist');

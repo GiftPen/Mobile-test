@@ -121,7 +121,7 @@ L.append('| | 이름 | 효과 | ✨2배 | 비고 | AI 이미지 프롬프트 |')
 L.append('|---|---|---|---|---|---|')
 for tr in sorted(d['traits'], key=lambda x: x['name']):
     notes = []
-    if tr['once']: notes.append('런당 1회 등장')
+    if tr['once']: notes.append('한 게임에 1회 등장')
     if not tr['scalable']: notes.append('2배 불가')
     L.append(f"| {tr['icon']} | {tr['name']} | {tr['desc']} | {tr['doubled'] or '—'} | {' · '.join(notes) or ''} | "
              f"`{PROMPTS['traits'].get(tr['id'], '—')}` |")
