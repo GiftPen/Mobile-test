@@ -99,7 +99,10 @@
     "vault": "a heavy round bank vault door, dial and spokes, gold gleam at the seam",
     "silver_clover": "a four leaf clover made of polished silver, cool metallic shine",
     "golden_clover": "a four leaf clover made of polished gold, warm radiant shine",
-    "star_king": "a crowned star at the centre of a web of constellation lines linking many small fruits"
+    "star_king": "a crowned star at the centre of a web of constellation lines linking many small fruits",
+    "spendthrift": "a hand tossing a fan of gold coins into the air, coins scattering outward",
+    "golden_harvest": "a woven basket overflowing with fruit, gold coins spilling out among them",
+    "regular": "a long paper shop receipt curling down, a bold percent-off stamp across it"
   },
   "traits": {
     "cherry_taste": "a cherry (#ff5a7a) inside a laurel wreath badge",

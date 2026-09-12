@@ -1478,11 +1478,12 @@
     chainStep = 0; coinFruitBonus = 0; starCoinMult = 1; payoutMult = 1;
     coinFlat = 0; interestPer = 0; interestPct = 0; interestCap = INTEREST_CAP;
     starEverything = false;
+    spendFlat = 0; shopDiscount = 1;
     bombRadiusBonus = 0; itemEase = 0; birdFlock = 1; crossLine = false;
     zoneMult = 1; zoneCoin = false; zoneBonus = 0; zoneCells = new Set();
     STREAK_STEP = STREAK_STEP_BASE; STREAK_CAP = 2.0;
     traits = []; doubles = 0; armedItem = null;
-    coins = 0; coinsShown = 0; clearCoinFly();
+    coins = 0; coinsShown = 0; coinsSpent = 0; clearCoinFly();
     oddsMult = [0, 0, 0, 0, 0, 0, 0];
     fruitMult = [1, 1, 1, 1, 1, 1, 1];
     fruitStack = [0, 0, 0, 0, 0, 0, 0];
@@ -1495,7 +1496,7 @@
     return { v: RUN_VERSION, mode, rows: ROWS, grid, special, hp, coinCell,
              nextColor, nextColor2, score, streak, touchCount,
              stage, stageScore, touchesLeft, coins, oddsMult, fruitMult,
-             fruitStack, fruitBoost, relics, relicLife, traits, doubles };
+             fruitStack, fruitBoost, relics, relicLife, traits, doubles, coinsSpent };
   }
   function restoreRun(o) {
     if (!o || o.v !== RUN_VERSION) return false;   // unknown/older save -> caller starts fresh
@@ -1504,6 +1505,7 @@
     ({ grid, special, hp, coinCell, nextColor, nextColor2, score, streak, touchCount,
        stage, stageScore, touchesLeft, coins, oddsMult, fruitMult,
        fruitStack, fruitBoost, relics, relicLife, traits, doubles } = o);
+    coinsSpent = o.coinsSpent || 0;              // absent in an older save: start it at zero
     coinsShown = coins; clearCoinFly();
     glow = layer(null); appear = layer(0); ghost = layer(null);
     layout(); dirty = true;
@@ -1631,6 +1633,10 @@
   // refusal to play. 금고 raises the cap, which is what turns hoarding into a real choice.
   const COIN_FLAT_PER   = 10;   // coins held per +1 fruit score, for 부자 감각
   const INTEREST_CAP    = 5;    // most coins interest can pay in one round, before 금고
+  const SPEND_PER = 2;          // coins spent per +1 fruit score, for 탕진
+  let coinsSpent = 0;           // ACCUMULATED, not derived: applyRelics must not wipe it
+  let spendFlat = 0;            // +1 to every fruit per SPEND_PER spent, while 탕진 is held
+  let shopDiscount = 1;         // multiplier on every shop price
   let coinFlat = 0;             // +N to every fruit per COIN_FLAT_PER coins held
   let interestPer = 0;          // +1 coin per this many held (0 = no flat interest)
   let interestPct = 0;          // + this fraction of coins held
@@ -1744,9 +1750,11 @@
   // read live rather than baked into fruitFlat by applyRelics: the coin count changes on
   // every pop, and applyRelics only runs when the relic list does
   const coinFlatBonus = () => coinFlat ? Math.floor(coins / COIN_FLAT_PER) * coinFlat : 0;
+  // the mirror of coinFlatBonus: that one pays for hoarding, this one for spending
+  const spendFlatBonus = () => spendFlat ? Math.floor(coinsSpent / SPEND_PER) * spendFlat : 0;
   function fruitScore(colorIdx) {          // one fruit's worth, before chain/streak
     const base = (FRUIT_POINTS[colorIdx] || 1) + (fruitStack[colorIdx] || 0)
-               + (fruitFlat[colorIdx] || 0) + coinFlatBonus();
+               + (fruitFlat[colorIdx] || 0) + coinFlatBonus() + spendFlatBonus();
     // rounded here so multipliers can never leak a decimal onto the board
     return Math.round(base * (fruitBoost[colorIdx] || 1) * (fruitMult[colorIdx] || 1));
   }
@@ -1815,10 +1823,10 @@
     fitVal(el, 13);
   }
 
-  function scorePop(basePts, cleared) {
+  function scorePop(basePts, cleared, coined = 0) {
     if (streak > 0) SFX.play("combo", streak);
     const raw = basePts * chainBonus(cleared) * streakMult();
-    return addScore(Math.round(modify("pop", raw, { basePts, cleared })));
+    return addScore(Math.round(modify("pop", raw, { basePts, cleared, coined })));
   }
 
   // ---- relics ----
@@ -1892,6 +1900,9 @@
       bombSize:   n => `폭탄이 ${n}×${n}로 터집니다`,
       itemEase:   n => `아이템이 ${n}개 적게 터뜨려도 생깁니다`,
       coinFlat: (n, v) => `코인 ${n}개마다 모든 과일 점수 +${v}`,
+      spendFlat: (n, v) => `상점에서 쓴 코인 ${n}개마다 모든 과일 점수 +${v}`,
+      coinPop: n => `코인 달린 과일이 섞인 덩어리는 점수 ×${n1(n)}`,
+      discount: n => `상점 가격 -${n}%`,
       interest: (n, cap) => `라운드가 끝나면 코인 ${n}개당 이자 +1 (최대 +${cap})`,
       interestPct: n => `라운드가 끝나면 보유 코인의 ${n}%를 이자로`,
       interestCap: n => `이자 상한 +${n}`,
@@ -1916,6 +1927,9 @@
         banana_cellar: "바나나 저장고",
         banana_grove: "바나나 농장",
         banana_hunter: "바나나 사냥꾼",
+        spendthrift: "탕진",
+        golden_harvest: "금빛 수확",
+        regular: "단골",
         rich_eye: "부자 감각",
         interest: "이자",
         compound: "복리",
@@ -2123,6 +2137,9 @@
       bombSize:   n => `Bombs blast ${n}×${n}`,
       itemEase:   n => `Items need ${n} fewer pops`,
       coinFlat: (n, v) => `+${v} to every fruit per ${n} coins held`,
+      spendFlat: (n, v) => `+${v} to every fruit per ${n} coins spent in the shop`,
+      coinPop: n => `A cluster holding coin fruit scores ×${n1(n)}`,
+      discount: n => `Shop prices -${n}%`,
       interest: (n, cap) => `Interest at round end: +1 per ${n} coins held (max +${cap})`,
       interestPct: n => `Interest at round end: ${n}% of the coins you hold`,
       interestCap: n => `Interest cap +${n}`,
@@ -2145,6 +2162,9 @@
         banana_cellar: "Banana Cellar",
         banana_grove: "Banana Plantation",
         banana_hunter: "Banana Hunter",
+        spendthrift: "Spendthrift",
+        golden_harvest: "Golden Harvest",
+        regular: "Regular",
         rich_eye: "Nose for Money",
         interest: "Interest",
         compound: "Compound",
@@ -2352,6 +2372,9 @@
       bombSize:   n => `爆弾が ${n}×${n} で爆発`,
       itemEase:   n => `アイテムが ${n} 個 少なく割っても出る`,
       coinFlat: (n, v) => `コイン ${n} 枚ごとに全フルーツのスコア +${v}`,
+      spendFlat: (n, v) => `ショップで使ったコイン ${n} 枚ごとに全フルーツのスコア +${v}`,
+      coinPop: n => `コイン付きフルーツを含む塊はスコア ×${n1(n)}`,
+      discount: n => `ショップ価格 -${n}%`,
       interest: (n, cap) => `ラウンド終了時、コイン ${n} 枚ごとに利息 +1（最大 +${cap}）`,
       interestPct: n => `ラウンド終了時、所持コインの ${n}% を利息に`,
       interestCap: n => `利息の上限 +${n}`,
@@ -2374,6 +2397,9 @@
         banana_cellar: "バナナ貯蔵庫",
         banana_grove: "バナナ農園",
         banana_hunter: "バナナ狩人",
+        spendthrift: "浪費家",
+        golden_harvest: "黄金の収穫",
+        regular: "常連",
         rich_eye: "金持ちの勘",
         interest: "利息",
         compound: "複利",
@@ -2580,6 +2606,9 @@
       bombSize:   n => `炸弹以 ${n}×${n} 爆炸`,
       itemEase:   n => `道具少消除 ${n} 个也能出现`,
       coinFlat: (n, v) => `每持有 ${n} 金币，所有水果分数 +${v}`,
+      spendFlat: (n, v) => `商店每花费 ${n} 金币，所有水果分数 +${v}`,
+      coinPop: n => `含带金币水果的一团分数 ×${n1(n)}`,
+      discount: n => `商店价格 -${n}%`,
       interest: (n, cap) => `回合结束时，每 ${n} 金币生息 +1（最多 +${cap}）`,
       interestPct: n => `回合结束时，获得持有金币的 ${n}%`,
       interestCap: n => `生息上限 +${n}`,
@@ -2602,6 +2631,9 @@
         banana_cellar: "香蕉仓库",
         banana_grove: "香蕉农场",
         banana_hunter: "香蕉猎人",
+        spendthrift: "挥霍",
+        golden_harvest: "黄金收成",
+        regular: "常客",
         rich_eye: "财感",
         interest: "利息",
         compound: "复利",
@@ -2918,6 +2950,11 @@
     legend:   { get name() { return d("tierLegend"); },   odds:  1, color: "#4ef0c8" },
   };
   // Price IS the grade: a relic cannot be priced like an epic and shine like a legendary.
+  // Every price in the game goes through here, so a discount cannot apply to the charge and
+  // not to the label (or the other way round). Grades still read R.price: a discount that
+  // moved relics between grades would be a different relic every time you bought 단골.
+  const priceOf = R => Math.max(1, Math.round(R.price * shopDiscount));
+  const itemPrice = kind => Math.max(1, Math.round(ITEM_PRICES[kind] * shopDiscount));
   const relicTier = R => R.tier ||
     (R.price >= 30 ? "legend" : R.price >= 23 ? "unique"
      : R.price >= 16 ? "epic" : R.price >= 8 ? "uncommon" : "common");
@@ -3006,6 +3043,13 @@
       desc: () => d("coinOdds", 15), apply() { coinFruitBonus += 0.15; } },
     golden_clover: { icon: "🍀", price: 24,
       desc: () => d("coinOdds", 25), apply() { coinFruitBonus += 0.25; } },
+    spendthrift: { icon: "💸", price: 19,
+      desc: () => d("spendFlat", SPEND_PER, 1), apply() { spendFlat += 1; } },
+    golden_harvest: { icon: "🌟", price: 18,
+      desc: () => d("coinPop", 1.5),
+      modify: { pop: (v, ctx) => (ctx.coined > 0 ? v * 1.5 : v) } },
+    regular: { icon: "🧾", price: 12,
+      desc: () => d("discount", 20), apply() { shopDiscount *= 0.8; } },
     star_king: { icon: "🌌", price: 36,
       desc: () => d("starAll"), apply() { starEverything = true; } },
 
@@ -3255,6 +3299,7 @@
     chainStep = 0; coinFruitBonus = 0; starCoinMult = 1; payoutMult = 1;
     coinFlat = 0; interestPer = 0; interestPct = 0; interestCap = INTEREST_CAP;
     starEverything = false;
+    spendFlat = 0; shopDiscount = 1;
     bombRadiusBonus = 0; itemEase = 0; birdFlock = 1; crossLine = false;
     zoneMult = 1; zoneCoin = false; zoneBonus = 0;
     STREAK_STEP = STREAK_STEP_BASE; STREAK_CAP = 2.0;      // relics may raise these; reset first
@@ -3913,7 +3958,7 @@
   let armedItem = null, wasDanger = false;
   function canBuyItem(kind) {
     return running && !busy && !paused && ITEM_PRICES[kind] != null
-           && coins >= ITEM_PRICES[kind] && emptyCells().length > 0;
+           && coins >= itemPrice(kind) && emptyCells().length > 0;
   }
   function armItem(kind) {
     armedItem = armedItem === kind ? null : (canBuyItem(kind) ? kind : null);
@@ -3927,7 +3972,8 @@
     // player never meant to spend. Stay armed and say nothing happened.
     if (grid[r][c] !== -1) { buzz(8); SFX.play("tap"); return false; }
     if (!canBuyItem(kind)) { armedItem = null; renderItemShop(); return false; }
-    coins -= ITEM_PRICES[kind]; coinsShown = coins;
+    coins -= itemPrice(kind); coinsShown = coins;
+    coinsSpent += itemPrice(kind);
     SFX.play("buy");
     const color = pickColor();
     grid[r][c] = color; special[r][c] = kind;
@@ -3944,6 +3990,8 @@
       const affordable = canBuyItem(kind);
       b.disabled = !affordable && armedItem !== kind;
       b.classList.toggle("armed", armedItem === kind);
+      // the label has to follow the discount, or the bar lies about what it will charge
+      setCoinText(b.querySelector(".ib-p"), "\u{1FA99}" + itemPrice(kind));
     }
     const h = document.getElementById("hint");
     if (armedItem) h.textContent = d("hintArmed");
@@ -4013,6 +4061,7 @@
     let popped = 0;          // total pops (for score)
     let chainPopped = 0;     // only your own color-chain pops (for item generation)
     let pointsPopped = 0;    // sum of FRUIT_POINTS of every popped fruit (for scoring)
+    let coined = 0;                // how many of the cleared fruit were carrying a coin
     const hitBricks = new Map();   // brick key -> number of adjacent pops (1 HP each)
     // A blast does not CHIP a brick, it consumes it whole: budsAround hands bricks straight
     // to the frontier, which clears them without ever touching hitBricks. So a brick taken by
@@ -4034,7 +4083,7 @@
         // intent to hit, so a brick a blast had already destroyed still made the sound.
         if (chipped) SFX.play("brick");
         if (broke) addScore(broke * 30);
-        finishBurst(r0, c0, color, popped, chainPopped, placement, pointsPopped, visualEnd);
+        finishBurst(r0, c0, color, popped, chainPopped, placement, pointsPopped, visualEnd, coined);
         return;
       }
       const next = [];
@@ -4051,6 +4100,7 @@
         grid[r][c] = -1; special[r][c] = null;   // logic clears immediately (game state stays correct)
         ghost[r][c] = vis;                       // ...but it stays on screen until its burst
         const carried = takeCoin(r, c);
+        if (carried) coined++;
         popped++;
         if (cellColor >= 0) {
           pointsPopped += fruitScoreAt(r, c, cellColor);
@@ -4133,7 +4183,9 @@
                   grid[rr][cc] = -1; special[rr][cc] = null; popped++;
                   pointsPopped += fruitScore(col);
                   // the colour rides along: a mixed constellation cannot burst in one hue
-                  tCells.push([rr, cc, takeCoin(rr, cc), col]);
+                  const cCoin = takeCoin(rr, cc);
+                  if (cCoin) coined++;
+                  tCells.push([rr, cc, cCoin, col]);
                   // chip bricks adjacent to each star-cleared cell (was missing)
                   for (let dr = -1; dr <= 1; dr++)
                     for (let dc = -1; dc <= 1; dc++) {
@@ -4296,7 +4348,7 @@
       }
   }
 
-  function finishBurst(r0, c0, color, popped, chainPopped, placement, pointsPopped, visualEnd = 0) {
+  function finishBurst(r0, c0, color, popped, chainPopped, placement, pointsPopped, visualEnd = 0, coined = 0) {
     // the tutorial waits for the burst to finish so the player sees the result of what they
     // did before the next instruction replaces it
     if (tut) setTimeout(nextTutStep, Math.max(700, visualEnd - performance.now() + 700));
@@ -4311,7 +4363,7 @@
         const chainCount = chainPopped + 1;  // your color group size, inclusive
         // per-fruit points (placed ball + all popped) × chain-size bonus × streak
         const groupPts = (pointsPopped || 0) + fruitScore(color);
-        const gained = scorePop(groupPts, cleared);
+        const gained = scorePop(groupPts, cleared, coined);
         notify("onPop", { r: r0, c: c0, color, cleared, chainCount, gained, placement: true });
         const sub = multLabel(chainBonus(cleared), streakMult());
         setTimeout(() => showGain(r0, c0, gained, POP_COLORS[color] || "#fff", sub), totalAt);
@@ -4341,7 +4393,7 @@
       if (grid[r0][c0] !== -1) appear[r0][c0] = 1;  // placed ball (junk/item) pops in too
     } else if (popped > 0) {
       // manual item tap: score the clears, no new item, keep the queued color
-      const gained = scorePop(pointsPopped || 0, popped);
+      const gained = scorePop(pointsPopped || 0, popped, coined);
       notify("onPop", { r: r0, c: c0, color, cleared: popped, chainCount: popped, gained, placement: false });
       const sub = multLabel(chainBonus(popped), streakMult());
       setTimeout(() => showGain(r0, c0, gained, POP_COLORS[color] || "#fff", sub), totalAt);
@@ -4527,7 +4579,7 @@
     for (const id of shopOffers) {
       const R = RELICS[id];
       const sold = shopSold.has(id);
-      const poor = coins < R.price;
+      const poor = coins < priceOf(R);
       const card = document.createElement("button");
       const grade = relicTier(R);
       card.className = "offer"
@@ -4547,7 +4599,7 @@
       const pr = document.createElement("span");
       pr.className = "of-price" + (full ? " nofit" : "");
       const life = R.life ? ` · ${R.life.amount}${lifeUnitLabel(R.life.unit)}` : "";
-      setCoinText(pr, sold ? d("soldOut") : full ? d("noRoom", R.price) : `🪙 ${R.price}${life}`);
+      setCoinText(pr, sold ? d("soldOut") : full ? d("noRoom", priceOf(R)) : `🪙 ${priceOf(R)}${life}`);
       card.append(gr, nm, ic, ds, pr);
       card.addEventListener("click", () => buyRelic(id));
       wrap.appendChild(card);
@@ -4557,8 +4609,9 @@
     const R = RELICS[id];
     // the sold card stays on the shelf now, so "already owned" has to be refused here rather
     // than relying on the button being disabled
-    if (!R || relics.includes(id) || coins < R.price || relics.length >= relicCap()) return;
-    coins -= R.price; coinsShown = coins;
+    if (!R || relics.includes(id) || coins < priceOf(R) || relics.length >= relicCap()) return;
+    coins -= priceOf(R); coinsShown = coins;
+    coinsSpent += priceOf(R);           // 탕진 turns this into score
     SFX.play("buy");
     relics.push(id);
     if (R.life) relicLife[id] = R.life.amount;   // starts its clock on purchase
@@ -6324,6 +6377,9 @@
       get LANG() { return LANG; },
       rollZones, zoneAt, zoneCount, fruitScoreAt, ZONE_BASE,
       payInterest, interestDue, coinFlatBonus, COIN_FLAT_PER, INTEREST_CAP,
+      priceOf, itemPrice, spendFlatBonus, SPEND_PER,
+      get coinsSpent() { return coinsSpent; }, set coinsSpent(v) { coinsSpent = v; },
+      get spendFlat() { return spendFlat; }, get shopDiscount() { return shopDiscount; },
       get coinFlat() { return coinFlat; }, get interestPer() { return interestPer; },
       get interestPct() { return interestPct; }, get interestCap() { return interestCap; },
       get starEverything() { return starEverything; },

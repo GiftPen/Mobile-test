@@ -1091,6 +1091,73 @@ window.addEventListener('load', () => setTimeout(() => {
     schk('and interest scales with what was kept', clearAt(3, 5), payoutAt(3) + 1);
     F.closeShop(); F.mode = 'rush'; F.resetRun(); F.relics = []; F.applyRelics();
 
+    // 6. 탕진: the other pole. Hoarding and spending must both be worth something, or the
+    //    coin build has one strategy and no decision.
+    F.mode = 'rush'; F.resetRun();
+    F.relics = ['spendthrift']; F.applyRelics();
+    const bare = (F.coinsSpent = 0, F.fruitScore(0));
+    F.coinsSpent = 10;
+    schk('spending is worth score', F.fruitScore(0), bare + 5);
+    schk('and it is the mirror of hoarding: coins held do nothing here', F.coins, 0);
+
+    // buying really records the spend, at the price actually charged
+    F.mode = 'rush'; F.resetRun();
+    F.relics = ['spendthrift']; F.applyRelics();
+    F.coins = 200; F.coinsSpent = 0;
+    F.buyRelic('stamina');
+    schk('buying a relic counts as spending', F.coinsSpent, F.priceOf(F.RELICS.stamina));
+
+    // 7. 단골: the charge and the label have to move together
+    F.mode = 'rush'; F.resetRun();
+    const listed = F.RELICS.crown.price;
+    schk('no discount, no change', F.priceOf(F.RELICS.crown), listed);
+    F.relics = ['regular']; F.applyRelics();
+    const cut = F.priceOf(F.RELICS.crown);
+    schk('단골 takes 20% off', cut, Math.round(listed * 0.8));
+    schk('and off the item bar too', F.itemPrice('bomb'), Math.round(F.ITEM_PRICES.bomb * 0.8));
+    F.coins = cut;                       // exactly the discounted price, not the listed one
+    F.buyRelic('crown');
+    schk('the discounted price is what is charged', F.relics.includes('crown'), true);
+    schk('and it charged exactly that', F.coins, 0);
+    // A discount must not move any relic between grades. Checked across the WHOLE table
+    // against the undiscounted grades: picking one relic to check is how you pick the one
+    // that happens to have an explicit tier, or sits nowhere near a boundary.
+    F.relics = []; F.applyRelics();
+    const listedGrades = Object.fromEntries(
+      Object.keys(F.RELICS).map(id => [id, F.relicTier(F.RELICS[id])]));
+    F.relics = ['regular']; F.applyRelics();
+    const moved = Object.keys(F.RELICS).filter(id => F.relicTier(F.RELICS[id]) !== listedGrades[id]);
+    schk('a discount moves nothing between grades', moved, []);
+    // and the check has teeth: at least one relic is close enough to a boundary to move
+    const fragile = Object.keys(F.RELICS).filter(id => {
+      const p = F.RELICS[id].price;
+      return !F.RELICS[id].tier && [8, 16, 23, 30].some(b => p >= b && Math.round(p * 0.8) < b);
+    });
+    schk('some relic would cross a boundary if grades used the discount', fragile.length > 0, true);
+    // the shop card must show the discounted price too, not only the item bar
+    F.openShop();
+    F.shopOffers = ['crown']; F.renderShop();
+    const card = document.querySelector('#shop .offer .of-price');
+    schk('the shop card shows the discounted price',
+         /\d+/.test(card.textContent) && +card.textContent.match(/\d+/)[0], cut);
+    F.closeShop();
+    // ...and the item bar must SAY the discounted price, not merely charge it. A label that
+    // disagrees with the charge is the bug this relic is most likely to cause.
+    F.renderItemShop();
+    const shown = +document.querySelector('#ishop .ib[data-item="bomb"] .ib-p').textContent.trim();
+    schk('the item bar shows what it will charge', shown, F.itemPrice('bomb'));
+
+    // 8. 금빛 수확 pays for coin fruit, and only for coin fruit
+    F.mode = 'rush'; F.resetRun();
+    F.relics = []; F.applyRelics();
+    const plainPop = F.modify('pop', 100, { basePts: 100, cleared: 5, coined: 2 });
+    F.relics = ['golden_harvest']; F.applyRelics();
+    schk('a cluster with coin fruit scores more',
+         F.modify('pop', 100, { basePts: 100, cleared: 5, coined: 2 }), plainPop * 1.5);
+    schk('a cluster without does not',
+         F.modify('pop', 100, { basePts: 100, cleared: 5, coined: 0 }), plainPop);
+    F.relics = []; F.applyRelics(); F.resetRun();
+
     // 5. 별자리 왕 takes the whole board, not one colour
     F.resetRun(); F.relics = []; F.applyRelics();
     const fillBoard = () => { for (let r = 0; r < F.ROWS; r++) for (let c = 0; c < F.COLS; c++)

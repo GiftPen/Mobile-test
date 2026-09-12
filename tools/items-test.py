@@ -45,6 +45,77 @@ window.addEventListener('load', async () => {
   chk('free: bomb cell empty', F.grid[0][0], -1);
   chk('free: bird gone',       F.birds.length, 0);
 
+  // ---- 금빛 수확: the coin-fruit bonus has to reach the SCORE, not just the modifier ----
+  // Testing modify() with a hand-made ctx proves the relic; it does not prove that anything
+  // ever counts the coin fruit and passes it in. This blows up a real cluster.
+  const blastScore = async (withCoin, relics) => {
+    F.mode = 'rush'; F.resetRun(); F.relics = relics.slice(); F.applyRelics();
+    clearBoard();
+    for (let r = 0; r < F.ROWS; r++) for (let c = 0; c < F.COLS; c++) F.coinCell[r][c] = 0;
+    F.grid[3][3] = 1; F.special[3][3] = 'bomb';
+    for (const [r, c] of [[3,4],[3,5],[4,4],[4,5],[2,3],[2,4]]) {
+      F.grid[r][c] = 1;
+      if (withCoin) F.coinCell[r][c] = 1;
+    }
+    F.score = 0; F.streak = 0; F.busy = false;
+    F.tapItem(3, 3);
+    await pump(90, 12);
+    return F.score;
+  };
+  const noRelicPlain = await blastScore(false, []);
+  const noRelicCoin  = await blastScore(true,  []);
+  chk('without the relic, coin fruit changes nothing', noRelicCoin, noRelicPlain);
+  const withPlain = await blastScore(false, ['golden_harvest']);
+  const withCoin  = await blastScore(true,  ['golden_harvest']);
+  chk('금빛 수확 is idle when no coin fruit was taken', withPlain, noRelicPlain);
+  chk('and pays when one was', withCoin > withPlain, true);
+  chk('by about half again', Math.abs(withCoin / withPlain - 1.5) < 0.02, true);
+
+  // the same again through PLACEMENT, which scores on a different line entirely -- passing
+  // the count on one path and not the other is the obvious way to half-fix this
+  const placeScore = async withCoin => {
+    F.mode = 'rush'; F.resetRun(); F.relics = ['golden_harvest']; F.applyRelics();
+    clearBoard();
+    for (let r = 0; r < F.ROWS; r++) for (let c = 0; c < F.COLS; c++) F.coinCell[r][c] = 0;
+    for (const [r, c] of [[3,5],[4,4],[4,5],[2,4]]) {
+      F.grid[r][c] = 5;
+      if (withCoin) F.coinCell[r][c] = 1;
+    }
+    F.nextColor = 5; F.nextColor2 = 5;
+    F.score = 0; F.streak = 0; F.busy = false;
+    const rr = cv.getBoundingClientRect();
+    const x = rr.left + 4.5 * rr.width / F.COLS, y = rr.top + 3.5 * rr.height / F.ROWS;
+    cv.dispatchEvent(new PointerEvent('pointerdown', {clientX:x, clientY:y, bubbles:true}));
+    cv.dispatchEvent(new PointerEvent('pointerup',   {clientX:x, clientY:y, bubbles:true}));
+    await pump(90, 12);
+    return F.score;
+  };
+  // and once more through the STAR, which collects its cells in a loop of its own
+  const starScore = async withCoin => {
+    F.mode = 'rush'; F.resetRun(); F.relics = ['golden_harvest']; F.applyRelics();
+    clearBoard();
+    for (let r = 0; r < F.ROWS; r++) for (let c = 0; c < F.COLS; c++) F.coinCell[r][c] = 0;
+    for (const [r, c] of [[6,1],[6,2],[6,3],[6,4],[5,2]]) {
+      F.grid[r][c] = 4;
+      if (withCoin) F.coinCell[r][c] = 1;
+    }
+    F.grid[4][4] = 4; F.special[4][4] = 'star';
+    F.score = 0; F.streak = 0; F.busy = false;
+    F.tapItem(4, 4);
+    await pump(120, 12);
+    return F.score;
+  };
+  const starPlain = await starScore(false);
+  const starCoin  = await starScore(true);
+  chk('the star path counts its coin fruit too', starCoin > starPlain, true);
+
+  const placedPlain = await placeScore(false);
+  const placedCoin  = await placeScore(true);
+  chk('placing into a plain cluster is unaffected', placedCoin > placedPlain, true);
+  chk('and the placement path gets the same half again',
+      Math.abs(placedCoin / placedPlain - 1.5) < 0.02, true);
+  F.relics = []; F.applyRelics(); F.resetEffects();
+
   // ---- every way a brick can break has to make the brick sound ----
   // A bird eating one was silent: that path mutates the grid directly instead of going
   // through the chain, so it never reached SFX.play('brick').
