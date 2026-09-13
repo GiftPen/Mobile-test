@@ -1138,8 +1138,20 @@ window.addEventListener('load', () => setTimeout(() => {
     F.openShop();
     F.shopOffers = ['crown']; F.renderShop();
     const card = document.querySelector('#shop .offer .of-price');
+    const wasEl = card.querySelector('.of-was');
+    // the line now carries both: the list price struck through, and what you will pay
+    schk('the old price is shown struck through', wasEl && +wasEl.textContent, listed);
+    schk('and it is actually struck through',
+         /line-through/.test(getComputedStyle(wasEl).textDecorationLine), true);
+    const charged = [...card.childNodes].filter(n => n !== wasEl)
+                      .map(n => n.textContent).join('');
     schk('the shop card shows the discounted price',
-         /\d+/.test(card.textContent) && +card.textContent.match(/\d+/)[0], cut);
+         /\d+/.test(charged) && +charged.match(/\d+/)[0], cut);
+    // without a discount there is nothing to strike through
+    F.relics = []; F.applyRelics(); F.renderShop();
+    schk('no discount, no struck price',
+         !!document.querySelector('#shop .offer .of-was'), false);
+    F.relics = ['regular']; F.applyRelics();
     F.closeShop();
     // ...and the item bar must SAY the discounted price, not merely charge it. A label that
     // disagrees with the charge is the bug this relic is most likely to cause.
@@ -1178,6 +1190,58 @@ window.addEventListener('load', () => setTimeout(() => {
     schk('별자리 왕 clears the board', F.grid.flat().filter(v => v >= 0).length, 0);
     schk('and pays for every fruit it took', F.coins >= total - 1, true);
     F.resetEffects(); F.relics = []; F.applyRelics(); F.resetRun();
+  })();
+
+  // ---- the odds tab has to show what the build actually did ----
+  // A panel that prints constants is worse than no panel: it looks like an answer. Each row
+  // is checked by CHANGING the thing and watching that row change with it.
+  (() => {
+    const openOdds = () => { F.openInfo('fruits'); };
+    const rowFor = lab => [...document.querySelectorAll('.st-row')]
+      .find(r => r.querySelector('.st-lab').textContent === lab);
+    const nowOf = lab => { const r = rowFor(lab); return r && r.querySelector('.st-now').textContent; };
+    const wasOf = lab => { const r = rowFor(lab); const w = r && r.querySelector('.st-was'); return w && w.textContent; };
+
+    F.mode = 'rush'; F.resetRun(); F.relics = []; F.applyRelics();
+    openOdds();
+    schk('the stats section is there', [...document.querySelectorAll('.st-row')].length > 8, true);
+    schk('nothing is marked changed on a fresh run',
+         [...document.querySelectorAll('.st-row.up')].length, 0);
+    const coinLab = F.d('statCoinFruit'), brickLab = F.d('statBrick'), bombLab = F.d('statBomb');
+    schk('coin fruit starts at the base rate', nowOf(coinLab),
+         `${Math.round(F.COIN_FRUIT_CHANCE * 1000) / 10}%`);
+    schk('and shows no before-value yet', wasOf(coinLab), null);
+
+    // each of these moves exactly one row, and the row must follow the GAME, not a guess
+    const moves = [
+      ['clover', coinLab, () => `${Math.round((F.COIN_FRUIT_CHANCE + F.coinFruitBonus) * 1000) / 10}%`],
+      ['brick_deal',  brickLab, () => `${Math.round(F.brickChance * 1000) / 10}%`],
+      ['bomb_mod',    bombLab,  () => `${F.bombRadius() * 2 + 1}×${F.bombRadius() * 2 + 1}`],
+      ['flock',       F.d('statBird'), () => String(F.birdFlock)],
+      ['satchel',     F.d('statSlots'), () => String(F.relicCap())],
+      ['mint',       F.d('statStarCoin'), () => String(F.starCoinMult)],
+    ];
+    for (const [id, lab, want] of moves) {
+      if (!F.RELICS[id]) { schk('relic ' + id + ' exists', false, true); continue; }
+      F.relics = [id]; F.applyRelics(); openOdds();
+      schk(id + ' moves its row', nowOf(lab), want());
+      schk(id + ' shows what it was', !!wasOf(lab), true);
+      schk(id + ' marks the row as changed', rowFor(lab).classList.contains('up'), true);
+    }
+    F.relics = []; F.applyRelics();
+
+    // rows that only exist once a relic can make them exist
+    openOdds();
+    schk('no interest row without interest', !!rowFor(F.d('statInterest')), false);
+    F.relics = ['interest']; F.applyRelics(); F.coins = 20; openOdds();
+    schk('an interest row once there is interest', nowOf(F.d('statInterest')), String(F.interestDue()));
+    // the map row is the same shape and was the one that printed a number nobody had
+    F.relics = []; F.applyRelics(); openOdds();
+    schk('no marked-cells row before there is a map', !!rowFor(F.d('statZone')), false);
+    F.relics = ['hotspot']; F.applyRelics(); F.rollZones(); openOdds();
+    schk('a marked-cells row once there is one', nowOf(F.d('statZone')), String(F.zoneCount()));
+    F.relics = []; F.applyRelics(); F.resetRun();
+    F.closeInfo();
   })();
 
   // ---- number display: compact only where precision is decoration ----

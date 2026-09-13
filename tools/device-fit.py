@@ -47,6 +47,34 @@ function next() {
       F.coins = 999; F.openShop();
       setTimeout(() => { try {
         const card = D2.querySelector('#shop .shop-card').getBoundingClientRect();
+        // 단골 prints the old price struck through beside the new one; the price line has
+        // white-space:nowrap, so if it does not fit it silently spills out of its card
+        F.relics = ['regular']; F.applyRelics(); F.renderShop();
+        let priceOver = 0;
+        for (const o of D2.querySelectorAll('#shop .offer')) {
+          const pr = o.querySelector('.of-price');
+          if (!pr) continue;
+          // two ways it can escape: the shrink-to-fit box grows past the card's content box,
+          // or the box is pinned and the nowrap text spills inside it
+          const inner = o.getBoundingClientRect().width - 20;   // .offer has 10px side padding
+          priceOver = Math.max(priceOver,
+            Math.round(pr.getBoundingClientRect().width - inner),
+            pr.scrollWidth - pr.clientWidth);
+        }
+        F.relics = []; F.applyRelics(); F.renderShop();
+        // the odds tab's stats list: many rows, each a label that must squeeze and a value
+        // that must not. A value that wraps or spills is the panel lying about a number.
+        F.relics = ['clover','brick_deal','bomb_mod','flock','satchel','mint','interest','regular'];
+        F.applyRelics(); F.coins = 40; F.openInfo('fruits');
+        const stRows = [...D2.querySelectorAll('.st-row')];
+        let statOver = 0;
+        for (const r of stRows) {
+          const rb = r.getBoundingClientRect();
+          for (const kid of r.children)
+            statOver = Math.max(statOver, Math.round(kid.getBoundingClientRect().right - rb.right));
+          statOver = Math.max(statOver, r.scrollWidth - r.clientWidth);
+        }
+        F.closeInfo(); F.relics = []; F.applyRelics();
         // The collection is the one full-screen list in the game: six tabs and a grid that
         // has to survive a 260px Flip cover as well as a tablet. Opened OVER the shop rather
         // than closing it: this harness grows ROWS without growing `grid`, so anything that
@@ -62,7 +90,8 @@ function next() {
           0, Math.round(Math.max(...cellR.map(c => c.right)) - w),
           0, Math.round(bkClose.bottom - h));
         F.closeBook();
-        out.push({ name, w, h, rows: F.ROWS, guarded, bookOff, bookCells: cellR.length,
+        out.push({ name, w, h, rows: F.ROWS, guarded, bookOff, priceOver,
+          statOver, statRows: stRows.length, bookCells: cellR.length,
           cell: +(cv.width / 8).toFixed(1),
           vScroll: de.scrollHeight - de.clientHeight,
           hScroll: de.scrollWidth - de.clientWidth,
@@ -108,6 +137,9 @@ for r in rows:
     if r['boardOff']: fails.append(f"{tag}: 보드가 {r['boardOff']}px 화면 밖")
     if r['shopOff']:  fails.append(f"{tag}: 상점 창이 {r['shopOff']}px 화면 밖")
     if r.get('bookOff'):   fails.append(f"{tag}: 도감이 {r['bookOff']}px 화면 밖")
+    if r.get('priceOver', 0) > 0: fails.append(f"{tag}: 할인 가격줄이 카드보다 {r['priceOver']}px 넓음")
+    if r.get('statOver', 0) > 0: fails.append(f"{tag}: 확률표 수치가 {r['statOver']}px 넘침")
+    if not r.get('statRows'):    fails.append(f"{tag}: 확률표에 수치 행이 없음")
     if not r.get('bookCells'): fails.append(f"{tag}: 도감에 항목이 없음")
     if r['vScroll'] > 0: fails.append(f"{tag}: 세로 스크롤 {r['vScroll']}px")
     if r['hScroll'] > 0: fails.append(f"{tag}: 가로 스크롤 {r['hScroll']}px")

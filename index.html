@@ -489,6 +489,10 @@
   .of-desc { font-size: 11px; color: var(--muted); line-height: 1.4; white-space: normal;
     min-height: 31px; }
   .of-price { font-size: 13px; font-weight: 800; color: #ffd23e; white-space: nowrap; }
+  /* A discount you cannot see is a discount you do not feel. Smaller and greyed so the
+     price you will actually pay is still the thing the eye lands on. */
+  .of-was { font-size: 11px; font-weight: 700; color: #6b7189;
+    text-decoration: line-through; margin-right: 3px; }
   .of-price.nofit { color: #ff8fa3; }
   .shop-empty { padding: 14px; text-align: center; color: var(--muted); font-size: 13px; }
 
@@ -524,6 +528,15 @@
   .ft-score.up { color: #7ee0a0; }        /* a relic or trait raised it */
   .ft-odds { color: #ffd23e; }
   .ft-odds.up { color: #ffa94d; }
+  /* every other number a relic can move, in one place, with what it started from */
+  .st-head { padding: 14px 2px 6px; font-size: 12px; font-weight: 800; color: var(--muted); }
+  .st-row { display: flex; align-items: baseline; gap: 8px; padding: 6px 12px; margin-bottom: 4px;
+    background: #171a28; border-radius: 10px; font-size: 13px; }
+  .st-lab { flex: 1 1 auto; min-width: 0; color: var(--text); font-weight: 700; }
+  .st-was { color: #6b7189; font-weight: 700; font-size: 11px; }
+  .st-arrow { color: #4d5470; font-size: 11px; }
+  .st-now { color: #ffd23e; font-weight: 800; white-space: nowrap; }
+  .st-row.up .st-now { color: #ffa94d; }
   .inf-body { flex: 1; min-width: 0; }
   .inf-body b { display: block; font-size: 13px; font-weight: 800; color: var(--text); }
   .inf-body span { font-size: 11px; color: var(--muted); line-height: 1.35; }
@@ -2141,6 +2154,27 @@
       tutSkip: "건너뛰기",
       tutReplay: "튜토리얼 다시 보기",
       tabHelp: "❔ 도움말",
+      statHead: "내 수치",
+      statCoinFruit: "코인 달린 과일",
+      statBrick: "벽돌 등장",
+      statSpawn: "매 턴 과일",
+      statTouch: "스테이지 터치",
+      statComboCap: "콤보 상한",
+      statComboStep: "콤보 증가폭",
+      statClusterStep: "덩어리 보너스",
+      statBomb: "폭탄 범위",
+      statBird: "참새 마리",
+      statStarCoin: "별 코인/과일",
+      statPayout: "정산 코인",
+      statZone: "표시된 칸",
+      statSlots: "유물 칸",
+      statShelf: "상점 진열",
+      statRows: "판 줄 수",
+      statItemNeed: "아이템 필요 개수",
+      statInterest: "이번 라운드 이자",
+      statCoinScore: "코인 보너스 점수",
+      statSpendScore: "지출 보너스 점수",
+      statDiscount: "상점 할인",
       btnBook: "📖 도감",
       bookProgress: "모은 유물·특성",
       helpRules: "규칙", helpItems: "아이템", helpRun: "스타 러시",
@@ -2378,6 +2412,27 @@
       tutSkip: "Skip",
       tutReplay: "Replay tutorial",
       tabHelp: "❔ Help",
+      statHead: "Your numbers",
+      statCoinFruit: "Coin-carrying fruit",
+      statBrick: "Brick spawn",
+      statSpawn: "Fruit per turn",
+      statTouch: "Touches per stage",
+      statComboCap: "Combo cap",
+      statComboStep: "Combo step",
+      statClusterStep: "Cluster bonus",
+      statBomb: "Bomb blast",
+      statBird: "Sparrows",
+      statStarCoin: "Star coins/fruit",
+      statPayout: "Stage payout",
+      statZone: "Marked cells",
+      statSlots: "Relic slots",
+      statShelf: "Shop shelf",
+      statRows: "Board rows",
+      statItemNeed: "Item thresholds",
+      statInterest: "Interest this round",
+      statCoinScore: "Score from coins",
+      statSpendScore: "Score from spending",
+      statDiscount: "Shop discount",
       btnBook: "📖 Collection",
       bookProgress: "Discovered",
       helpRules: "RULES", helpItems: "ITEMS", helpRun: "STAR RUSH",
@@ -2614,6 +2669,27 @@
       tutSkip: "スキップ",
       tutReplay: "チュートリアルをもう一度",
       tabHelp: "❔ ヘルプ",
+      statHead: "あなたの数値",
+      statCoinFruit: "コイン付きフルーツ",
+      statBrick: "ブロック出現",
+      statSpawn: "毎ターンのフルーツ",
+      statTouch: "ステージのタッチ",
+      statComboCap: "コンボ上限",
+      statComboStep: "コンボ増加",
+      statClusterStep: "かたまりボーナス",
+      statBomb: "ボムの範囲",
+      statBird: "スズメの数",
+      statStarCoin: "スターのコイン/個",
+      statPayout: "ステージ精算",
+      statZone: "マスの印",
+      statSlots: "レリック枠",
+      statShelf: "ショップ陳列",
+      statRows: "盤の行数",
+      statItemNeed: "アイテム必要数",
+      statInterest: "今ラウンドの利息",
+      statCoinScore: "コインによる加点",
+      statSpendScore: "支出による加点",
+      statDiscount: "ショップ割引",
       btnBook: "📖 図鑑",
       bookProgress: "集めた数",
       helpRules: "ルール", helpItems: "アイテム", helpRun: "スターラッシュ",
@@ -2850,6 +2926,27 @@
       tutSkip: "跳过",
       tutReplay: "重看教程",
       tabHelp: "❔ 帮助",
+      statHead: "我的数值",
+      statCoinFruit: "带金币水果",
+      statBrick: "砖块出现",
+      statSpawn: "每回合水果",
+      statTouch: "每关触碰",
+      statComboCap: "连击上限",
+      statComboStep: "连击增幅",
+      statClusterStep: "成团奖励",
+      statBomb: "炸弹范围",
+      statBird: "麻雀数量",
+      statStarCoin: "星星金币/个",
+      statPayout: "关卡结算",
+      statZone: "标记格子",
+      statSlots: "遗物格",
+      statShelf: "商店陈列",
+      statRows: "盘面行数",
+      statItemNeed: "道具所需数",
+      statInterest: "本回合利息",
+      statCoinScore: "金币加分",
+      statSpendScore: "消费加分",
+      statDiscount: "商店折扣",
       btnBook: "📖 图鉴",
       bookProgress: "已收集",
       helpRules: "规则", helpItems: "道具", helpRun: "星辰冲刺",
@@ -4671,7 +4768,16 @@
       const pr = document.createElement("span");
       pr.className = "of-price" + (full ? " nofit" : "");
       const life = R.life ? ` · ${R.life.amount}${lifeUnitLabel(R.life.unit)}` : "";
-      setCoinText(pr, sold ? d("soldOut") : full ? d("noRoom", priceOf(R)) : `🪙 ${priceOf(R)}${life}`);
+      if (sold || full) {
+        setCoinText(pr, sold ? d("soldOut") : d("noRoom", priceOf(R)));
+      } else {
+        setCoinText(pr, `🪙 ${priceOf(R)}${life}`);
+        if (priceOf(R) !== R.price) {          // 단골: show what it was, struck through
+          const was = document.createElement("s");
+          was.className = "of-was"; was.textContent = R.price;
+          pr.insertBefore(was, pr.firstChild);
+        }
+      }
       card.append(gr, nm, ic, ds, pr);
       card.addEventListener("click", () => buyRelic(id));
       wrap.appendChild(card);
@@ -4902,6 +5008,60 @@
         d.append(fruitIconEl(i), nm, sc, od);
         body.appendChild(d);
       }
+      renderStats(body);
+    }
+  }
+
+  // Everything a relic or trait can move, with the value it started from. Without this the
+  // only way to know what your build actually did is to remember every card you took.
+  function renderStats(body) {
+    const pct = v => `${Math.round(v * 1000) / 10}%`;
+    const x = v => `×${gridMult(v)}`;
+    const rows = [
+      [d("statCoinFruit"), pct(COIN_FRUIT_CHANCE), pct(COIN_FRUIT_CHANCE + coinFruitBonus)],
+      [d("statBrick"),     pct(0),                 pct(brickChance)],
+      [d("statSpawn"),     String(rules().spawns(milestone())), String(spawnCount())],
+      [d("statTouch"),     String(rules().touches || 0), String(stageTouches())],
+      [d("statComboCap"),  x(2.0),                 x(STREAK_CAP)],
+      [d("statComboStep"), `+${gridMult(STREAK_STEP_BASE)}`, `+${gridMult(STREAK_STEP)}`],
+      [d("statClusterStep"), `+${gridMult(CHAIN_STEP)}`, `+${gridMult(CHAIN_STEP + chainStep)}`],
+      [d("statBomb"),      `${BOMB_RADIUS * 2 + 1}×${BOMB_RADIUS * 2 + 1}`,
+                           `${bombRadius() * 2 + 1}×${bombRadius() * 2 + 1}`],
+      [d("statBird"),      String(1),              String(birdFlock)],
+      [d("statStarCoin"),  String(1),              String(starCoinMult)],
+      [d("statPayout"),    x(1),                   x(payoutMult)],
+      [d("statSlots"),     String(RELIC_SLOTS),    String(relicCap())],
+      [d("statShelf"),     String(SHOP_OFFERS),    String(shelfSize())],
+      [d("statRows"),      String(ROWS_BASE),      String(ROWS)],
+      [d("statItemNeed"),  [BIRD_THRESHOLD, LINE_THRESHOLD, BOMB_THRESHOLD, STAR_THRESHOLD].join("/"),
+                           [BIRD_THRESHOLD, LINE_THRESHOLD, BOMB_THRESHOLD, STAR_THRESHOLD]
+                             .map(t => itemNeed(t)).join("/")],
+    ];
+    // Only worth a line if it can happen at all. The map is the sharpest case: ZONE_BASE is 3
+    // but there are no marked cells until a zone relic exists, so listing it unconditionally
+    // printed "3 → 0" on a fresh run -- a panel that invents a number you never had.
+    if (zoneOn()) rows.push([d("statZone"), String(ZONE_BASE), String(zoneCount())]);
+    if (interestPer || interestPct) rows.push([d("statInterest"), "0", String(interestDue())]);
+    if (coinFlat) rows.push([d("statCoinScore"), "0", `+${coinFlatBonus()}`]);
+    if (spendFlat) rows.push([d("statSpendScore"), "0", `+${spendFlatBonus()}`]);
+    if (shopDiscount !== 1) rows.push([d("statDiscount"), "0%", pct(1 - shopDiscount)]);
+
+    const head = document.createElement("div");
+    head.className = "st-head"; head.textContent = d("statHead");
+    body.appendChild(head);
+    for (const [lab, was, now] of rows) {
+      const r = document.createElement("div");
+      r.className = "st-row" + (was !== now ? " up" : "");
+      const l = document.createElement("span"); l.className = "st-lab"; l.textContent = lab;
+      r.append(l);
+      if (was !== now) {
+        const w = document.createElement("span"); w.className = "st-was"; w.textContent = was;
+        const a = document.createElement("span"); a.className = "st-arrow"; a.textContent = "→";
+        r.append(w, a);
+      }
+      const n = document.createElement("span"); n.className = "st-now"; n.textContent = now;
+      r.append(n);
+      body.appendChild(r);
     }
   }
   function discardRelic(i) {
@@ -6525,6 +6685,7 @@
       start, showMenu, gameOver,
       set revivedThisRun(v) { revivedThisRun = v; },
       renderSettings, openTraits, openInfo, openSettings, closeSettings, renderMenuSettings,
+      renderStats,
       mfxStart, mfxStop, mfxFrame, MFX_STEP_MS, MFX_MAX_K, get mfxOn() { return mfxOn; },
       get mfxFruits() { return mfxFruits; }, get mfxParts() { return mfxParts; },
       openBook, closeBook, renderBook, bookAll, bookEntries, markSeen, SEEN_KEY,
