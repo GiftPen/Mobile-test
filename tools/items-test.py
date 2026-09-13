@@ -411,10 +411,18 @@ window.addEventListener('load', async () => {
   const ckBase = F.crackerValue();
   F.crackerBroken(); F.crackerBroken();
   const doubled = F.crackerValue();
-  chk('크래커 왕 doubles per break', doubled, ckBase * 4);
+  // It ADDS the base, it does not double. Doubling is an exponent, and no quota curve can
+  // answer an exponent -- measured, it reached 1.1e14 a cracker by 40 breaks.
+  chk('크래커 왕 adds the base per break', doubled, ckBase + 2 * F.CRACKER_SCORE);
   F.applyRelics();
   chk('and a recompute does not undo it', F.crackerValue(), doubled);
   chk('while it does rebuild the flat side', F.crackerBonus, 0);
+  for (let i = 0; i < 38; i++) F.crackerBroken();
+  const after40 = F.crackerValue();
+  chk('forty breaks stays in the same universe as the quota',
+      after40, F.CRACKER_SCORE + 40 * F.CRACKER_SCORE);
+  chk('and that is far below what doubling would give',
+      after40 < F.CRACKER_SCORE * Math.pow(2, 20), true);
   F.resetRun();
   chk('a new run starts it over', F.crackerValue(), F.CRACKER_SCORE);
 

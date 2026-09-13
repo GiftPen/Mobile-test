@@ -1729,7 +1729,12 @@
   let crackerDouble = false;   // ...and each break doubles what the next one is worth
   let crackerEvery = false;    // every touch drops one, no dice roll
   const crackerValue = () => crackerScore + crackerBonus;
-  function crackerBroken() { if (crackerDouble) crackerScore *= 2; }
+  // 크래커 왕 grows what a cracker is worth as you break them. It used to DOUBLE, which no
+  // difficulty curve can answer: the quota climbs about x1.2 a stage and x2 a break outruns
+  // it by stage four. Measured at 40 breaks it was 1.1e14 a cracker and the run reached 5e19.
+  // It adds the base instead -- still "the more you break, the more they are worth", but it
+  // grows with how much you actually play rather than with an exponent.
+  function crackerBroken() { if (crackerDouble) crackerScore += CRACKER_SCORE; }
   const INTEREST_CAP    = 5;    // most coins interest can pay in one round, before 금고
   const SPEND_PER = 2;          // coins spent per +1 fruit score, for 탕진
   let coinsSpent = 0;           // ACCUMULATED, not derived: applyRelics must not wipe it
@@ -1914,6 +1919,23 @@
   // full digits while they fit legibly, compact the moment they do not. Big screens keep the
   // precision, small ones stay readable, and the locale picks 만 or K on its own.
   const QUOTA_MIN_PX = 18;
+  // A plain number is best while it fits, but a compounding build has reached 5e19 and the
+  // HUD is not twenty digits wide. Decided by SIZE, not by measuring: the score sits in an
+  // inline <b> inside a wider line, so fitVal's parent-width test says it fits right up to
+  // the point where it has pushed the line off the screen.
+  const BIG_FROM = 1e9;        // ten digits: past this, compact
+  const BIG_CHARS = 12;        // "9,999,999,999" -- longer than this shoves the line around
+  function bigText(n) {
+    if (Math.abs(n) < BIG_FROM) return fmtNum(n);
+    const c = fmtShort(n);
+    // Korean compact stops at 조 and starts growing digits again past it (9,900,000,000조),
+    // so anything still too long drops to an exponent, which never gets longer.
+    return c.length <= BIG_CHARS ? c : n.toExponential(1).replace("e+", "e");
+  }
+  function setBig(el, n, floor) {
+    el.textContent = bigText(n);
+    fitVal(el, floor);         // and shrink anyway if the container is genuinely tight
+  }
   function setQuota(el, cur, goal) {
     el.textContent = `${fmtNum(cur)}/${fmtNum(goal)}`;
     if (fitVal(el, QUOTA_MIN_PX)) return;
@@ -2278,7 +2300,7 @@
       crackerScore: n => `크래커를 부수면 점수 +${n}`,
       crackerCoin: n => `크래커를 부수면 코인 +${n}`,
       crackerBoom: () => "크래커가 부서지면 3×3이 함께 터집니다",
-      crackerKing: () => "터치마다 크래커가 1개 생기고, 부술 때마다 크래커 점수가 2배가 됩니다",
+      crackerKing: n => `터치마다 크래커가 1개 생기고, 부술 때마다 크래커 점수 +${n}`,
       fruitBoost: (f, n) => `${FRUIT_KO[f]} 점수 ×${n1(n)}`,
       allBoost: n => `모든 과일 점수 ×${n1(n)}`,
       resonance: () => "내가 가진 유물과 같은 계열의 유물이 상점에 더 자주 등장합니다",
@@ -2629,7 +2651,7 @@
       crackerScore: n => `Breaking a cracker scores +${n}`,
       crackerCoin: n => `Breaking a cracker pays +${n} coins`,
       crackerBoom: () => "A breaking cracker blows a 3×3",
-      crackerKing: () => "A cracker on every touch, and each one broken doubles what the next is worth",
+      crackerKing: n => `A cracker on every touch, and every one broken adds +${n} to what a cracker is worth`,
       fruitBoost: (f, n) => `${FRUIT_EN[f]} score ×${n1(n)}`,
       allBoost: n => `Every fruit ×${n1(n)}`,
       resonance: () => "Relics of the same kind as the ones you hold show up more often",
@@ -2979,7 +3001,7 @@
       crackerScore: n => `クラッカーを割ると スコア +${n}`,
       crackerCoin: n => `クラッカーを割ると コイン +${n}`,
       crackerBoom: () => "クラッカーが割れると 3×3 が一緒に弾けます",
-      crackerKing: () => "タッチごとにクラッカーが出て、割るたびにクラッカーのスコアが2倍になります",
+      crackerKing: n => `タッチごとにクラッカーが出て、割るたびにクラッカーのスコア +${n}`,
       fruitBoost: (f, n) => `${FRUIT_JA[f]} スコア ×${n1(n)}`,
       allBoost: n => `全フルーツのスコア ×${n1(n)}`,
       resonance: () => "手持ちのレリックと同じ系統のものが ショップに出やすくなります",
@@ -3329,7 +3351,7 @@
       crackerScore: n => `打碎饼干得分 +${n}`,
       crackerCoin: n => `打碎饼干获得金币 +${n}`,
       crackerBoom: () => "饼干碎裂时引发 3×3 爆炸",
-      crackerKing: () => "每次触碰都出现饼干，每打碎一块，饼干分数翻倍",
+      crackerKing: n => `每次触碰都出现饼干，每打碎一块，饼干分数 +${n}`,
       fruitBoost: (f, n) => `${FRUIT_ZH[f]} 分数 ×${n1(n)}`,
       allBoost: n => `所有水果分数 ×${n1(n)}`,
       resonance: () => "与你持有的遗物同类的遗物在商店更常出现",
@@ -3726,7 +3748,7 @@
     crumb_blast: { icon: "💥", price: 24,
       desc: () => d("crackerBoom"), apply() { crackerBoom = true; } },
     cracker_king: { icon: "👑", price: 44,
-      desc: () => d("crackerKing"),
+      desc: () => d("crackerKing", CRACKER_SCORE),
       apply() { crackerEvery = true; crackerDouble = true; } },
 
     // ---- 유니크: the score half of a fruit build ----
@@ -4314,7 +4336,7 @@
   }
 
   function updateHUD() {
-    document.getElementById("score").textContent = fmtNum(score);
+    setBig(document.getElementById("score"), score, 16);
     document.getElementById("best").textContent = fmtNum(best);
     updateStreakBadge();
 
@@ -4333,8 +4355,8 @@
       document.getElementById("rb-quota-cell").classList.toggle("met", met);
       document.getElementById("rb-quota-lab").textContent = d(met ? "goalMet" : "goal");
       document.getElementById("rb-touch").textContent = touchesLeft;
-      document.getElementById("rb-score").textContent = fmtNum(score);
-      document.getElementById("rb-best").textContent = fmtNum(best);
+      setBig(document.getElementById("rb-score"), score, 11);
+      setBig(document.getElementById("rb-best"), best, 11);
       const tc = document.getElementById("rb-touch-cell");
       tc.classList.toggle("warn", touchesLeft <= 5 && touchesLeft > 3);
       tc.classList.toggle("low", touchesLeft <= 3);
@@ -7634,6 +7656,7 @@
       HAPTICS_OK, get haptics() { return haptics; },
       get LANG() { return LANG; },
       rollZones, zoneAt, zoneCount, fruitScoreAt, ZONE_BASE,
+      bigText, BIG_CHARS,
       payInterest, interestDue, coinFlatBonus, COIN_FLAT_PER, INTEREST_CAP,
       get coinToScore() { return coinToScore; },
       priceOf, itemPrice, spendFlatBonus, SPEND_PER,

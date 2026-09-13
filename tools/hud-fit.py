@@ -14,11 +14,32 @@ MIN_PX = 16          # below this the goal is not readable at arm's length on a 
 TEST = """<script>
 window.addEventListener('load', () => setTimeout(() => {
   const F = window.__fs; F.mode = 'rush';
+  const WIDTHS = %s;
   document.getElementById('rush').classList.remove('hidden');
   document.getElementById('stats').classList.add('hidden');
   document.getElementById('rs-coin-v').textContent = '128';   // a realistic mid-run purse
   const row = document.querySelector('.rb-row'), q = document.getElementById('rb-quota');
   const out = [];
+  // The SCORE has no upper bound the way a quota does -- a compounding build has reached
+  // 5e19, at which point a plain fmtNum is twenty digits in a HUD that is not. Every score
+  // line is checked at those magnitudes too.
+  const bigs = [0, 1234, 999999, 12345678, 4.3e13, 5.03e19, 9.9e21];
+  for (const w of WIDTHS) {
+    document.getElementById('rush').style.maxWidth = w + 'px';
+    for (const v of bigs) {
+      F.score = v; F.best = v; F.updateHUD();
+      for (const id of ['rb-score', 'rb-best']) {
+        const el = document.getElementById(id);
+        // judged by its own rules: a score is one number, not a cur/goal pair, and the
+        // thing that matters is that it stays short enough to sit on the line
+        out.push({ kind: 'score', w, lab: 'score ' + v.toExponential(1), txt: el.textContent,
+                   len: el.textContent.length,
+                   clip: el.scrollWidth > el.parentElement.clientWidth + 1 });
+      }
+    }
+  }
+  document.getElementById('rush').style.maxWidth = '';
+  F.score = 0; F.best = 0;
   for (const w of %s) {
     document.getElementById('rush').style.maxWidth = w + 'px';
     for (const [lab, cur, goal] of %s) {
@@ -35,7 +56,7 @@ window.addEventListener('load', () => setTimeout(() => {
   }
   document.title = 'RESULT ' + JSON.stringify(out);
 }, 700));
-</script>"""  % (json.dumps(WIDTHS), json.dumps(CASES))
+</script>"""  % (json.dumps(WIDTHS), json.dumps(WIDTHS), json.dumps(CASES))
 
 os.chdir(os.path.dirname(os.path.abspath(__file__)) + '/..')
 open('_hf.html','w',encoding='utf-8').write(
@@ -53,8 +74,16 @@ if not m:
     print('NO RESULT'); sys.exit(1)
 rows, fails = json.loads(m.group(1)), []
 
+MAX_SCORE_CHARS = 12      # "9,999,999,999" -- past this the line starts shoving neighbours
+
 for w in WIDTHS:
-    g = [r for r in rows if r['w'] == w]
+    g = [r for r in rows if r['w'] == w and r.get('kind') != 'score']
+    # A score has no upper bound the way a quota does, so it gets its own rule: stay short.
+    for r in [x for x in rows if x['w'] == w and x.get('kind') == 'score']:
+        if r['clip']:
+            fails.append(f"{w}px {r['lab']}: 점수가 칸 밖으로 잘림 ({r['txt']})")
+        if r['len'] > MAX_SCORE_CHARS:
+            fails.append(f"{w}px {r['lab']}: {r['len']}자, {MAX_SCORE_CHARS}자 초과 ({r['txt']})")
     # the whole point: neighbours must not care how many digits the goal has
     for key, what in (('touchX','남은 터치 칸'), ('chipX','칩'), ('rowH','행 높이')):
         seen = sorted({r[key] for r in g})
