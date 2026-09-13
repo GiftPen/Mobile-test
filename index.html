@@ -1526,7 +1526,7 @@
     touchBonus = 0; spawnBonus = 0; slotBonus = 0; crackerChance = 0; offerBonus = 0;
     chainStep = 0; coinFruitBonus = 0; starCoinMult = 1; payoutMult = 1;
     coinFlat = 0; coinToScore = 0; coinFlatPer = COIN_FLAT_PER; interestPer = 0; interestPct = 0; interestCap = INTEREST_CAP;
-    crackerBonus = 0; crackerCoin = 0; crackerBoom = false; crackerDouble = false; crackerEvery = false;
+    crackerBonus = 0; crackerMult = 1; crackerCoin = 0; crackerBoom = false; crackerDouble = false; crackerEvery = false;
     peachBurst = false; citrusFuse = false; kiwiSeed = false; lemonFree = false;
     grapeBulk = 0; bananaSpread = 0; cherryPile = 0; coinFruitMult = 1;
     starEverything = false;
@@ -1727,11 +1727,12 @@
   let coinFruitMult = 1;      // a coin-carrying fruit is worth this much more
   let crackerScore = CRACKER_SCORE;   // ACCUMULATED: the legendary doubles it as you break
   let crackerBonus = 0;        // DERIVED: flat relic bonus, rebuilt by applyRelics
+  let crackerMult = 1;         // DERIVED: a multiplier on the whole thing
   let crackerCoin = 0;         // coins per cracker broken
   let crackerBoom = false;     // a broken cracker blows a 3x3
   let crackerDouble = false;   // ...and each break doubles what the next one is worth
   let crackerEvery = false;    // every touch drops one, no dice roll
-  const crackerValue = () => crackerScore + crackerBonus;
+  const crackerValue = () => Math.round((crackerScore + crackerBonus) * crackerMult);
   // 크래커 왕 grows what a cracker is worth as you break them. It used to DOUBLE, which no
   // difficulty curve can answer: the quota climbs about x1.2 a stage and x2 a break outruns
   // it by stage four. Measured at 40 breaks it was 1.1e14 a cracker and the run reached 5e19.
@@ -2057,6 +2058,7 @@
         banana_cellar: "바나나 저장고",
         banana_grove: "바나나 농장",
         banana_hunter: "바나나 사냥꾼",
+        oven: "화덕",
         change_count: "잔돈 계산",
         exchange: "환전소",
         gold_mine: "금광",
@@ -2280,6 +2282,7 @@
       tutSkip: "건너뛰기",
       tutReplay: "튜토리얼 다시 보기",
       tabHelp: "❔ 도움말",
+      crackerMult: n => `크래커 점수 ×${n1(n)}`,
       cracker: "크래커",
       everyTouch: "매 터치",
       everyNTouch: n => `${n}터치마다`,
@@ -2408,6 +2411,7 @@
         banana_cellar: "Banana Cellar",
         banana_grove: "Banana Plantation",
         banana_hunter: "Banana Hunter",
+        oven: "Oven",
         change_count: "Counting Change",
         exchange: "Exchange",
         gold_mine: "Gold Mine",
@@ -2631,6 +2635,7 @@
       tutSkip: "Skip",
       tutReplay: "Replay tutorial",
       tabHelp: "❔ Help",
+      crackerMult: n => `Cracker score ×${n1(n)}`,
       cracker: "Cracker",
       everyTouch: "every touch",
       everyNTouch: n => `every ${n}`,
@@ -2759,6 +2764,7 @@
         banana_cellar: "バナナ貯蔵庫",
         banana_grove: "バナナ農園",
         banana_hunter: "バナナ狩人",
+        oven: "窯",
         change_count: "小銭勘定",
         exchange: "両替所",
         gold_mine: "金鉱",
@@ -2981,6 +2987,7 @@
       tutSkip: "スキップ",
       tutReplay: "チュートリアルをもう一度",
       tabHelp: "❔ ヘルプ",
+      crackerMult: n => `クラッカーのスコア ×${n1(n)}`,
       cracker: "クラッカー",
       everyTouch: "毎タッチ",
       everyNTouch: n => `${n}タッチごと`,
@@ -3109,6 +3116,7 @@
         banana_cellar: "香蕉仓库",
         banana_grove: "香蕉农场",
         banana_hunter: "香蕉猎人",
+        oven: "烤炉",
         change_count: "数零钱",
         exchange: "兑换所",
         gold_mine: "金矿",
@@ -3331,6 +3339,7 @@
       tutSkip: "跳过",
       tutReplay: "重看教程",
       tabHelp: "❔ 帮助",
+      crackerMult: n => `饼干分数 ×${n1(n)}`,
       cracker: "饼干",
       everyTouch: "每次触碰",
       everyNTouch: n => `每 ${n} 次`,
@@ -3748,8 +3757,14 @@
       desc: () => d("crackerScore", 1000), apply() { crackerBonus += 1000; } },
     cracker_coin: { icon: "🪙", price: 17,
       desc: () => d("crackerCoin", 2), apply() { crackerCoin += 2; } },
-    crumb_blast: { icon: "💥", price: 24,
+    // The cracker build is meant to be a pair of legendaries: one makes them, the other makes
+    // breaking them matter. They share the "risk" identity, so 공명 leans the shop toward the
+    // second once you hold the first.
+    crumb_blast: { icon: "💥", price: 38,
       desc: () => d("crackerBoom"), apply() { crackerBoom = true; } },
+    // ...which leaves the 유니크 rung empty, so the ladder gets one that is not the 3x3
+    oven: { icon: "🔥", price: 26,
+      desc: () => d("crackerMult", 2), apply() { crackerMult *= 2; } },
     cracker_king: { icon: "👑", price: 44,
       desc: () => d("crackerKing", CRACKER_KING_STEP),
       apply() { crackerEvery = true; crackerDouble = true; } },
@@ -4097,7 +4112,7 @@
     touchBonus = 0; spawnBonus = 0; crackerChance = 0; offerBonus = 0;
     chainStep = 0; coinFruitBonus = 0; starCoinMult = 1; payoutMult = 1;
     coinFlat = 0; coinToScore = 0; coinFlatPer = COIN_FLAT_PER; interestPer = 0; interestPct = 0; interestCap = INTEREST_CAP;
-    crackerBonus = 0; crackerCoin = 0; crackerBoom = false; crackerDouble = false; crackerEvery = false;
+    crackerBonus = 0; crackerMult = 1; crackerCoin = 0; crackerBoom = false; crackerDouble = false; crackerEvery = false;
     peachBurst = false; citrusFuse = false; kiwiSeed = false; lemonFree = false;
     grapeBulk = 0; bananaSpread = 0; cherryPile = 0; coinFruitMult = 1;
     starEverything = false;
@@ -5462,7 +5477,8 @@
                       [cherryPile, grapeBulk, +lemonFree, coinFruitMult])],
     ["touch", () => [touchBonus]],
     ["spawn", () => [spawnBonus]],
-    ["risk",  () => [crackerChance, crackerBonus, crackerCoin, +crackerBoom, +crackerDouble, +crackerEvery]],
+    ["risk",  () => [crackerChance, crackerBonus, crackerMult, crackerCoin,
+                     +crackerBoom, +crackerDouble, +crackerEvery]],
     ["slot",  () => [offerBonus]],
     ["combo", () => [chainStep, STREAK_STEP, STREAK_CAP]],
     ["coin",  () => [coinFruitBonus, starCoinMult, payoutMult, coinFlat, coinToScore, coinFlatPer, spendFlat,
@@ -5493,12 +5509,12 @@
           touchBonus = 0; spawnBonus = 0; crackerChance = 0; offerBonus = 0;
           chainStep = 0; coinFruitBonus = 0; starCoinMult = 1; payoutMult = 1;
           coinFlat = 0; coinToScore = 0; coinFlatPer = COIN_FLAT_PER; interestPer = 0; interestPct = 0; interestCap = INTEREST_CAP;
-    crackerBonus = 0; crackerCoin = 0; crackerBoom = false; crackerDouble = false; crackerEvery = false;
+    crackerBonus = 0; crackerMult = 1; crackerCoin = 0; crackerBoom = false; crackerDouble = false; crackerEvery = false;
     peachBurst = false; citrusFuse = false; kiwiSeed = false; lemonFree = false;
     grapeBulk = 0; bananaSpread = 0; cherryPile = 0; coinFruitMult = 1;
           starEverything = false; spendFlat = 0; shopDiscount = 1;
           fruitCrown = [1,1,1,1,1,1,1];
-          crackerBonus = 0; crackerCoin = 0; crackerBoom = false; crackerDouble = false; crackerEvery = false;
+          crackerBonus = 0; crackerMult = 1; crackerCoin = 0; crackerBoom = false; crackerDouble = false; crackerEvery = false;
           stackOnPop = [0,0,0,0,0,0,0];
           peachBurst = false; citrusFuse = false; kiwiSeed = false; lemonFree = false;
           grapeBulk = 0; bananaSpread = 0; cherryPile = 0; coinFruitMult = 1;
@@ -7678,6 +7694,7 @@
       BASKET_FRUIT,
       filledCount, modalOpen, MODAL_IDS,
       CRACKER_SCORE, CRACKER_KING_STEP, crackerValue, crackerBroken, SEED, SEED_TOUCHES,
+      get crackerMult() { return crackerMult; },
       fruitSignature,
       get stageStack() { return stageStack; }, get cherryPile() { return cherryPile; },
       get stackOnPop() { return stackOnPop; },

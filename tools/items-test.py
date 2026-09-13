@@ -178,6 +178,36 @@ window.addEventListener('load', async () => {
       Math.abs(placedCoin / placedPlain - 1.5) < 0.02, true);
   F.relics = []; F.applyRelics(); F.resetEffects();
 
+  // ---- the cracker ladder has a rung at every grade ----
+  // 가루 폭발 moved up to 전설 so the build is a PAIR of legendaries; that must not leave a
+  // hole where 유니크 was, or the build has nothing to buy between epic and legendary.
+  {
+    const rungs = {};
+    for (const id of Object.keys(F.RELICS)) {
+      if (!F.identity(id).includes('risk')) continue;
+      (rungs[F.relicTier(F.RELICS[id])] = rungs[F.relicTier(F.RELICS[id])] || []).push(id);
+    }
+    chk('every grade has a cracker relic',
+        F.TIER_KEYS.filter(t => !(rungs[t] || []).length), []);
+    chk('가루 폭발 is legendary', F.relicTier(F.RELICS.crumb_blast), 'legend');
+    chk('and so is 크래커 왕', F.relicTier(F.RELICS.cracker_king), 'legend');
+    chk('the two of them share an identity, so 공명 can find the second',
+        F.identity('crumb_blast').some(c => F.identity('cracker_king').includes(c)), true);
+  }
+
+  // 화덕 multiplies the whole cracker value, on top of the flat bonus and the growth
+  F.mode = 'rush'; F.resetRun(); F.relics = []; F.applyRelics();
+  const ckPlain = F.crackerValue();
+  F.relics = ['oven']; F.applyRelics();
+  chk('화덕 doubles what a cracker is worth', F.crackerValue(), ckPlain * 2);
+  F.relics = ['oven', 'cracker_score']; F.applyRelics();
+  chk('and it multiplies the flat bonus too',
+      F.crackerValue(), (F.CRACKER_SCORE + F.crackerBonus) * 2);
+  F.applyRelics(); F.applyRelics();
+  chk('the multiplier does not compound across recomputes',
+      F.crackerValue(), (F.CRACKER_SCORE + F.crackerBonus) * 2);
+  F.relics = []; F.applyRelics(); F.resetRun();
+
   // ---- 전설 과일: seven rules, each driven on a real board ----
   // Wait for the board to go quiet before setting the next case up: a chain left running
   // from the previous one keeps mutating the grid underneath, which is how this suite

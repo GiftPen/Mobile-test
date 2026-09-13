@@ -34,6 +34,7 @@ window.addEventListener('load', () => setTimeout(() => {
     bulk: () => F.grapeBulk, cracker: () => F.crackerChance, res: () => F.resonance,
     ckValue: () => F.crackerValue(), interest: () => F.interestDue(),
     coinScore: () => F.coinToScore,
+    ckMult: () => F.crackerMult,
     disc: () => F.shopDiscount, rows: () => F.ROWS, ease: () => F.itemEase,
     zoneMult: () => F.zoneMult, zones: () => F.zoneCount(),
   };
@@ -49,7 +50,10 @@ window.addEventListener('load', () => setTimeout(() => {
   // must not exceed the sum" about a MULTIPLIED channel is how this audit reported 151
   // false alarms on its first run -- x2.5 and x1.5 are supposed to reach x3.75.
   const MULT = KEYS.filter(k => /^crown/.test(k) || k === 'disc');
-  const COMPOSITE = KEYS.filter(k => /^score/.test(k));   // additive base through multipliers
+  // additive base through multipliers: fruitScore, and ckValue ever since 화덕 (x2 on the
+  // whole thing) joined the flat +N cards -- 100 base +150 from a trait then doubled is 500,
+  // which is neither the sum nor the product and is exactly right
+  const COMPOSITE = KEYS.filter(k => /^score/.test(k) || k === 'ckValue');
   const snap = () => KEYS.map(k => { const v = CH[k](); return typeof v === 'number' ? +v.toFixed(5) : v; });
   const base = (() => { F.mode = 'rush'; F.resetRun(); F.relics = []; F.traits = []; F.applyRelics(); return snap(); })();
 
