@@ -158,8 +158,9 @@ window.addEventListener('load', () => setTimeout(async () => {
 os.chdir(os.path.dirname(os.path.abspath(__file__)) + '/..')
 
 def play(strat, runs):
-    """One Chrome per strategy. A single sweep that overruns yields nothing at all, and
-    --dump-dom has no way to stream partial results out."""
+    """One Chrome per RUN. Several runs in one page hangs the renderer once the virtual-time
+    budget runs out, and a hung Chrome dumps nothing at all -- so a sweep that overran gave
+    back zero data twice. One run per process costs a second of startup and loses nothing."""
     head = f"<script>window.__RUNS={runs};window.__STRATS={json.dumps([strat])};</script>"
     open('_bot.html','w',encoding='utf-8').write(
         open('index.html',encoding='utf-8').read().replace('</body>', head + TEST + '</body>'))
@@ -179,13 +180,22 @@ def play(strat, runs):
         return None
     return json.loads(m.group(1))
 
+
+def sweep(strat, runs):
+    got = []
+    for i in range(runs):
+        r = play(strat, 1)
+        if r: got += r
+        else: print(f'  {strat} {i+1}번째 판: 실패/시간 초과')
+    return got
+
 def med(v): return round(statistics.median(v), 1) if v else 0
 
 print(f"봇 {RUNS}판 × 전략 {len(STRATS)}종")
 print(f"\n{'전략':<9}{'도달(중앙)':>10}{'최고':>7}{'점수(중앙)':>12}{'코인최대':>10}{'번코인':>8}{'쓴코인':>8}{'유물':>6}{'특성':>6}")
 rows = []
 for s in STRATS:
-    r = play(s, RUNS)
+    r = sweep(s, RUNS)
     if not r:
         print(f"{s:<9}{'(시간 초과)':>10}")
         continue
