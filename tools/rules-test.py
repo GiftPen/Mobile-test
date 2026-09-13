@@ -593,9 +593,15 @@ window.addEventListener('load', () => setTimeout(() => {
       mult: F.fruitMult.map(v => +v.toFixed(4)), odds: F.oddsMult.slice(),
       prob: F.colorOdds().map(v => +v.toFixed(4)), stack: F.fruitStack.slice(),
       boost: F.fruitBoost.map(v => +v.toFixed(4)),
+      crown: F.fruitCrown.map(v => +v.toFixed(4)), flat: F.fruitFlat.slice(),
+      payout: F.payoutMult, coinOdds: +F.coinFruitBonus.toFixed(4), coinFlat: F.coinFlat,
+      chain: +F.chainBonus(5).toFixed(4), step: +F.streakMult(0).toFixed(4), cap: F.STREAK_CAP,
+      ckBonus: F.crackerBonus, ckCoin: F.crackerCoin, bulk: F.grapeBulk,
+      brick: +F.brickChance.toFixed(4), res: +F.resonance.toFixed(4),
+      disc: +F.shopDiscount.toFixed(4), rows: F.ROWS,
       score: F.FRUIT_POINTS.map((_, i) => F.fruitScore(i)),
       touch: F.touchBonus, spawn: F.spawnBonus, offer: F.offerBonus,
-      cap: F.relicCap(), st: F.stageTouches(),
+      slots: F.relicCap(), st: F.stageTouches(),
       // the item knobs too, or the traits that move them sit outside the invariant
       bombR: F.bombRadius(), ease: F.itemEase, birds: F.birdFlock, starC: F.starCoinMult,
     });
@@ -1081,6 +1087,81 @@ window.addEventListener('load', () => setTimeout(() => {
     F.relics = ['streak_amp']; F.applyRelics();
     schk('불꽃 증폭 lifts the combo cap to 3.0', F.STREAK_CAP, 3.0);
     F.relics = []; F.applyRelics();
+  })();
+
+  // ---- traits have grades now, and they have to behave like grades ----
+  (() => {
+    F.mode = 'rush'; F.resetRun(); F.traits = [];
+    const all = Object.keys(F.TRAITS);
+    schk('every trait declares a grade',
+         all.filter(id => !F.TIER_KEYS.includes(F.traitTier(F.TRAITS[id]))), []);
+    schk('the trait grades add up to 100%',
+         F.TIER_KEYS.reduce((a, t) => a + (F.TRAIT_ODDS[t] || 0), 0), 100);
+    schk('trait grades get rarer in order',
+         F.TIER_KEYS.every((t, i) => !i || F.TRAIT_ODDS[F.TIER_KEYS[i-1]] > F.TRAIT_ODDS[t]), true);
+    // legendary traits must be reachable: you see maybe nine traits in a run, so the shop's
+    // 1% would be a card nobody ever meets
+    schk('a legendary trait is rarer than a legendary relic is not the point -- it is commoner',
+         F.TRAIT_ODDS.legend > F.TIERS.legend.odds, true);
+    for (const t of F.TIER_KEYS)
+      schk('grade ' + t + ' has traits', all.some(id => F.traitTier(F.TRAITS[id]) === t), true);
+
+    // drawn grade-first, so the share is what is declared and does not drift with the pool
+    const seen = Object.fromEntries(F.TIER_KEYS.map(t => [t, 0]));
+    const N = 4000;
+    for (let i = 0; i < N; i++) for (const id of F.rollTraits(3)) seen[F.traitTier(F.TRAITS[id])]++;
+    const slots = N * 3;
+    const off = F.TIER_KEYS.filter(t => {
+      const got = seen[t] / slots * 100, want = F.TRAIT_ODDS[t];
+      return Math.abs(got - want) > Math.max(1, want * 0.12);
+    });
+    schk('the trait grade shares match what is declared', off, []);
+    // ...and a bigger pool must not move them
+    for (let i = 0; i < 30; i++)
+      F.TRAITS['pad_' + i] = { name: 'pad', icon: '.', tier: 'common', scalable: true,
+                               effects: [{ stat: 'touchBonus', amount: 1 }], desc: () => 'x' };
+    let legend2 = 0;
+    for (let i = 0; i < N; i++) for (const id of F.rollTraits(3))
+      if (F.traitTier(F.TRAITS[id]) === 'legend') legend2++;
+    for (let i = 0; i < 30; i++) delete F.TRAITS['pad_' + i];
+    schk('thirty more commons do not squeeze the legendaries out',
+         Math.abs(legend2 / slots * 100 - F.TRAIT_ODDS.legend) < 1, true);
+
+    // every effect a trait declares must be one the engine applies
+    F.resetRun();
+    for (const id of all) { F.traits = [{ id, amount: 1 }]; F.applyRelics(); }
+    schk('no trait declares an effect nothing applies', F.unknownTraitStats, []);
+    // ...and that detector has to be able to fire, or it is a comment
+    F.TRAITS.__probe = { name: 'probe', icon: '?', tier: 'common', scalable: true,
+                         effects: [{ stat: 'nonesuch', amount: 1 }], desc: () => 'x' };
+    F.traits = [{ id: '__probe', amount: 1 }]; F.applyRelics();
+    schk('an effect nothing applies IS noticed', F.unknownTraitStats, ['nonesuch']);
+    delete F.TRAITS.__probe;
+
+    // No trait may be a dead card. The relics have this audit; with 41 traits they need it
+    // more -- a trait is free, so a dead one is pure disappointment.
+    const tsnap = () => JSON.stringify([
+      F.fruitMult.map(v => +v.toFixed(4)), F.fruitFlat.slice(), F.fruitCrown.map(v => +v.toFixed(4)),
+      F.oddsMult.slice(), F.fruitStack.slice(), F.fruitBoost.map(v => +v.toFixed(4)),
+      F.FRUIT_POINTS.map((_, i) => F.fruitScore(i)),
+      F.touchBonus, F.spawnBonus, F.offerBonus, F.relicCap(), F.stageTouches(),
+      F.bombRadius(), F.itemEase, F.birdFlock, F.starCoinMult, F.payoutMult,
+      +F.coinFruitBonus.toFixed(4), F.coinFlat, +F.chainBonus(5).toFixed(4),
+      +F.streakMult(0).toFixed(4), F.STREAK_CAP, F.STREAK_STEP, F.crackerBonus, F.crackerCoin,
+      F.grapeBulk, +F.brickChance.toFixed(4), +F.resonance.toFixed(4),
+      +F.shopDiscount.toFixed(4), F.ROWS, F.doubles,
+    ]);
+    const deadTraits = [];
+    for (const id of all) {
+      F.resetRun(); F.mode = 'rush'; F.traits = []; F.doubles = 0; F.applyRelics();
+      const before = tsnap();
+      F.graftArmed = false;
+      F.pickTrait(id);
+      F.applyRelics();
+      if (tsnap() === before) deadTraits.push(id);
+    }
+    schk('no trait does nothing at all', deadTraits, []);
+    F.traits = []; F.doubles = 0; F.applyRelics(); F.resetRun();
   })();
 
   // ---- the coin build ----

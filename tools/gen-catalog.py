@@ -45,11 +45,12 @@ window.addEventListener('load', () => setTimeout(() => {
     const T = F.TRAITS[id];
     return { id, name: T.name, icon: T.icon, desc: T.desc(F.traitEffects(T, 1)),
              doubled: T.scalable ? T.desc(F.traitEffects(T, 2)) : "",
-             scalable: !!T.scalable, once: !!T.once,
+             scalable: !!T.scalable, once: !!T.once, tier: F.traitTier(T),
              fruits: fruitsTouched(() => { F.traits = [{ id, amount: 1 }]; F.applyRelics(); }),
              stats: T.effects.map(e => e.stat).join(", ") };
   });
   document.title = 'RESULT ' + JSON.stringify({ relics, traits, colors: F.COLORS,
+    traitOdds: F.TRAIT_ODDS,
     tiers: F.TIER_KEYS.map(t => ({ key: t, name: F.TIERS[t].name, odds: F.TIERS[t].odds })),
     shopOffers: F.SHOP_OFFERS, slots: F.RELIC_SLOTS });
 }, 900));
@@ -100,6 +101,16 @@ PALETTE = ', use this game\'s fruit palette: ' + ', '.join(
 # colour oranges are. An orange-only prompt is caught by its effect instead.
 GENERIC = re.compile(r'\bfruits?\b|\bcherr(y|ies)\b|\bkiwis?\b|\blemons?\b'
                      r'|\bgrapes?\b|\bpeach(es)?\b|\bbananas?\b', re.I)
+
+def _emit_traits(ts, L):
+    for tr in ts:
+        notes = []
+        if tr['once']: notes.append('한 게임에 1회 등장')
+        if not tr['scalable']: notes.append('2배 불가')
+        L.append(f"| {tr['icon']} | {tr['name']} | {art_mark('trait_' + tr['id'])} | {tr['desc']} | "
+                 f"{tr['doubled'] or '—'} | {' · '.join(notes) or ''} | "
+                 f"`{(lambda pr: pr + colour_clause(tr['fruits'], tr['id'], pr))(PROMPTS['traits'].get(tr['id'], '—'))}` |")
+
 
 def colour_clause(fruits, rid, prompt):
     """What to tell the generator about colour. Named fruit gets named colours; a picture of
@@ -213,16 +224,16 @@ for t in d['tiers']:
 
 L.append('## 특성\n')
 L.append('라운드가 끝날 때 3개 중 1개를 고릅니다. 화면마다 **무료 리롤 1회**.\n')
-L.append('| | 이름 | 이미지 | 효과 | ✨2배 | 비고 | AI 이미지 프롬프트 |')
-L.append('|---|---|---|---|---|---|---|')
-for tr in sorted(d['traits'], key=lambda x: x['name']):
-    notes = []
-    if tr['once']: notes.append('한 게임에 1회 등장')
-    if not tr['scalable']: notes.append('2배 불가')
-    L.append(f"| {tr['icon']} | {tr['name']} | {art_mark('trait_' + tr['id'])} | {tr['desc']} | "
-             f"{tr['doubled'] or '—'} | {' · '.join(notes) or ''} | "
-             f"`{(lambda pr: pr + colour_clause(tr['fruits'], tr['id'], pr))(PROMPTS['traits'].get(tr['id'], '—'))}` |")
-L.append('')
+for t in d['tiers']:
+    ts = sorted([x for x in d['traits'] if x['tier'] == t['key']], key=lambda x: x['name'])
+    if not ts: continue
+    L.append(f"### {t['name']} · {d['traitOdds'][t['key']]}% · {len(ts)}종\n")
+    L.append('| | 이름 | 이미지 | 효과 | ✨2배 | 비고 | AI 이미지 프롬프트 |')
+    L.append('|---|---|---|---|---|---|---|')
+    _emit_traits(ts, L)
+    L.append('')
+
+
 
 open('유물.md', 'w', encoding='utf-8').write('\n'.join(L))
 

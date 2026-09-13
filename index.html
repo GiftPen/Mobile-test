@@ -407,6 +407,11 @@
   .trait-row .tr-body span { font-size: 11px; color: var(--muted); line-height: 1.4; white-space: normal; }
   .trait-row.boost { border-color: #6f5bd6; background: #221f3a; }
   .trait-row.boost .tr-body span { color: #c4b6ff; }
+  .trait-row .tr-tier { font-size: 9px; font-weight: 800; letter-spacing: 1px; }
+  /* the shine layers are absolute, so the row has to be their containing block */
+  .trait-row.shine { position: relative; overflow: hidden; }
+  .trait-row.shine-top .tr-ic { animation: topIcon 2.1s ease-in-out infinite; }
+  .trait-row.shine-legend .tr-ic { animation: legendIcon 1.5s ease-in-out infinite; }
   #tr-double, #tr-info { margin: 0 0 0 6px; padding: 7px 12px; font-size: 12px; border-radius: 999px; }
   #tr-double.on { background: linear-gradient(90deg,#a66cff,#6f5bd6) !important; color: #fff !important; }
   #tr-double.hidden { display: none; }
@@ -2068,6 +2073,28 @@
         banana_cellar: "바나나 저장고",
         banana_grove: "바나나 농장",
         banana_hunter: "바나나 사냥꾼",
+        crumbs: "부스러기",
+        crumb_purse: "부스러기 지갑",
+        baker: "제빵사",
+        thrift: "알뜰",
+        clover_luck: "클로버 운",
+        nest_egg: "비상금",
+        haggler: "흥정",
+        rhythm: "리듬",
+        ceiling: "천장 올리기",
+        clumping: "뭉침",
+        cherry_pride: "체리 자부심",
+        lemon_pride: "레몬 자부심",
+        grape_pride: "포도 자부심",
+        banana_pride: "바나나 자부심",
+        cherry_jam: "체리 잼",
+        peach_syrup: "복숭아 시럽",
+        kiwi_crate: "키위 상자",
+        grape_row: "포도밭 이랑",
+        sharp_eye: "매서운 눈",
+        bundling: "송이 묶기",
+        homestead: "개척지",
+        attunement: "조율",
         cherry_pile: "체리 더미",
         citrus_plate: "감귤 한 접시",
         kiwi_seed: "키위 씨앗",
@@ -2248,6 +2275,8 @@
       tutSkip: "건너뛰기",
       tutReplay: "튜토리얼 다시 보기",
       tabHelp: "❔ 도움말",
+      bakerTrait: (pct, n) => `새 과일의 ${pct}%가 크래커 · 크래커 점수 +${n}`,
+      sharpEye: (f, n) => `참새 ${f}마리 · 아이템이 ${n}개 적게 터뜨려도 생깁니다`,
       cherryPile: n => `체리를 터뜨릴 때마다 이 스테이지 동안 체리 점수 +${n}`,
       citrusFuse: () => "오렌지와 레몬이 한 덩어리로 이어집니다",
       kiwiSeed: () => "키위를 터뜨리면 씨앗이 남습니다",
@@ -2365,6 +2394,28 @@
         banana_cellar: "Banana Cellar",
         banana_grove: "Banana Plantation",
         banana_hunter: "Banana Hunter",
+        crumbs: "Crumbs",
+        crumb_purse: "Crumb Purse",
+        baker: "Baker",
+        thrift: "Thrift",
+        clover_luck: "Clover Luck",
+        nest_egg: "Nest Egg",
+        haggler: "Haggler",
+        rhythm: "Rhythm",
+        ceiling: "Raised Ceiling",
+        clumping: "Clumping",
+        cherry_pride: "Cherry Pride",
+        lemon_pride: "Lemon Pride",
+        grape_pride: "Grape Pride",
+        banana_pride: "Banana Pride",
+        cherry_jam: "Cherry Jam",
+        peach_syrup: "Peach Syrup",
+        kiwi_crate: "Kiwi Crate",
+        grape_row: "Vine Row",
+        sharp_eye: "Sharp Eye",
+        bundling: "Bundling",
+        homestead: "Homestead",
+        attunement: "Attunement",
         cherry_pile: "Cherry Pile",
         citrus_plate: "Citrus Plate",
         kiwi_seed: "Kiwi Seed",
@@ -2545,6 +2596,8 @@
       tutSkip: "Skip",
       tutReplay: "Replay tutorial",
       tabHelp: "❔ Help",
+      bakerTrait: (pct, n) => `${pct}% of new fruit are crackers · cracker score +${n}`,
+      sharpEye: (f, n) => `${f} sparrows · items need ${n} fewer pops`,
       cherryPile: n => `Each cherry popped adds +${n} to cherries for this stage`,
       citrusFuse: () => "Orange and lemon count as one colour",
       kiwiSeed: () => "A popped kiwi leaves a seed behind",
@@ -2662,6 +2715,28 @@
         banana_cellar: "バナナ貯蔵庫",
         banana_grove: "バナナ農園",
         banana_hunter: "バナナ狩人",
+        crumbs: "くず",
+        crumb_purse: "くず財布",
+        baker: "パン職人",
+        thrift: "倹約",
+        clover_luck: "クローバーの運",
+        nest_egg: "へそくり",
+        haggler: "値切り",
+        rhythm: "リズム",
+        ceiling: "天井上げ",
+        clumping: "かたまり",
+        cherry_pride: "さくらんぼの誇り",
+        lemon_pride: "レモンの誇り",
+        grape_pride: "ぶどうの誇り",
+        banana_pride: "バナナの誇り",
+        cherry_jam: "さくらんぼジャム",
+        peach_syrup: "ももシロップ",
+        kiwi_crate: "キウイの箱",
+        grape_row: "ぶどうの畝",
+        sharp_eye: "鋭い目",
+        bundling: "房づくり",
+        homestead: "開拓地",
+        attunement: "調律",
         cherry_pile: "さくらんぼの山",
         citrus_plate: "柑橘の皿",
         kiwi_seed: "キウイの種",
@@ -2841,6 +2916,8 @@
       tutSkip: "スキップ",
       tutReplay: "チュートリアルをもう一度",
       tabHelp: "❔ ヘルプ",
+      bakerTrait: (pct, n) => `新しいフルーツの${pct}%がクラッカー · クラッカーのスコア +${n}`,
+      sharpEye: (f, n) => `スズメ ${f} 羽 · アイテムが ${n} 個 少なく割っても出る`,
       cherryPile: n => `さくらんぼを割るたび、このステージ中 さくらんぼのスコア +${n}`,
       citrusFuse: () => "オレンジとレモンがひとつの色としてつながります",
       kiwiSeed: () => "キウイを割ると種が残ります",
@@ -2958,6 +3035,28 @@
         banana_cellar: "香蕉仓库",
         banana_grove: "香蕉农场",
         banana_hunter: "香蕉猎人",
+        crumbs: "碎屑",
+        crumb_purse: "碎屑钱包",
+        baker: "烘焙师",
+        thrift: "节俭",
+        clover_luck: "三叶草运",
+        nest_egg: "储备金",
+        haggler: "讲价",
+        rhythm: "节奏",
+        ceiling: "抬高上限",
+        clumping: "聚团",
+        cherry_pride: "樱桃之傲",
+        lemon_pride: "柠檬之傲",
+        grape_pride: "葡萄之傲",
+        banana_pride: "香蕉之傲",
+        cherry_jam: "樱桃酱",
+        peach_syrup: "桃子糖浆",
+        kiwi_crate: "猕猴桃箱",
+        grape_row: "葡萄垄",
+        sharp_eye: "锐眼",
+        bundling: "成串",
+        homestead: "拓荒地",
+        attunement: "调音",
         cherry_pile: "樱桃堆",
         citrus_plate: "柑橘拼盘",
         kiwi_seed: "猕猴桃种子",
@@ -3137,6 +3236,8 @@
       tutSkip: "跳过",
       tutReplay: "重看教程",
       tabHelp: "❔ 帮助",
+      bakerTrait: (pct, n) => `新水果中 ${pct}% 变饼干 · 饼干分数 +${n}`,
+      sharpEye: (f, n) => `麻雀 ${f} 只 · 道具少消除 ${n} 个也能出现`,
       cherryPile: n => `每消除一个樱桃，本关樱桃分数 +${n}`,
       citrusFuse: () => "橙子和柠檬视为同一种颜色",
       kiwiSeed: () => "消除猕猴桃会留下种子",
@@ -3255,72 +3356,152 @@
   document.documentElement.lang = LANG;
 
   // reason -- doubling a x1.5 would give x3 and compound out of control.
+  // Traits carry a DECLARED grade, unlike relics: a relic's price says what it is worth and
+  // the grade falls out of it, but a trait is free, so there is nothing to read it from.
+  // Their own odds, too -- you see three traits a round and maybe nine in a run, so the
+  // shop's 1% legendary would be a card nobody ever meets.
+  const TRAIT_ODDS = { common: 40, uncommon: 32, epic: 20, unique: 6, legend: 2 };
+  const traitTier = T => T.tier || "common";
   const TRAITS = {
-    cherry_taste: { icon: "🍒", scalable: true,
+    // ---- 크래커 ----
+    crumbs:      { icon: "🥠", tier: "common", scalable: true,
+      effects: [{ stat: "crackerBonus", amount: 150 }],
+      desc: e => d("crackerScore", e[0].amount) },
+    crumb_purse: { icon: "🪙", tier: "epic", scalable: true,
+      effects: [{ stat: "crackerCoin", amount: 1 }],
+      desc: e => d("crackerCoin", e[0].amount) },
+    baker:       { icon: "👩‍🍳", tier: "uncommon", scalable: true,
+      effects: [{ stat: "brickChance", amount: 0.12 }, { stat: "crackerBonus", amount: 250 }],
+      desc: e => d("bakerTrait", Math.round(e[0].amount * 100), e[1].amount) },
+    // ---- 코인 ----
+    thrift:      { icon: "👛", tier: "common", scalable: true,
+      effects: [{ stat: "payoutMult", amount: 0.25 }],
+      desc: e => d("payoutPct", Math.round(e[0].amount * 100)) },
+    clover_luck: { icon: "🍀", tier: "uncommon", scalable: true,
+      effects: [{ stat: "coinOdds", amount: 0.05 }],
+      desc: e => d("coinOdds", Math.round(e[0].amount * 100)) },
+    nest_egg:    { icon: "🏦", tier: "epic", scalable: true,
+      effects: [{ stat: "coinFlat", amount: 1 }],
+      desc: e => d("coinFlat", COIN_FLAT_PER, e[0].amount) },
+    haggler:     { icon: "🧾", tier: "uncommon", scalable: true,
+      effects: [{ stat: "discount", amount: 0.9 }],
+      desc: () => d("discount", 10) },
+    // ---- 연쇄와 콤보 ----
+    rhythm:      { icon: "📈", tier: "uncommon", scalable: true,
+      effects: [{ stat: "streakStep", amount: 0.1 }],
+      desc: e => d("comboStep", e[0].amount, STREAK_STEP_BASE, gridMult(STREAK_STEP_BASE + e[0].amount)) },
+    ceiling:     { icon: "🔔", tier: "epic", scalable: true,
+      effects: [{ stat: "streakCap", amount: 0.5 }],
+      desc: e => d("comboCap", 2.0, gridMult(2.0 + e[0].amount)) },
+    clumping:    { icon: "🫧", tier: "uncommon", scalable: true,
+      effects: [{ stat: "chainStep", amount: 0.1 }],
+      desc: e => d("clusterStep", e[0].amount, CHAIN_STEP, gridMult(CHAIN_STEP + e[0].amount)) },
+    // ---- 과일: the crown channel, at trait scale ----
+    cherry_pride: { icon: "🍒", tier: "unique", scalable: true,
+      effects: [{ stat: "fruitCrown", target: 0, amount: 1.5 }],
+      desc: e => d("fruitBoost", 0, e[0].amount) },
+    lemon_pride:  { icon: "🍋", tier: "unique", scalable: true,
+      effects: [{ stat: "fruitCrown", target: 3, amount: 1.5 }],
+      desc: e => d("fruitBoost", 3, e[0].amount) },
+    grape_pride:  { icon: "🍇", tier: "unique", scalable: true,
+      effects: [{ stat: "fruitCrown", target: 4, amount: 1.5 }],
+      desc: e => d("fruitBoost", 4, e[0].amount) },
+    banana_pride: { icon: "🍌", tier: "unique", scalable: true,
+      effects: [{ stat: "fruitCrown", target: 6, amount: 1.5 }],
+      desc: e => d("fruitBoost", 6, e[0].amount) },
+    // flat points, which help the cheap fruit most
+    cherry_jam:  { icon: "🍒", tier: "common", scalable: true,
+      effects: [{ stat: "fruitFlat", target: 0, amount: 6 }],
+      desc: e => d("fruitFlat", 0, e[0].amount) },
+    peach_syrup: { icon: "🍑", tier: "common", scalable: true,
+      effects: [{ stat: "fruitFlat", target: 5, amount: 10 }],
+      desc: e => d("fruitFlat", 5, e[0].amount) },
+    kiwi_crate:  { icon: "🥝", tier: "uncommon", scalable: true,
+      effects: [{ stat: "oddsMult", target: 2, amount: 1 }],
+      desc: e => d("odds", [2], e[0].amount) },
+    grape_row:   { icon: "🍇", tier: "uncommon", scalable: true,
+      effects: [{ stat: "oddsMult", target: 4, amount: 1 }, { stat: "oddsMult", target: 5, amount: 1 }],
+      desc: e => d("odds", [4, 5], e[0].amount) },
+    // ---- 아이템과 판 ----
+    sharp_eye:   { icon: "🐦", tier: "epic", scalable: true,
+      effects: [{ stat: "birdFlock", amount: 1 }, { stat: "itemEase", amount: 1 }],
+      desc: e => d("sharpEye", e[0].amount + 1, e[1].amount) },
+    bundling:    { icon: "🍇", tier: "epic", scalable: true,
+      effects: [{ stat: "grapeBulk", amount: 1 }],
+      desc: e => d("grapeBulk", e[0].amount) },
+    // ---- 전설: the two that change a run's shape ----
+    homestead:   { icon: "🌾", tier: "legend", scalable: true,
+      effects: [{ stat: "rows", amount: 1 }],
+      desc: e => d("rows", e[0].amount) },   // doubled it is two rows, and has to say so
+    attunement:  { icon: "🎵", tier: "legend", scalable: true,
+      effects: [{ stat: "resonance", amount: 0.35 }],
+      desc: () => d("resonance") },   // the wording does not carry a number, so 2배 reads the same
+
+    cherry_taste: { icon: "🍒", tier: "common", scalable: true,
       effects: [{ stat: "fruitMult", target: 0, amount: 0.4 }],
       desc: e => d("fruitMult", 0, e[0].amount) },
-    banana_taste: { icon: "🍌", scalable: true,
+    banana_taste: { icon: "🍌", tier: "common", scalable: true,
       effects: [{ stat: "oddsMult", target: 6, amount: 1 }],
       desc: e => d("odds", [6], e[0].amount) },
-    citrus: { icon: "🍊", scalable: true,
+    citrus: { icon: "🍊", tier: "uncommon", scalable: true,
       effects: [{ stat: "oddsMult", target: 1, amount: 1 }, { stat: "oddsMult", target: 3, amount: 1 }],
       desc: e => d("odds", [1, 3], e[0].amount) },
-    grape_taste: { icon: "🍇", scalable: true,
+    grape_taste: { icon: "🍇", tier: "common", scalable: true,
       effects: [{ stat: "fruitMult", target: 4, amount: 0.5 }],
       desc: e => d("fruitMult", 4, e[0].amount) },
     // every fruit gets one, so no build is stuck buying relics only. Amounts are set from
     // 등장률 x 기본점수 so the per-pick value lands in the same band rather than reading
     // "bigger number = better": 바나나 is 0.4 on a 50-point fruit that shows up 6% of the time.
-    orange_taste: { icon: "🍊", scalable: true,
+    orange_taste: { icon: "🍊", tier: "common", scalable: true,
       effects: [{ stat: "fruitMult", target: 1, amount: 0.4 }],
       desc: e => d("fruitMult", 1, e[0].amount) },
-    kiwi_taste: { icon: "🥝", scalable: true,
+    kiwi_taste: { icon: "🥝", tier: "common", scalable: true,
       effects: [{ stat: "fruitMult", target: 2, amount: 0.4 }],
       desc: e => d("fruitMult", 2, e[0].amount) },
-    lemon_taste: { icon: "🍋", scalable: true,
+    lemon_taste: { icon: "🍋", tier: "common", scalable: true,
       effects: [{ stat: "fruitMult", target: 3, amount: 0.5 }],
       desc: e => d("fruitMult", 3, e[0].amount) },
-    peach_taste: { icon: "🍑", scalable: true,
+    peach_taste: { icon: "🍑", tier: "common", scalable: true,
       effects: [{ stat: "fruitMult", target: 5, amount: 0.4 }],
       desc: e => d("fruitMult", 5, e[0].amount) },
-    banana_master: { icon: "🍌", scalable: true,
+    banana_master: { icon: "🍌", tier: "uncommon", scalable: true,
       effects: [{ stat: "fruitMult", target: 6, amount: 0.4 }],
       desc: e => d("fruitMult", 6, e[0].amount) },
 
     // items had no trait line at all -- the only way to push that axis was the shop
-    blast: { icon: "💣", scalable: true,
+    blast: { icon: "💣", tier: "uncommon", scalable: true,
       effects: [{ stat: "bombRadius", amount: 1 }],
       desc: e => d("bombRadius", e[0].amount) },
-    knack: { icon: "🔧", scalable: true,
+    knack: { icon: "🔧", tier: "epic", scalable: true,
       effects: [{ stat: "itemEase", amount: 1 }],
       desc: e => d("itemEase", e[0].amount) },
-    feed: { icon: "🐦", scalable: true,
+    feed: { icon: "🐦", tier: "uncommon", scalable: true,
       effects: [{ stat: "birdFlock", amount: 1 }],
       desc: e => d("birdsMore", e[0].amount) },
-    stardust: { icon: "⭐", scalable: true,
+    stardust: { icon: "⭐", tier: "uncommon", scalable: true,
       effects: [{ stat: "starCoin", amount: 1 }],
       desc: e => d("starCoinUp", e[0].amount) },
-    leisure: { icon: "👆", scalable: true,
+    leisure: { icon: "👆", tier: "common", scalable: true,
       effects: [{ stat: "touchBonus", amount: 2 }],
       desc: e => d("touch", e[0].amount) },
     // once-per-run like 넓은 주머니, its shelf-widening twin -- without it the shop had no
     // ceiling at all
-    keen_eye: { icon: "👀", scalable: true, once: true,
+    keen_eye: { icon: "👀", tier: "epic", scalable: true, once: true,
       effects: [{ stat: "offerBonus", amount: 1 }],
       desc: e => d("offers", e[0].amount) },
-    big_pocket: { icon: "🎒", scalable: true, once: true,
+    big_pocket: { icon: "🎒", tier: "epic", scalable: true, once: true,
       effects: [{ stat: "slotBonus", amount: 1 }],
       desc: e => d("slots", e[0].amount) },
-    concentrate: { icon: "🔮", scalable: true,
+    concentrate: { icon: "🔮", tier: "epic", scalable: true,
       effects: [{ stat: "boostBest", amount: 2 }],
       desc: e => d("boostBest", e[0].amount) },
-    distill: { icon: "⚗️", scalable: true,
+    distill: { icon: "⚗️", tier: "uncommon", scalable: true,
       effects: [{ stat: "stackAll", amount: 5 }],
       desc: e => d("allFlat", e[0].amount) },
     // meta: it is a charge you spend, not something you carry. It still lands in `traits`
     // so `once` can keep it from being offered twice, but the list renders the charge
     // instead -- "접붙이기" sitting there next to a live "접붙이기 1회" read as two things.
-    graft: { icon: "✨", scalable: false, once: true, meta: true,
+    graft: { icon: "✨", tier: "unique", scalable: false, once: true, meta: true,
       effects: [{ stat: "doubles", amount: 1 }],
       desc: () => d("nextDouble") },
   };
@@ -3768,7 +3949,10 @@
       const a = RELICS[id] && RELICS[id].apply;
       if (a) a();
     }
-    // traits are data, so one generic loop applies every one of them
+    // traits are data, so one generic loop applies every one of them. A stat nobody applies
+    // is a trait that silently does nothing, so anything unrecognised is recorded and the
+    // audit fails on it rather than the player finding out.
+    unknownTraitStats.clear();
     for (const t of traits) {
       const T = TRAITS[t.id]; if (!T) continue;
       for (const e of traitEffects(T, t.amount)) {
@@ -3782,6 +3966,21 @@
         else if (e.stat === "itemEase")   itemEase += e.amount;
         else if (e.stat === "birdFlock")  birdFlock += e.amount;
         else if (e.stat === "starCoin")   starCoinMult += e.amount;
+        else if (e.stat === "fruitFlat")  fruitFlat[e.target] += e.amount;
+        else if (e.stat === "fruitCrown") fruitCrown[e.target] *= e.amount;
+        else if (e.stat === "payoutMult") payoutMult += e.amount;
+        else if (e.stat === "coinOdds")   coinFruitBonus += e.amount;
+        else if (e.stat === "coinFlat")   coinFlat += e.amount;
+        else if (e.stat === "chainStep")  chainStep += e.amount;
+        else if (e.stat === "streakStep") STREAK_STEP += e.amount;
+        else if (e.stat === "streakCap")  STREAK_CAP += e.amount;
+        else if (e.stat === "crackerBonus") crackerBonus += e.amount;
+        else if (e.stat === "crackerCoin")  crackerCoin += e.amount;
+        else if (e.stat === "grapeBulk")    grapeBulk += e.amount;
+        else if (e.stat === "brickChance")  brickChance += e.amount;
+        else if (e.stat === "resonance")    resonance += e.amount;
+        else if (e.stat === "discount")     shopDiscount *= e.amount;
+        else if (!TRAIT_META_STATS.includes(e.stat)) unknownTraitStats.add(e.stat);
       }
     }
   }
@@ -3809,9 +4008,16 @@
   }
 
   // a trait's effects at a given scale (x2 when a graft charge is spent on it)
+  // applied where they land rather than in the generic loop: slots settle first, and the
+  // rest act once on accumulated state at pick time (see pickTrait)
+  const TRAIT_META_STATS = ["slotBonus", "doubles", "stackAll", "boostBest", "rows"];
+  // Stats that MULTIPLY rather than add. "Doubled" has to mean "as if taken twice", and for
+  // these that is the amount squared, not the amount doubled: ×1.5 taken twice is ×2.25.
+  const TRAIT_MULT_STATS = ["fruitCrown", "discount"];
+  const unknownTraitStats = new Set();
   function traitEffects(T, mult = 1) {
     const m = T.scalable ? mult : 1;
-    return T.effects.map(e => ({ ...e, amount: e.amount * m }));
+    return T.effects.map(e => ({ ...e, amount: TRAIT_MULT_STATS.includes(e.stat) ? Math.pow(e.amount, m) : e.amount * m }));
   }
 
   function emptyCells() {
@@ -5288,11 +5494,27 @@
   // shop runs after every stage; traits only when a round has just ended (…-3 cleared)
   let traitOffers = [], graftArmed = false, traitRerolls = 0;
 
+  // Grade first, then a trait from that grade -- the same rule the shop uses, so the share
+  // of legendary picks is what TRAIT_ODDS says and does not drift as traits are added.
   function rollTraits(n = 3) {
     const owned = new Set(traits.map(t => t.id));
-    const pool = Object.keys(TRAITS).filter(id => !(TRAITS[id].once && owned.has(id)));
+    const byTier = {};
+    for (const t of TIER_KEYS) byTier[t] = [];
+    for (const id of Object.keys(TRAITS)) {
+      if (TRAITS[id].once && owned.has(id)) continue;
+      byTier[traitTier(TRAITS[id])].push(id);
+    }
     const out = [];
-    while (out.length < n && pool.length) out.push(pool.splice(randInt(pool.length), 1)[0]);
+    while (out.length < n) {
+      const live = TIER_KEYS.filter(t => byTier[t].length);
+      if (!live.length) break;
+      let total = 0;
+      for (const t of live) total += TRAIT_ODDS[t];
+      let r = Math.random() * total, pick = live[live.length - 1];
+      for (const t of live) { r -= TRAIT_ODDS[t]; if (r < 0) { pick = t; break; } }
+      const bucket = byTier[pick];
+      out.push(bucket.splice(randInt(bucket.length), 1)[0]);
+    }
     return out;
   }
   function openTraits() {
@@ -5326,13 +5548,20 @@
       const T = TRAITS[id];
       const scaled = graftArmed && doubles > 0 && T.scalable;
       const eff = traitEffects(T, scaled ? 2 : 1);
+      const grade = traitTier(T);
+      const tier = TIERS[grade];
       const b = document.createElement("button");
-      b.className = "trait-row" + (scaled ? " boost" : "");
-      const ic = document.createElement("span"); ic.className = "tr-ic"; ic.textContent = T.icon;
+      b.className = "trait-row" + (scaled ? " boost" : "")
+        + (grade === "epic" ? " shine shine-epic" : "")
+        + (grade === "unique" || grade === "legend" ? " shine shine-top shine-" + grade : "");
+      if (!scaled) b.style.borderColor = tier.color + "66";
+      const ic = traitIcon(id, "tr-ic");
       const body = document.createElement("span"); body.className = "tr-body";
+      const gr = document.createElement("span");
+      gr.className = "tr-tier"; gr.textContent = tier.name; gr.style.color = tier.color;
       const nm = document.createElement("b"); nm.textContent = T.name + (scaled ? "  " + d("doubled") : "");
       const ds = document.createElement("span"); ds.textContent = T.desc(eff);
-      body.append(nm, ds);
+      body.append(gr, nm, ds);
       b.append(ic, body);
       b.addEventListener("click", () => pickTrait(id));
       wrap.appendChild(b);
@@ -7163,6 +7392,7 @@
       endStageEarly, leftoverCoins, takeCoin, updateHUD, closeStage, gameOver, COIN_FRUIT_CHANCE, COIN_PER_LEFTOVER, COIN_PAYOUT,
       stageClear,
       TRAITS, STAGES_PER_ROUND, stageLabel, traitEffects, rollTraits, openTraits, pickTrait, renderTraits,
+      TRAIT_ODDS, traitTier, get unknownTraitStats() { return [...unknownTraitStats]; },
       SHOP_OFFERS, SHOP_OFFERS_MAX, shelfSize,
       get shopSold() { return shopSold; },
       get traitRerolls() { return traitRerolls; }, set traitRerolls(v) { traitRerolls = v; },
