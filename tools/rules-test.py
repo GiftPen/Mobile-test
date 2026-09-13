@@ -1537,6 +1537,46 @@ window.addEventListener('load', () => setTimeout(() => {
     F.resetEffects(); F.relics = []; F.applyRelics(); F.resetRun();
   })();
 
+  // ---- the obstacle belongs on the odds tab, told apart from the fruit ----
+  (() => {
+    const openOdds = () => F.openInfo('fruits');
+    // a missing row must FAIL the check, not throw and abort everything after it
+    const crackerRow = () => document.querySelector('.ftab-row.ftab-obst')
+      || { classList: { contains: () => false }, querySelector: () => ({ textContent: '', classList: { contains: () => false } }) };
+    const hasCrackerRow = () => !!document.querySelector('.ftab-row.ftab-obst');
+    F.mode = 'rush'; F.resetRun(); F.relics = []; F.applyRelics();
+    openOdds();
+    // rush has no crackers of its own, so nothing to show until something makes them
+    schk('no cracker line when nothing makes crackers', hasCrackerRow(), false);
+
+    F.relics = ['brick_deal']; F.applyRelics(); openOdds();
+    const row = crackerRow();
+    schk('a cracker line appears once they can spawn', hasCrackerRow(), true);
+    schk('it is not styled as a fruit row',
+         row.classList.contains('ftab-obst') &&
+         [...document.querySelectorAll('.ftab-row:not(.ftab-obst):not(.ftab-head)')]
+           .every(r => !r.classList.contains('ftab-obst')), true);
+    schk('it shows what a cracker is worth',
+         +row.querySelector('.ft-score').textContent.replace(/[^\d]/g, ''), F.crackerValue());
+    schk('and how often one turns up',
+         row.querySelector('.ft-odds').textContent,
+         `${Math.round(F.crackerChance * 1000) / 10}%`);
+
+    // the score follows the relics that raise it
+    F.relics = ['brick_deal', 'cracker_score']; F.applyRelics(); openOdds();
+    schk('the cracker score follows its relics',
+         +crackerRow().querySelector('.ft-score').textContent.replace(/[^\d]/g, ''), F.crackerValue());
+    schk('and is marked as raised', crackerRow().querySelector('.ft-score').classList.contains('up'), true);
+
+    // "every touch" is a different thing from a percentage and has to read as one
+    F.relics = ['cracker_king']; F.applyRelics(); openOdds();
+    schk('a cracker every touch says exactly that',
+         crackerRow().querySelector('.ft-odds').textContent, F.d('everyTouch'));
+    schk('and that is not what a percentage looks like',
+         F.d('everyTouch') !== `${Math.round(F.crackerChance * 1000) / 10}%`, true);
+    F.relics = []; F.applyRelics(); F.closeInfo(); F.resetRun();
+  })();
+
   // ---- the odds tab has to show what the build actually did ----
   // A panel that prints constants is worse than no panel: it looks like an answer. Each row
   // is checked by CHANGING the thing and watching that row change with it.

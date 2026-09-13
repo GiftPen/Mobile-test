@@ -556,6 +556,11 @@
   .ft-score.up { color: #7ee0a0; }        /* a relic or trait raised it */
   .ft-odds { color: #ffd23e; }
   .ft-odds.up { color: #ffa94d; }
+  /* the obstacle sits under the fruit and must not be mistaken for one */
+  .ftab-row.ftab-obst { background: #241d15; border: 1px solid #4a3a22; margin-top: 10px; }
+  .ftab-row.ftab-obst .ft-name { color: #e0b878; }
+  .ftab-row.ftab-obst .ft-score { color: #ffcf7a; }
+  .ftab-obst-ic { font-size: 20px; text-align: center; }
   /* every other number a relic can move, in one place, with what it started from */
   .st-head { padding: 14px 2px 6px; font-size: 12px; font-weight: 800; color: var(--muted); }
   .st-row { display: flex; align-items: baseline; gap: 8px; padding: 6px 12px; margin-bottom: 4px;
@@ -2250,6 +2255,9 @@
       tutSkip: "건너뛰기",
       tutReplay: "튜토리얼 다시 보기",
       tabHelp: "❔ 도움말",
+      cracker: "크래커",
+      everyTouch: "매 터치",
+      everyNTouch: n => `${n}터치마다`,
       coinToScore: n => `스테이지를 클리어할 때 보유 코인 1개당 점수 +${n}`,
       goldMine: (z, c) => `보너스 영역 +${z}칸 · 영역 안에서 터뜨리면 코인 +${c} · 코인 과일 확률 +5%p`,
       goldenCity: (z, c) => `보너스 영역 +${z}칸 · 영역 안에서 터뜨리면 코인 +${c} · 영역 점수 ×2 · 코인 과일 확률 +10%p`,
@@ -2273,7 +2281,7 @@
       crackerKing: () => "터치마다 크래커가 1개 생기고, 부술 때마다 크래커 점수가 2배가 됩니다",
       fruitBoost: (f, n) => `${FRUIT_KO[f]} 점수 ×${n1(n)}`,
       allBoost: n => `모든 과일 점수 ×${n1(n)}`,
-      resonance: () => "같은 계열 유물이 상점에 더 자주 등장합니다",
+      resonance: () => "내가 가진 유물과 같은 계열의 유물이 상점에 더 자주 등장합니다",
       statHead: "내 수치",
       statCoinFruit: "코인 달린 과일",
       statCracker: "크래커 등장",
@@ -2598,6 +2606,9 @@
       tutSkip: "Skip",
       tutReplay: "Replay tutorial",
       tabHelp: "❔ Help",
+      cracker: "Cracker",
+      everyTouch: "every touch",
+      everyNTouch: n => `every ${n}`,
       coinToScore: n => `Clearing a stage scores +${n} per coin held`,
       goldMine: (z, c) => `+${z} bonus-zone cells · +${c} coin inside it · coin fruit +5%p`,
       goldenCity: (z, c) => `+${z} bonus-zone cells · +${c} coin inside it · zone score ×2 · coin fruit +10%p`,
@@ -2621,7 +2632,7 @@
       crackerKing: () => "A cracker on every touch, and each one broken doubles what the next is worth",
       fruitBoost: (f, n) => `${FRUIT_EN[f]} score ×${n1(n)}`,
       allBoost: n => `Every fruit ×${n1(n)}`,
-      resonance: () => "Relics like the ones you own show up more often",
+      resonance: () => "Relics of the same kind as the ones you hold show up more often",
       statHead: "Your numbers",
       statCoinFruit: "Coin-carrying fruit",
       statCracker: "Cracker spawn",
@@ -2945,6 +2956,9 @@
       tutSkip: "スキップ",
       tutReplay: "チュートリアルをもう一度",
       tabHelp: "❔ ヘルプ",
+      cracker: "クラッカー",
+      everyTouch: "毎タッチ",
+      everyNTouch: n => `${n}タッチごと`,
       coinToScore: n => `ステージクリア時、所持コイン1枚につきスコア +${n}`,
       goldMine: (z, c) => `ボーナス領域 +${z}マス · 領域内で割ると コイン +${c} · コイン付き +5%p`,
       goldenCity: (z, c) => `ボーナス領域 +${z}マス · 領域内で割ると コイン +${c} · 領域スコア ×2 · コイン付き +10%p`,
@@ -2968,7 +2982,7 @@
       crackerKing: () => "タッチごとにクラッカーが出て、割るたびにクラッカーのスコアが2倍になります",
       fruitBoost: (f, n) => `${FRUIT_JA[f]} スコア ×${n1(n)}`,
       allBoost: n => `全フルーツのスコア ×${n1(n)}`,
-      resonance: () => "手持ちと同じ系統のレリックが出やすくなります",
+      resonance: () => "手持ちのレリックと同じ系統のものが ショップに出やすくなります",
       statHead: "あなたの数値",
       statCoinFruit: "コイン付きフルーツ",
       statCracker: "クラッカー出現",
@@ -3292,6 +3306,9 @@
       tutSkip: "跳过",
       tutReplay: "重看教程",
       tabHelp: "❔ 帮助",
+      cracker: "饼干",
+      everyTouch: "每次触碰",
+      everyNTouch: n => `每 ${n} 次`,
       coinToScore: n => `通关时，每持有 1 金币得分 +${n}`,
       goldMine: (z, c) => `奖励区域 +${z} 格 · 区域内消除金币 +${c} · 带金币水果 +5%p`,
       goldenCity: (z, c) => `奖励区域 +${z} 格 · 区域内消除金币 +${c} · 区域分数 ×2 · 带金币水果 +10%p`,
@@ -3315,7 +3332,7 @@
       crackerKing: () => "每次触碰都出现饼干，每打碎一块，饼干分数翻倍",
       fruitBoost: (f, n) => `${FRUIT_ZH[f]} 分数 ×${n1(n)}`,
       allBoost: n => `所有水果分数 ×${n1(n)}`,
-      resonance: () => "与持有遗物同类的遗物更常出现",
+      resonance: () => "与你持有的遗物同类的遗物在商店更常出现",
       statHead: "我的数值",
       statCoinFruit: "带金币水果",
       statCracker: "饼干出现",
@@ -5866,6 +5883,23 @@
         od.textContent = `${p[i].toFixed(1)}%`;
         d.append(fruitIconEl(i), nm, sc, od);
         body.appendChild(d);
+      }
+      // the obstacle, under the fruit it is not: what one is worth, and how often it turns up
+      if (crackerChance > 0 || crackerEvery || crackerLevel() >= 1) {
+        const cr = document.createElement("div");
+        cr.className = "ftab-row ftab-obst";
+        const ic = document.createElement("span"); ic.className = "ftab-obst-ic"; ic.textContent = "🍪";
+        const nm = document.createElement("span"); nm.className = "ft-name"; nm.textContent = d("cracker");
+        const sc = document.createElement("span");
+        sc.className = "ft-score" + (crackerValue() > CRACKER_SCORE ? " up" : "");
+        sc.textContent = String(L("points") instanceof Function ? L("points")(crackerValue()) : crackerValue());
+        const od = document.createElement("span");
+        od.className = "ft-odds" + (crackerChance > 0 || crackerEvery ? " up" : "");
+        od.textContent = crackerEvery ? d("everyTouch")
+          : crackerChance > 0 ? `${Math.round(crackerChance * 1000) / 10}%`
+          : d("everyNTouch", CRACKER_EVERY);
+        cr.append(ic, nm, sc, od);
+        body.appendChild(cr);
       }
       renderStats(body);
     }
