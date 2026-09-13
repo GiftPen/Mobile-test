@@ -842,7 +842,10 @@
   const MAX_COLORS = 7;        // cap
   const START_BUDS = 10;
   const SPAWN_BASE = 1;        // buds spawned per move at score 0
-  const SPAWN_MAX = 4;         // cap
+  // Arcade's curve stops here. Rush does NOT read it: rush spawns a flat base plus whatever
+  // relics and traits add, so this number is an arcade knob only -- raising it adds arcade
+  // difficulty levels (MAX_LEVEL is computed from where the knobs cap) and nothing else.
+  const SPAWN_MAX = 4;
   // one staged difficulty step per MILESTONE_STEP points, cycling:
   //   brick(+HP) -> +1 color -> +1 spawn -> brick(+HP) -> ...
   const MILESTONE_STEP = 1000; // TEST value (now); SHIP = 5000 points per difficulty step
@@ -898,7 +901,7 @@
   // ---- Star Rush stage curve (DRAFT numbers, meant to be tuned by feel) ----
   const STAGES_PER_ROUND = 3;  // a round is 1-1, 1-2, 1-3; traits land when a round ends
   const RUSH_TOUCHES   = 15;   // touches granted per stage
-  const RUSH_SPAWNS    = 2;    // per turn. base 2 -> relic +1 -> trait +1 tops out at 4
+  const RUSH_SPAWNS    = 3;    // per turn. base 3 -> relic +1 -> trait +1 reaches 5
   const RUSH_BUDS      = 18;   // opening board. a one-off injection, NOT a substitute for
                                // spawns/turn: it gets consumed and the board drains again
   // Quota climbs in two tiers so the profile can be shaped: gentle steps inside a round,
@@ -7639,12 +7642,12 @@
   requestAnimationFrame(draw);
 })();
 </script>
-<script>window.__RUNS=8;window.__STRATS=["none", "greedy", "coin", "fruit", "cracker", "combo"];</script><script>
+<script>window.__RUNS=3;window.__STRATS=["coin"];</script><script>
 const sleep = ms => new Promise(r => setTimeout(r, ms));
 window.addEventListener('load', () => setTimeout(async () => {
  try {
   const F = window.__fs, $ = id => document.getElementById(id), cv = $('game');
-  const RUNS = window.__RUNS, STRATS = window.__STRATS, MAX_STAGE = 30;
+  const RUNS = window.__RUNS, STRATS = window.__STRATS, MAX_STAGE = 20;
   const shown = id => !$(id).classList.contains('hidden');
 
   // rAF never fires here, so the board is advanced by hand and then waited on
@@ -7718,7 +7721,7 @@ window.addEventListener('load', () => setTimeout(async () => {
       let coinsPeak = 0, coinsEarned = 0, lastCoins = 0, spent = 0, bought = 0, shops = 0;
       const perStage = [];
       let guard = 0;
-      while (F.running && F.stage <= MAX_STAGE && guard++ < 900) {
+      while (F.running && F.stage <= MAX_STAGE && guard++ < 700) {
         if (F.coins > lastCoins) coinsEarned += F.coins - lastCoins;
         else spent += lastCoins - F.coins;
         lastCoins = F.coins;

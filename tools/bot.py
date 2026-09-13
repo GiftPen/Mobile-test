@@ -20,7 +20,7 @@ const sleep = ms => new Promise(r => setTimeout(r, ms));
 window.addEventListener('load', () => setTimeout(async () => {
  try {
   const F = window.__fs, $ = id => document.getElementById(id), cv = $('game');
-  const RUNS = window.__RUNS, STRATS = window.__STRATS, MAX_STAGE = 30;
+  const RUNS = window.__RUNS, STRATS = window.__STRATS, MAX_STAGE = 20;
   const shown = id => !$(id).classList.contains('hidden');
 
   // rAF never fires here, so the board is advanced by hand and then waited on
@@ -94,7 +94,7 @@ window.addEventListener('load', () => setTimeout(async () => {
       let coinsPeak = 0, coinsEarned = 0, lastCoins = 0, spent = 0, bought = 0, shops = 0;
       const perStage = [];
       let guard = 0;
-      while (F.running && F.stage <= MAX_STAGE && guard++ < 900) {
+      while (F.running && F.stage <= MAX_STAGE && guard++ < 700) {
         if (F.coins > lastCoins) coinsEarned += F.coins - lastCoins;
         else spent += lastCoins - F.coins;
         lastCoins = F.coins;
@@ -156,35 +156,51 @@ window.addEventListener('load', () => setTimeout(async () => {
 </script>"""
 
 os.chdir(os.path.dirname(os.path.abspath(__file__)) + '/..')
-HEAD = f"<script>window.__RUNS={RUNS};window.__STRATS={json.dumps(STRATS)};</script>"
-open('_bot.html','w',encoding='utf-8').write(
-    open('index.html',encoding='utf-8').read().replace('</body>', HEAD + TEST + '</body>'))
-try:
-    out = subprocess.run(['/Applications/Google Chrome.app/Contents/MacOS/Google Chrome',
-        '--headless','--disable-gpu','--no-first-run','--window-size=430,932',
-        '--virtual-time-budget=900000','--dump-dom','http://localhost:8899/_bot.html?test=1'],
-        capture_output=True, text=True, timeout=1800).stdout
-finally:
-    os.remove('_bot.html')
 
-m = re.search(r'RESULT (\[.*\])</title>', out, re.S)
-if not m:
-    t = re.search(r'<title>(.*?)</title>', out, re.S)
-    print('NO RESULT', t.group(1)[:300] if t else ''); sys.exit(1)
-rows = json.loads(m.group(1))
+def play(strat, runs):
+    """One Chrome per strategy. A single sweep that overruns yields nothing at all, and
+    --dump-dom has no way to stream partial results out."""
+    head = f"<script>window.__RUNS={runs};window.__STRATS={json.dumps([strat])};</script>"
+    open('_bot.html','w',encoding='utf-8').write(
+        open('index.html',encoding='utf-8').read().replace('</body>', head + TEST + '</body>'))
+    try:
+        out = subprocess.run(['/Applications/Google Chrome.app/Contents/MacOS/Google Chrome',
+            '--headless','--disable-gpu','--no-first-run','--window-size=430,932',
+            '--virtual-time-budget=600000','--dump-dom','http://localhost:8899/_bot.html?test=1'],
+            capture_output=True, text=True, timeout=900).stdout
+    except subprocess.TimeoutExpired:
+        return None
+    finally:
+        os.remove('_bot.html')
+    m = re.search(r'RESULT (\[.*\])</title>', out, re.S)
+    if not m:
+        t = re.search(r'<title>(.*?)</title>', out, re.S)
+        print(f'  {strat}: 결과 없음 — ' + (t.group(1)[:120] if t else ''))
+        return None
+    return json.loads(m.group(1))
 
 def med(v): return round(statistics.median(v), 1) if v else 0
-print(f"봇 {RUNS}판 × 전략 {len(STRATS)}종\n")
-print(f"{'전략':<9}{'도달(중앙)':>10}{'최고':>7}{'점수(중앙)':>12}{'코인 최대':>10}{'번 코인':>9}{'쓴 코인':>9}{'유물':>6}{'특성':>6}")
+
+print(f"봇 {RUNS}판 × 전략 {len(STRATS)}종")
+print(f"\n{'전략':<9}{'도달(중앙)':>10}{'최고':>7}{'점수(중앙)':>12}{'코인최대':>10}{'번코인':>8}{'쓴코인':>8}{'유물':>6}{'특성':>6}")
+rows = []
 for s in STRATS:
-    r = [x for x in rows if x['strat'] == s]
-    if not r: continue
+    r = play(s, RUNS)
+    if not r:
+        print(f"{s:<9}{'(시간 초과)':>10}")
+        continue
+    rows += r
     print(f"{s:<9}{med([x['stage'] for x in r]):>10}{max(x['stage'] for x in r):>7}"
           f"{med([x['score'] for x in r]):>12}{med([x['coinsPeak'] for x in r]):>10}"
-          f"{med([x['coinsEarned'] for x in r]):>9}{med([x['spent'] for x in r]):>9}"
+          f"{med([x['coinsEarned'] for x in r]):>8}{med([x['spent'] for x in r]):>8}"
           f"{med([x['relics'] for x in r]):>6}{med([x['traits'] for x in r]):>6}")
+
 coin = [x for x in rows if x['strat'] == 'coin']
 if coin:
-    print("\n코인 빌드 스테이지별 보유 코인:")
-    for x in coin[:4]:
-        print('  ' + ' · '.join(f"{p['st']} {p['coins']}코인" for p in x['perStage'][:8]))
+    print("\n코인 빌드, 스테이지별 보유 코인:")
+    for x in coin[:5]:
+        line = ' · '.join(f"{p['st']} {p['coins']}" for p in x['perStage'][:8])
+        print(f"  {x['label']}까지 · {line}")
+if rows:
+    json.dump(rows, open('/tmp/bot-last.json','w'))
+    print(f"\n원자료 {len(rows)}판 -> /tmp/bot-last.json")

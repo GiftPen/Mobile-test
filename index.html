@@ -569,6 +569,8 @@
   .inf-body span { font-size: 11px; color: var(--muted); line-height: 1.35; }
   .inf-num { font-size: 13px; font-weight: 800; color: #ffd23e; white-space: nowrap; }
   /* green, and a plus sign: this hands coins back, it does not charge for them */
+  /* armed to sell: the second tap is the one that does it, so it has to look different */
+  .inf-drop.armed { background: #e5484d !important; color: #fff !important; }
   .inf-drop { margin: 0 0 0 8px; padding: 6px 10px; font-size: 11px; font-weight: 800;
     border-radius: 999px; background: #1e3328; color: #7ee0a0; box-shadow: none;
     border: 1px solid rgba(126,224,160,.35); font-family: inherit; white-space: nowrap; }
@@ -635,7 +637,7 @@
         <span class="shop-title" data-i18n="traitPick">특성 선택</span>
         <span>
           <button id="tr-info" class="ghost-btn">📜</button>
-          <button id="tr-reroll" class="ghost-btn">🔄 1</button>
+          <button id="tr-reroll" class="ghost-btn">🔄 <i class="cn"></i><b id="tr-reroll-cost">3</b></button>
           <button id="tr-double" class="ghost-btn hidden"><span data-i18n="doubleChip">✨ 2배</span> <b id="tr-double-n">1</b></button>
         </span>
       </div>
@@ -2299,6 +2301,7 @@
       tutSkip: "건너뛰기",
       tutReplay: "튜토리얼 다시 보기",
       tabHelp: "❔ 도움말",
+      sellSure: "정말 팔기?",
       stackAllPop: n => `과일을 터뜨릴 때마다 그 과일 점수 +${n}`,
       bakerTrait: (pct, n) => `새 과일의 ${pct}%가 크래커 · 크래커 점수 +${n}`,
       sharpEye: (f, n) => `참새 ${f}마리 · 아이템이 ${n}개 적게 터뜨려도 생깁니다`,
@@ -2638,6 +2641,7 @@
       tutSkip: "Skip",
       tutReplay: "Replay tutorial",
       tabHelp: "❔ Help",
+      sellSure: "Sell it?",
       stackAllPop: n => `Every fruit popped raises that fruit by +${n}`,
       bakerTrait: (pct, n) => `${pct}% of new fruit are crackers · cracker score +${n}`,
       sharpEye: (f, n) => `${f} sparrows · items need ${n} fewer pops`,
@@ -2976,6 +2980,7 @@
       tutSkip: "スキップ",
       tutReplay: "チュートリアルをもう一度",
       tabHelp: "❔ ヘルプ",
+      sellSure: "本当に売る?",
       stackAllPop: n => `フルーツを割るたびに そのフルーツのスコア +${n}`,
       bakerTrait: (pct, n) => `新しいフルーツの${pct}%がクラッカー · クラッカーのスコア +${n}`,
       sharpEye: (f, n) => `スズメ ${f} 羽 · アイテムが ${n} 個 少なく割っても出る`,
@@ -3314,6 +3319,7 @@
       tutSkip: "跳过",
       tutReplay: "重看教程",
       tabHelp: "❔ 帮助",
+      sellSure: "确定卖出?",
       stackAllPop: n => `每消除一个水果，该水果分数 +${n}`,
       bakerTrait: (pct, n) => `新水果中 ${pct}% 变饼干 · 饼干分数 +${n}`,
       sharpEye: (f, n) => `麻雀 ${f} 只 · 道具少消除 ${n} 个也能出现`,
@@ -5530,6 +5536,7 @@
     announceOffers();
   }
   function closeShop() {
+    dropArmed = null;                  // an arming does not survive leaving the shop
     $sh("shop").classList.add("hidden");
     syncBanner();
     // a trait pick lands every couple of stages, right after the shop
@@ -5621,7 +5628,9 @@
 
   // ---- trait picks, every couple of stages ----
   // shop runs after every stage; traits only when a round has just ended (…-3 cleared)
-  let traitOffers = [], graftArmed = false, traitRerolls = 0;
+  // the same deal the shop offers: pay for another three, and pay more the next time. A
+  // single free look meant the choice was "reroll now or waste it", which is not a choice.
+  let traitOffers = [], graftArmed = false, traitReroll = REROLL_COST;
 
   // Grade first, then a trait from that grade -- the same rule the shop uses, so the share
   // of legendary picks is what TRAIT_ODDS says and does not drift as traits are added.
@@ -5653,15 +5662,15 @@
     // as the charge being broken. The toggle stays -- but now it is opting OUT to save the
     // charge for a better round, which is the decision actually worth making.
     graftArmed = doubles > 0;
-    traitRerolls = 1;                   // one free look at a different three
+    traitReroll = REROLL_COST;          // a fresh price every trait screen, like the shop
 
     renderTraits();
     $sh("traits").classList.remove("hidden");
   }
   function renderTraits() {
     const rr = $sh("tr-reroll");
-    rr.disabled = traitRerolls <= 0;
-    rr.textContent = `🔄 ${traitRerolls}`;   // a count, like the shop's price -- "사용함" was blunt
+    rr.disabled = coins < traitReroll || !traitOffers.length;
+    $sh("tr-reroll-cost").textContent = traitReroll;
     const btn = $sh("tr-double");
     // the charge only means anything if something on offer can actually be scaled
     const anyScalable = traitOffers.some(id => TRAITS[id].scalable);
@@ -5783,7 +5792,8 @@
           act.className = "inf-drop";
           // "버리기 🪙5" read as though it cost 5. Say what actually happens: you sell it
           // and money comes back.
-          setCoinText(act, d("sellFor", Math.floor(R.price / 2)));
+          setCoinText(act, dropArmed === id ? d("sellSure") : d("sellFor", Math.floor(R.price / 2)));
+          act.classList.toggle("armed", dropArmed === id);
           act.addEventListener("click", e => { e.stopPropagation(); discardRelic(i); });
         }
         const left = relicLife[id];
@@ -5906,9 +5916,14 @@
       body.appendChild(r);
     }
   }
+  // Selling is permanent and pays half, and the button sits in a list you scroll past. One
+  // tap arms it and says so; the second sells. Anything else disarms it.
+  let dropArmed = null;
   function discardRelic(i) {
     const id = relics[i], R = RELICS[id];
     if (!R || $sh("shop").classList.contains("hidden")) return;
+    if (dropArmed !== id) { dropArmed = id; renderInfo(); return; }
+    dropArmed = null;
     relics.splice(i, 1);
     delete relicLife[id];
     coins += Math.floor(R.price / 2);          // half back -- never enough to churn for profit
@@ -7448,8 +7463,10 @@
   document.getElementById("sh-info").addEventListener("click", () => openInfo("relics"));
   document.getElementById("tr-info").addEventListener("click", () => openInfo("fruits"));
   document.getElementById("tr-reroll").addEventListener("click", () => {
-    if (traitRerolls <= 0) return;
-    traitRerolls--;
+    if (coins < traitReroll || !traitOffers.length) return;
+    coins -= traitReroll; coinsShown = coins;
+    coinsSpent += traitReroll;          // 탕진 counts it, the same as any other spend
+    traitReroll += 2;                   // rerolling again on the same screen costs more
     SFX.play("reroll");
     traitOffers = rollTraits();
     graftArmed = doubles > 0;           // a fresh three, still armed -- rerolling is not opting out
@@ -7517,15 +7534,17 @@
       get relicLife() { return relicLife; }, set relicLife(v) { relicLife = v; },
       get fruitFlat() { return fruitFlat; },
       openShop, closeShop, buyRelic, discardRelic, renderShop, rollOffers,
-      openInfo, closeInfo, renderInfo,
+      openInfo, closeInfo, renderInfo, discardRelic,
+      get dropArmed() { return dropArmed; }, set dropArmed(v) { dropArmed = v; },
       endStageEarly, leftoverCoins, takeCoin, updateHUD, closeStage, gameOver, COIN_FRUIT_CHANCE, COIN_PER_LEFTOVER, COIN_PAYOUT,
       stageClear,
       TRAITS, STAGES_PER_ROUND, stageLabel, traitEffects, rollTraits, openTraits, pickTrait, renderTraits,
       TRAIT_ODDS, traitTier, get unknownTraitStats() { return [...unknownTraitStats]; },
       TRAIT_COMPOUND_STATS,
       SHOP_OFFERS, SHOP_OFFERS_MAX, shelfSize,
+      REROLL_COST,
       get shopSold() { return shopSold; },
-      get traitRerolls() { return traitRerolls; }, set traitRerolls(v) { traitRerolls = v; },
+      get traitReroll() { return traitReroll; }, set traitReroll(v) { traitReroll = v; },
       get traits() { return traits; }, set traits(v) { traits = v; },
       get doubles() { return doubles; }, set doubles(v) { doubles = v; },
       get offerBonus() { return offerBonus; },

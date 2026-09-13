@@ -321,6 +321,8 @@ window.addEventListener('load', () => setTimeout(() => {
   chk('discard blocked outside the shop', F.relics.length, 2);
   F.openShop();
   F.discardRelic(0);
+  chk('one tap only arms it', F.relics.length, 2);
+  F.discardRelic(0);                      // the second tap is the one that sells
   chk('discard removes it', F.relics.map(x=>x), ['stamina']);
   chk('discard refunds half', F.coins, beforeDrop + Math.floor(price / 2));
   chk('discard undoes its effect', F.spawnCount(0), F.MODES.rush.spawns(0));
@@ -545,10 +547,25 @@ window.addEventListener('load', () => setTimeout(() => {
   // ...by exactly what the relic itself says it does, whatever that is tuned to
   schk('the boost matched the relic while held', withFocus, F.RELICS.focus.modify.pop(without));
 
-  // selling one stops its clock too
+  // Selling is permanent and pays half, so it takes two taps: the first arms, the second
+  // sells. A mis-tap in a list you scroll past must not cost a relic.
   F.resetRun(); F.mode = 'rush'; F.coins = 200;
-  F.buyRelic('bonanza'); F.openShop(); F.discardRelic(0); F.closeShop();
+  F.buyRelic('bonanza'); F.openShop();
+  F.discardRelic(0);
+  schk('one tap does not sell', F.relics.includes('bonanza'), true);
+  schk('but it arms, and says which one', F.dropArmed, 'bonanza');
+  F.discardRelic(0);
+  schk('the second tap sells', F.relics.includes('bonanza'), false);
   schk('sold: clock cleared', F.relicLife.bonanza, undefined);
+  schk('and it disarms again', F.dropArmed, null);
+  // leaving the shop forgets the arming, so it cannot carry over into the next one
+  F.coins = 200; F.buyRelic('bonanza');
+  F.discardRelic(0);
+  schk('armed again', F.dropArmed, 'bonanza');
+  F.closeShop(); F.openShop(); F.renderInfo();
+  schk('closing the shop disarms it', F.dropArmed, null);
+  F.discardRelic(0); F.discardRelic(0);
+  F.closeShop();
 
   // flat points from a relic are derived, so they leave with it
   F.resetRun(); F.mode = 'rush'; F.coins = 200;
@@ -556,7 +573,7 @@ window.addEventListener('load', () => setTimeout(() => {
   F.buyRelic('one_cherry');
   const withFlat = F.fruitScore(0);
   schk('flat points apply', withFlat > cherryBase, true);
-  F.openShop(); F.discardRelic(0); F.closeShop();
+  F.openShop(); F.discardRelic(0); F.discardRelic(0); F.closeShop();
   schk('flat points leave with it', F.fruitScore(0), cherryBase);
 
   // the first shop has to be affordable on a first-stage payout
@@ -585,19 +602,36 @@ window.addEventListener('load', () => setTimeout(() => {
   schk('keen eye adds one', F.shopOffers.length, F.SHOP_OFFERS + 1);
   F.closeShop();
 
-  // one free trait reroll per screen
+  // the trait reroll is the shop's deal now: it costs coins, and more each time
   F.resetRun(); F.mode = 'rush';
+  F.coins = 100;
   F.openTraits();
-  schk('a free reroll is granted', F.traitRerolls, 1);
+  schk('the trait reroll starts at the shop price', F.traitReroll, F.REROLL_COST);
   const before = F.traitOffers.slice();
+  const paidBefore = F.coins;
   document.getElementById('tr-reroll').click();
-  schk('reroll spent', F.traitRerolls, 0);
-  schk('and it is disabled after', document.getElementById('tr-reroll').disabled, true);
+  schk('it charges', F.coins, paidBefore - F.REROLL_COST);
+  schk('and the next one costs more', F.traitReroll > F.REROLL_COST, true);
+  const second = F.traitReroll;
   document.getElementById('tr-reroll').click();
-  schk('a second click does nothing', F.traitRerolls, 0);
+  schk('a second reroll charges the higher price', F.coins, paidBefore - F.REROLL_COST - second);
+  // broke: the button refuses rather than going into debt
+  F.coins = 0; F.renderTraits();
+  schk('with no coins it is disabled', document.getElementById('tr-reroll').disabled, true);
+  const brokeOffers = F.traitOffers.slice();
+  document.getElementById('tr-reroll').click();
+  schk('and clicking it changes nothing', F.traitOffers, brokeOffers);
+  schk('and costs nothing', F.coins, 0);
+  // ...and the handler refuses on its own, not only because the button was disabled: the
+  // disabled attribute is a hint, the guard is the rule
+  document.getElementById('tr-reroll').disabled = false;
+  document.getElementById('tr-reroll').click();
+  schk('the handler refuses too, not just the button', F.traitOffers, brokeOffers);
+  schk('and still costs nothing', F.coins, 0);
+  F.coins = 100;
   F.pickTrait(F.traitOffers[0]);
   F.openTraits();
-  schk('the next screen grants a fresh one', F.traitRerolls, 1);
+  schk('the next screen starts from the base price again', F.traitReroll, F.REROLL_COST);
   document.getElementById('traits').classList.add('hidden');
   F.resetRun(); F.mode = 'arcade';
 
