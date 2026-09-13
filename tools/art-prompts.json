@@ -121,7 +121,15 @@
     "cracker_score": "a square cracker with one bite taken out, crumbs flying, sparkles around it",
     "cracker_coin": "a broken cracker with gold coins tumbling out of the break",
     "crumb_blast": "a cracker shattering outward in a burst of crumbs and shards",
-    "cracker_king": "a tall stack of crackers wearing a small gold crown on top"
+    "cracker_king": "a tall stack of crackers wearing a small gold crown on top",
+    "cherry_pile": "a heaped mound of cherries spilling over itself, one on top catching the light",
+    "citrus_plate": "a round plate holding orange and lemon slices fanned together",
+    "kiwi_seed": "a single kiwi seed sprouting one small green shoot from dark soil",
+    "lemon_spoon": "a spoon heaped with bright lemon zest, a curl of peel balanced on it",
+    "grape_bunch2": "an oversized dense bunch of grapes, far more than a normal bunch",
+    "peach_soft": "an overripe peach split open, juice bursting outward in a ring",
+    "banana_grove2": "a dense cluster of banana hands growing from one thick stem",
+    "golden_reap": "a sickle cutting through a sheaf of wheat that is raining gold coins"
   },
   "traits": {
     "cherry_taste": "a cherry inside a laurel wreath badge",

@@ -165,6 +165,112 @@ window.addEventListener('load', async () => {
       Math.abs(placedCoin / placedPlain - 1.5) < 0.02, true);
   F.relics = []; F.applyRelics(); F.resetEffects();
 
+  // ---- 전설 과일: seven rules, each driven on a real board ----
+  // Wait for the board to go quiet before setting the next case up: a chain left running
+  // from the previous one keeps mutating the grid underneath, which is how this suite
+  // started failing one case in three.
+  const settleBoard = async () => {
+    for (let i = 0; i < 120 && (F.busy || F.links.length || F.birds.length); i++) {
+      F.draw(); await sleep(12);
+    }
+  };
+  // Watch a set of cells for the whole resolution: a cleared cell can be refilled by the
+  // end-of-turn spawner, so asking "is it empty now" measures the spawner, not the blast.
+  const watch = cells => {
+    const seen = new Set();
+    return { seen, tick: () => { for (const [r, c] of cells)
+      if (F.grid[r][c] === -1) seen.add(r + ',' + c); } };
+  };
+  const pumpWatch = async (w, n, g) => {
+    for (let i = 0; i < n; i++) { F.draw(); w.tick(); await sleep(g || 12); }
+    w.tick();
+  };
+  const place = async (relics, build, cells) => {
+    await settleBoard();
+    F.mode = 'rush'; F.resetRun(); F.relics = relics.slice(); F.applyRelics();
+    clearBoard();
+    for (let r = 0; r < F.ROWS; r++) for (let c = 0; c < F.COLS; c++) F.coinCell[r][c] = 0;
+    build();
+    F.score = 0; F.streak = 0; F.busy = false;
+    const rc = cv.getBoundingClientRect();
+    const px = rc.left + 4.5 * rc.width / F.COLS, py = rc.top + 3.5 * rc.height / F.ROWS;
+    cv.dispatchEvent(new PointerEvent('pointerdown', {clientX:px, clientY:py, bubbles:true}));
+    cv.dispatchEvent(new PointerEvent('pointerup',   {clientX:px, clientY:py, bubbles:true}));
+    const w = watch(cells || []);
+    await pumpWatch(w, 120, 12);     // places into (3,4)
+    await settleBoard();
+    return w.seen;
+  };
+  const trio = col => () => {
+    for (const [r, c] of [[3,5],[4,4],[4,5]]) F.grid[r][c] = col;
+    F.nextColor = col; F.nextColor2 = col;
+  };
+
+  // 물렁 복숭아 — takes the ring, whatever colour it is
+  const ring = [[2,3],[2,4],[2,5],[3,3]];
+  const peachBuild = () => { trio(5)(); for (const [r,c] of ring) F.grid[r][c] = 6; };
+  const plainRing = await place([], peachBuild, ring);
+  chk('a plain peach leaves its neighbours', [...plainRing], []);
+  const burstRing = await place(['peach_soft'], peachBuild, ring);
+  chk('물렁 복숭아 takes the ring with it', burstRing.size, ring.length);
+
+  // 감귤 한 접시 — orange and lemon are one colour to the chain
+  const lemons = [[3,6],[4,6]];
+  const citrusBuild = () => { trio(1)(); for (const [r,c] of lemons) F.grid[r][c] = 3; };
+  const plainLem = await place([], citrusBuild, lemons);
+  chk('lemons are not orange by default', [...plainLem], []);
+  const fusedLem = await place(['citrus_plate'], citrusBuild, lemons);
+  chk('감귤 한 접시 pops the lemons too', fusedLem.size, lemons.length);
+
+  // 키위 씨앗 — the cell is not empty, it is counting down
+  await place(['kiwi_seed'], trio(2));
+  const seeds = [];
+  for (let r = 0; r < F.ROWS; r++) for (let c = 0; c < F.COLS; c++)
+    if (F.grid[r][c] === F.SEED) seeds.push([r, c]);
+  chk('a popped kiwi leaves seeds', seeds.length > 0, true);
+  chk('and a seed is not an empty cell',
+      F.emptyCells().some(([r, c]) => F.grid[r][c] === F.SEED), false);
+  // a missing seed must FAIL, not throw: a throw here aborts the suite and hides every
+  // check after it
+  const [sr, sc] = seeds[0] || [0, 0];
+  chk('the seed starts with its full count', F.hp[sr][sc], F.SEED_TOUCHES);
+  // ripen it: each touch ticks every seed down
+  for (let i = 0; i < F.SEED_TOUCHES; i++) {
+    const rc2 = cv.getBoundingClientRect();
+    const fx = F.emptyCells()[0];
+    const ex = rc2.left + (fx[1] + 0.5) * rc2.width / F.COLS;
+    const ey = rc2.top + (fx[0] + 0.5) * rc2.height / F.ROWS;
+    cv.dispatchEvent(new PointerEvent('pointerdown', {clientX:ex, clientY:ey, bubbles:true}));
+    cv.dispatchEvent(new PointerEvent('pointerup',   {clientX:ex, clientY:ey, bubbles:true}));
+    await pump(40, 12);
+  }
+  chk('and it grows back into a kiwi', F.grid[sr][sc], 2);
+
+  // 바나나 군락 — converts what it did not take. Counted on NAMED cells: every turn spawns
+  // fresh fruit, so a board-wide tally of bananas measures the spawner, not the relic.
+  const nbrs = [[2,3],[2,4],[2,5],[3,3],[3,6]];
+  const cherryNbrs = () => { trio(6)(); for (const [r, c] of nbrs) F.grid[r][c] = 0; };
+  await place([], cherryNbrs);
+  chk('a plain banana converts nothing', nbrs.filter(([r,c]) => F.grid[r][c] === 6), []);
+  await place(['banana_grove2'], cherryNbrs);
+  chk('바나나 군락 converts its neighbours',
+      nbrs.filter(([r,c]) => F.grid[r][c] === 6).length >= 3, true);
+  chk('and only as many as it says',
+      nbrs.filter(([r,c]) => F.grid[r][c] === 6).length <= F.bananaSpread + 3, true);
+
+  // 체리 더미 — each cherry popped raises cherries, for this stage only
+  F.mode = 'rush'; F.resetRun(); F.relics = ['cherry_pile']; F.applyRelics();
+  const cherry0 = F.fruitScore(0);
+  await place(['cherry_pile'], trio(0));
+  const cherry1 = F.fruitScore(0);
+  chk('체리 더미 piles up as cherries pop', cherry1 > cherry0, true);
+  F.stage = 3; F.stageScore = 99999; F.stageClear();
+  await pump(20);
+  chk('and the pile is a stage, not a run', F.fruitScore(0), cherry0);
+  F.closeShop();
+
+  F.relics = []; F.applyRelics(); F.resetEffects();
+
   // ---- crackers: one hit, 100 points, and a whole economy on top ----
   const breakOne = async relics => {
     F.mode = 'rush'; F.resetRun(); F.relics = relics.slice(); F.applyRelics();
@@ -221,11 +327,11 @@ window.addEventListener('load', async () => {
   F.nextColor = 5; F.nextColor2 = 5; F.busy = false;
   const r4 = cv.getBoundingClientRect();
   const x4 = r4.left + 4.5 * r4.width / F.COLS, y4 = r4.top + 3.5 * r4.height / F.ROWS;
+  const wb = watch(bystanders);
   cv.dispatchEvent(new PointerEvent('pointerdown', {clientX:x4, clientY:y4, bubbles:true}));
   cv.dispatchEvent(new PointerEvent('pointerup',   {clientX:x4, clientY:y4, bubbles:true}));
-  await pump(140, 12);
-  chk('가루 폭발 clears the 3x3 around the cracker',
-      bystanders.filter(([r, c]) => F.grid[r][c] !== -1), []);
+  await pumpWatch(wb, 140, 12);
+  chk('가루 폭발 clears the 3x3 around the cracker', wb.seen.size, bystanders.length);
   F.relics = []; F.applyRelics(); F.resetEffects();
 
   // ---- every way a brick can break has to make the brick sound ----

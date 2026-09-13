@@ -864,7 +864,12 @@
   const STREAK_STEP_BASE = 0.1;
   let STREAK_STEP = STREAK_STEP_BASE;
   let STREAK_CAP  = 2.0;
-  function streakMult() { return gridMult(Math.min(1 + streak * STREAK_STEP, STREAK_CAP)); }
+  // 레몬 한 스푼 lifts the ceiling for lemon alone -- the fruit's signature, not a global cap
+  function streakMult(colorIdx) {
+    const raw = 1 + streak * STREAK_STEP;
+    const cap = (lemonFree && colorIdx === 3) ? Infinity : STREAK_CAP;
+    return gridMult(Math.min(raw, cap));
+  }
   const BIRD_THRESHOLD = 4;    // group size 4      -> a bird
   const LINE_THRESHOLD = 5;    // group size 5–6    -> a line bud (clears a row/col)
   const BOMB_THRESHOLD = 7;    // group size 7–9    -> a bomb bud (5x5 blast)
@@ -880,7 +885,9 @@
   // The swoop used to advance a fixed amount per FRAME: ~0.9s at 60Hz and half that on a
   // 120Hz phone, which read as a dart rather than a swoop. Wall clock, and slower.
   const BIRD_FLY_MS = 1050;
-  const BRICK = -2;            // grid value for a brick (wall; only items can clear it)
+  const BRICK = -2;            // grid value for a cracker (wall; only items can clear it)
+  const SEED  = -3;            // a kiwi's leftover: blocks the cell, counts down, grows back
+  const SEED_TOUCHES = 3;      // ...in this many touches
   const BRICK_EVERY = 5;       // one cracker spawns every N touches once unlocked
   const CRACKER_SCORE = 100;   // what breaking one is worth, before relics
   // ---- Star Rush stage curve (DRAFT numbers, meant to be tuned by feel) ----
@@ -1558,6 +1565,8 @@
     chainStep = 0; coinFruitBonus = 0; starCoinMult = 1; payoutMult = 1;
     coinFlat = 0; coinFlatPer = COIN_FLAT_PER; interestPer = 0; interestPct = 0; interestCap = INTEREST_CAP;
     crackerBonus = 0; crackerCoin = 0; crackerBoom = false; crackerDouble = false; crackerEvery = false;
+    peachBurst = false; citrusFuse = false; kiwiSeed = false; lemonFree = false;
+    grapeBulk = 0; bananaSpread = 0; cherryPile = 0; coinFruitMult = 1;
     starEverything = false;
     spendFlat = 0; shopDiscount = 1; resonance = RESONANCE_BASE;
     bombRadiusBonus = 0; itemEase = 0; birdFlock = 1; crossLine = false;
@@ -1565,6 +1574,7 @@
     STREAK_STEP = STREAK_STEP_BASE; STREAK_CAP = 2.0;
     traits = []; doubles = 0; armedItem = null;
     coins = 0; coinsShown = 0; coinsSpent = 0; crackerScore = CRACKER_SCORE; clearCoinFly();
+    stageStack = [0, 0, 0, 0, 0, 0, 0];
     oddsMult = [0, 0, 0, 0, 0, 0, 0];
     fruitMult = [1, 1, 1, 1, 1, 1, 1];
     fruitStack = [0, 0, 0, 0, 0, 0, 0];
@@ -1738,6 +1748,17 @@
   // Cracker economy. crackerScore is ACCUMULATED -- the legendary doubles it as you break
   // them, so it has to survive a recompute and ride along in the save, unlike the flat
   // bonuses beside it which applyRelics rebuilds.
+  // ---- 전설: one signature rule per fruit. Flags are DERIVED (applyRelics rebuilds them);
+  // 체리's pile is per-STAGE accumulated, so it lives with the run, not with the relic list.
+  let peachBurst = false;     // a peach takes its neighbours with it, any colour
+  let citrusFuse = false;     // orange and lemon are one colour to the chain
+  let kiwiSeed = false;       // a popped kiwi leaves a seed that grows back
+  let lemonFree = false;      // lemon ignores the combo cap
+  let grapeBulk = 0;          // a grape cluster counts this much bigger
+  let bananaSpread = 0;       // a popped banana converts this many neighbours
+  let cherryPile = 0;         // +N per cherry popped, this stage
+  let stageStack = [0, 0, 0, 0, 0, 0, 0];   // cherry's running total, reset every stage
+  let coinFruitMult = 1;      // a coin-carrying fruit is worth this much more
   let crackerScore = CRACKER_SCORE;   // ACCUMULATED: the legendary doubles it as you break
   let crackerBonus = 0;        // DERIVED: flat relic bonus, rebuilt by applyRelics
   let crackerCoin = 0;         // coins per cracker broken
@@ -1769,7 +1790,9 @@
   const zoneAt = (r, c) => zoneCells.has(r * COLS + c);
   // a fruit is worth more on a marked cell
   const fruitScoreAt = (r, c, colorIdx) => {
-    const base = fruitScore(colorIdx);
+    let base = fruitScore(colorIdx);
+    // a coin-carrying fruit is a target, not just change: 황금 수확 makes it worth going for
+    if (coinFruitMult !== 1 && coinCell[r] && coinCell[r][c]) base = Math.round(base * coinFruitMult);
     return zoneAt(r, c) ? Math.round(base * zoneMult) : base;
   };
   // Rerolled every stage. Pinned for the whole run they would just become "never place there",
@@ -1868,7 +1891,8 @@
   const spendFlatBonus = () => spendFlat ? Math.floor(coinsSpent / SPEND_PER) * spendFlat : 0;
   function fruitScore(colorIdx) {          // one fruit's worth, before chain/streak
     const base = (FRUIT_POINTS[colorIdx] || 1) + (fruitStack[colorIdx] || 0)
-               + (fruitFlat[colorIdx] || 0) + coinFlatBonus() + spendFlatBonus();
+               + (fruitFlat[colorIdx] || 0) + (stageStack[colorIdx] || 0)
+               + coinFlatBonus() + spendFlatBonus();
     // rounded here so multipliers can never leak a decimal onto the board
     return Math.round(base * (fruitBoost[colorIdx] || 1) * (fruitCrown[colorIdx] || 1)
                            * (fruitMult[colorIdx] || 1));
@@ -1938,9 +1962,11 @@
     fitVal(el, 13);
   }
 
-  function scorePop(basePts, cleared, coined = 0) {
+  function scorePop(basePts, cleared, coined = 0, colorIdx = -1) {
     if (streak > 0) SFX.play("combo", streak);
-    const raw = basePts * chainBonus(cleared) * streakMult();
+    // 포도 송이: the cluster counts bigger than it is, which reaches the item thresholds too
+    const size = colorIdx === 4 ? cleared + grapeBulk : cleared;
+    const raw = basePts * chainBonus(size) * streakMult(colorIdx);
     return addScore(Math.round(modify("pop", raw, { basePts, cleared, coined })));
   }
 
@@ -2042,6 +2068,14 @@
         banana_cellar: "바나나 저장고",
         banana_grove: "바나나 농장",
         banana_hunter: "바나나 사냥꾼",
+        cherry_pile: "체리 더미",
+        citrus_plate: "감귤 한 접시",
+        kiwi_seed: "키위 씨앗",
+        lemon_spoon: "레몬 한 스푼",
+        grape_bunch2: "포도 송이",
+        peach_soft: "물렁 복숭아",
+        banana_grove2: "바나나 군락",
+        golden_reap: "황금 수확",
         crumb_tin: "부스러기 통",
         cracker_score: "바삭한 한 입",
         cracker_coin: "과자 부스러기",
@@ -2214,6 +2248,14 @@
       tutSkip: "건너뛰기",
       tutReplay: "튜토리얼 다시 보기",
       tabHelp: "❔ 도움말",
+      cherryPile: n => `체리를 터뜨릴 때마다 이 스테이지 동안 체리 점수 +${n}`,
+      citrusFuse: () => "오렌지와 레몬이 한 덩어리로 이어집니다",
+      kiwiSeed: () => "키위를 터뜨리면 씨앗이 남습니다",
+      lemonFree: () => "레몬은 콤보 상한이 없습니다",
+      grapeBulk: n => `포도 덩어리를 ${n}만큼 크게 계산합니다`,
+      peachBurst: () => "복숭아는 터질 때 주변 1칸을 함께 터뜨립니다",
+      bananaSpread: n => `바나나를 터뜨리면 인접한 과일 ${n}개가 바나나로 변합니다`,
+      coinFruitMult: n => `코인 달린 과일의 점수 ×${n}`,
       crackerEvery: () => "터치마다 크래커가 1개 생깁니다",
       crackerScore: n => `크래커를 부수면 점수 +${n}`,
       crackerCoin: n => `크래커를 부수면 코인 +${n}`,
@@ -2323,6 +2365,14 @@
         banana_cellar: "Banana Cellar",
         banana_grove: "Banana Plantation",
         banana_hunter: "Banana Hunter",
+        cherry_pile: "Cherry Pile",
+        citrus_plate: "Citrus Plate",
+        kiwi_seed: "Kiwi Seed",
+        lemon_spoon: "Lemon Spoon",
+        grape_bunch2: "Grape Cluster",
+        peach_soft: "Soft Peach",
+        banana_grove2: "Banana Colony",
+        golden_reap: "Golden Reaping",
         crumb_tin: "Crumb Tin",
         cracker_score: "Crisp Bite",
         cracker_coin: "Crumb Coin",
@@ -2495,6 +2545,14 @@
       tutSkip: "Skip",
       tutReplay: "Replay tutorial",
       tabHelp: "❔ Help",
+      cherryPile: n => `Each cherry popped adds +${n} to cherries for this stage`,
+      citrusFuse: () => "Orange and lemon count as one colour",
+      kiwiSeed: () => "A popped kiwi leaves a seed behind",
+      lemonFree: () => "Lemon has no combo cap",
+      grapeBulk: n => `A grape cluster counts ${n} larger`,
+      peachBurst: () => "A peach takes the ring around it with it",
+      bananaSpread: n => `A popped banana turns ${n} neighbours into bananas`,
+      coinFruitMult: n => `Coin-carrying fruit scores ×${n}`,
       crackerEvery: () => "A cracker appears on every touch",
       crackerScore: n => `Breaking a cracker scores +${n}`,
       crackerCoin: n => `Breaking a cracker pays +${n} coins`,
@@ -2604,6 +2662,14 @@
         banana_cellar: "バナナ貯蔵庫",
         banana_grove: "バナナ農園",
         banana_hunter: "バナナ狩人",
+        cherry_pile: "さくらんぼの山",
+        citrus_plate: "柑橘の皿",
+        kiwi_seed: "キウイの種",
+        lemon_spoon: "レモン一さじ",
+        grape_bunch2: "ぶどうの房",
+        peach_soft: "熟したもも",
+        banana_grove2: "バナナの群落",
+        golden_reap: "黄金の取り入れ",
         crumb_tin: "くず入れ",
         cracker_score: "サクッと一口",
         cracker_coin: "お菓子のくず",
@@ -2775,6 +2841,14 @@
       tutSkip: "スキップ",
       tutReplay: "チュートリアルをもう一度",
       tabHelp: "❔ ヘルプ",
+      cherryPile: n => `さくらんぼを割るたび、このステージ中 さくらんぼのスコア +${n}`,
+      citrusFuse: () => "オレンジとレモンがひとつの色としてつながります",
+      kiwiSeed: () => "キウイを割ると種が残ります",
+      lemonFree: () => "レモンはコンボ上限がありません",
+      grapeBulk: n => `ぶどうの塊を ${n} 大きく数えます`,
+      peachBurst: () => "ももは割れるとき周囲1マスも一緒に割ります",
+      bananaSpread: n => `バナナを割ると隣接するフルーツ ${n} 個がバナナになります`,
+      coinFruitMult: n => `コイン付きフルーツのスコア ×${n}`,
       crackerEvery: () => "タッチごとにクラッカーが1個出ます",
       crackerScore: n => `クラッカーを割ると スコア +${n}`,
       crackerCoin: n => `クラッカーを割ると コイン +${n}`,
@@ -2884,6 +2958,14 @@
         banana_cellar: "香蕉仓库",
         banana_grove: "香蕉农场",
         banana_hunter: "香蕉猎人",
+        cherry_pile: "樱桃堆",
+        citrus_plate: "柑橘拼盘",
+        kiwi_seed: "猕猴桃种子",
+        lemon_spoon: "一勺柠檬",
+        grape_bunch2: "葡萄串",
+        peach_soft: "软桃",
+        banana_grove2: "香蕉群落",
+        golden_reap: "黄金收割",
         crumb_tin: "碎屑罐",
         cracker_score: "酥脆一口",
         cracker_coin: "饼干碎币",
@@ -3055,6 +3137,14 @@
       tutSkip: "跳过",
       tutReplay: "重看教程",
       tabHelp: "❔ 帮助",
+      cherryPile: n => `每消除一个樱桃，本关樱桃分数 +${n}`,
+      citrusFuse: () => "橙子和柠檬视为同一种颜色",
+      kiwiSeed: () => "消除猕猴桃会留下种子",
+      lemonFree: () => "柠檬没有连击上限",
+      grapeBulk: n => `葡萄团块按大 ${n} 计算`,
+      peachBurst: () => "桃子消除时连带周围一圈",
+      bananaSpread: n => `消除香蕉时，相邻 ${n} 个水果变成香蕉`,
+      coinFruitMult: n => `带金币水果分数 ×${n}`,
       crackerEvery: () => "每次触碰出现 1 块饼干",
       crackerScore: n => `打碎饼干得分 +${n}`,
       crackerCoin: n => `打碎饼干获得金币 +${n}`,
@@ -3527,6 +3617,26 @@
       desc: () => d("allMult", 1),
       apply() { for (let i = 0; i < fruitMult.length; i++) fruitMult[i] += 1; } },
     // the only permanent x2 in the game, and it must not read like the 9-coin timed one
+    // ---- 전설: one signature rule per fruit ----
+    // Not bigger numbers -- a different RULE each, so a fruit build plays differently rather
+    // than scoring differently.
+    cherry_pile:  { icon: "🍒", price: 30,
+      desc: () => d("cherryPile", 10), apply() { cherryPile += 10; } },
+    citrus_plate: { icon: "🍊", price: 32,
+      desc: () => d("citrusFuse"), apply() { citrusFuse = true; } },
+    kiwi_seed:    { icon: "🥝", price: 32,
+      desc: () => d("kiwiSeed"), apply() { kiwiSeed = true; } },
+    lemon_spoon:  { icon: "🍋", price: 38,
+      desc: () => d("lemonFree"), apply() { lemonFree = true; } },
+    grape_bunch2: { icon: "🍇", price: 34,
+      desc: () => d("grapeBulk", 2), apply() { grapeBulk += 2; } },
+    peach_soft:   { icon: "🍑", price: 34,
+      desc: () => d("peachBurst"), apply() { peachBurst = true; } },
+    banana_grove2:{ icon: "🍌", price: 38,
+      desc: () => d("bananaSpread", 3), apply() { bananaSpread += 3; } },
+    golden_reap:  { icon: "💰", price: 35,
+      desc: () => d("coinFruitMult", 10), apply() { coinFruitMult *= 10; } },
+
     // 전설: every fruit at once, on the same channel the unique crowns use
     cornucopia: { icon: "🧺", price: 40,
       desc: () => d("allBoost", 2),
@@ -3645,6 +3755,8 @@
     chainStep = 0; coinFruitBonus = 0; starCoinMult = 1; payoutMult = 1;
     coinFlat = 0; coinFlatPer = COIN_FLAT_PER; interestPer = 0; interestPct = 0; interestCap = INTEREST_CAP;
     crackerBonus = 0; crackerCoin = 0; crackerBoom = false; crackerDouble = false; crackerEvery = false;
+    peachBurst = false; citrusFuse = false; kiwiSeed = false; lemonFree = false;
+    grapeBulk = 0; bananaSpread = 0; cherryPile = 0; coinFruitMult = 1;
     starEverything = false;
     spendFlat = 0; shopDiscount = 1; resonance = RESONANCE_BASE;
     bombRadiusBonus = 0; itemEase = 0; birdFlock = 1; crossLine = false;
@@ -4386,12 +4498,19 @@
   // Rule 2: different colors are walls — the burst never pops or passes them.
   function plant(r0, c0, color) {
     touchCount++;
+    // Seeds ripen at the START of the turn, not the end: this turn's chain may plant one, and
+    // a seed planted this turn must not be counted down by the same turn.
+    for (let r = 0; r < ROWS; r++) for (let c = 0; c < COLS; c++) {
+      if (grid[r][c] !== SEED) continue;
+      if (--hp[r][c] <= 0) { grid[r][c] = 2; hp[r][c] = 0; appear[r][c] = 1; dirty = true; }
+    }
     SFX.play("plant");
     buzz(12);                              // the tick under your thumb
     grid[r0][c0] = color;            // the placed ball (removed later if it clears)
     special[r0][c0] = null;
     const R = BURST_RADIUS;
     const visited = Array.from({length: ROWS}, () => Array(COLS).fill(false));
+    const placedSig = [];        // the ball you put down gets its own fruit's rule (see below)
     visited[r0][c0] = true;
     // frontier items {r,c,mode,color}: "color" = same-color flood, "blast" = item-cleared
     const frontier = seedsAround(r0, c0, R, color, visited).map(([r, c, d]) => ({ r, c, d, mode: "color", color }));
@@ -4403,6 +4522,10 @@
         if (nr < 0 || nr >= ROWS || nc < 0 || nc >= COLS || visited[nr][nc]) continue;
         if (special[nr][nc]) { visited[nr][nc] = true; frontier.push({ r: nr, c: nc, d: Math.hypot(dr, dc), mode: "blast", color: grid[nr][nc] }); }
       }
+    // A placed peach is a popped peach. The ball is cleared by finishBurst rather than by the
+    // frontier loop, so without this its signature would be the one pop that never fires.
+    fruitSignature(r0, c0, color, visited, placedSig);
+    for (const it of placedSig) frontier.push(it);
     flashBox(r0, c0, R, color);
     runChain(r0, c0, color, visited, frontier, true);
   }
@@ -4414,6 +4537,32 @@
                bird: "bird", star: "star" }[special[r0][c0]] || "tap");
     const visited = Array.from({length: ROWS}, () => Array(COLS).fill(false));
     runChain(r0, c0, color, visited, [{ r: r0, c: c0, d: 0, mode: "blast", color }], false);
+  }
+
+  // One fruit's signature rule, at the moment it pops. `out` is whatever the caller will feed
+  // to the chain next, so a blast lands in order and scores through the same path.
+  function fruitSignature(r, c, colorIdx, visited, out) {
+    if (colorIdx === 0 && cherryPile) stageStack[0] += cherryPile;
+    if (colorIdx === 5 && peachBurst) {           // 물렁 복숭아: takes the ring, any colour
+      for (const [nr, nc, dd] of budsAround(r, c, 1, visited))
+        out.push({ r: nr, c: nc, d: dd, mode: "blast", color: grid[nr][nc] });
+    }
+    if (colorIdx === 6 && bananaSpread) {         // 바나나 군락: converts what it did not take
+      let left = bananaSpread;
+      for (let dr = -1; dr <= 1 && left; dr++)
+        for (let dc = -1; dc <= 1 && left; dc++) {
+          const nr = r + dr, nc = c + dc;
+          if ((dr === 0 && dc === 0) || nr < 0 || nr >= ROWS || nc < 0 || nc >= COLS) continue;
+          if (visited[nr][nc] || grid[nr][nc] < 0 || grid[nr][nc] === 6) continue;
+          // marked visited so THIS chain does not immediately eat them: they are bananas on
+          // the board for next turn, which is an engine. Consumed on the spot they would just
+          // be a bigger pop, and the player would never see the conversion happen.
+          grid[nr][nc] = 6; appear[nr][nc] = 1; visited[nr][nc] = true; left--;
+        }
+    }
+    if (colorIdx === 2 && kiwiSeed) {             // 키위 씨앗: the cell grows back
+      grid[r][c] = SEED; hp[r][c] = SEED_TOUCHES; ghost[r][c] = null;
+    }
   }
 
   // run the chain from an initial frontier; placement=true means a ball was placed
@@ -4506,6 +4655,7 @@
           dirty = true;
         }, popAt);
 
+        fruitSignature(r, c, cellColor, visited, next);
         // neighbors: chip bricks, and trigger any adjacent item (any color) via this pop
         for (let dr = -1; dr <= 1; dr++)
           for (let dc = -1; dc <= 1; dc++) {
@@ -4616,7 +4766,11 @@
         if (dr === 0 && dc === 0) continue;
         const nr = r + dr, nc = c + dc;
         if (nr < 0 || nr >= ROWS || nc < 0 || nc >= COLS || visited[nr][nc]) continue;
-        if (grid[nr][nc] === color && special[nr][nc] === null) {
+        // 감귤 한 접시: orange and lemon are the same colour to the flood, so popping one
+        // really does take the other with it
+        const match = grid[nr][nc] === color ||
+          (citrusFuse && (color === 1 || color === 3) && (grid[nr][nc] === 1 || grid[nr][nc] === 3));
+        if (match && special[nr][nc] === null) {
           visited[nr][nc] = true; out.push([nr, nc, Math.hypot(dr, dc)]);
         }
       }
@@ -4738,12 +4892,13 @@
         burst(r0, c0, color);
         streak++;
         const cleared = popped + 1;          // include the ball you placed
-        const chainCount = chainPopped + 1;  // your color group size, inclusive
+        // 포도 송이 counts toward items as well: a bulkier cluster earns them sooner
+        const chainCount = chainPopped + 1 + (color === 4 ? grapeBulk : 0);
         // per-fruit points (placed ball + all popped) × chain-size bonus × streak
         const groupPts = (pointsPopped || 0) + fruitScore(color);
-        const gained = scorePop(groupPts, cleared, coined);
+        const gained = scorePop(groupPts, cleared, coined, color);
         notify("onPop", { r: r0, c: c0, color, cleared, chainCount, gained, placement: true });
-        const sub = multLabel(chainBonus(cleared), streakMult());
+        const sub = multLabel(chainBonus(color === 4 ? cleared + grapeBulk : cleared), streakMult(color));
         setTimeout(() => showGain(r0, c0, gained, POP_COLORS[color] || "#fff", sub), totalAt);
         addShake(Math.min(12, cleared * 0.7));
 
@@ -4771,9 +4926,9 @@
       if (grid[r0][c0] !== -1) appear[r0][c0] = 1;  // placed ball (junk/item) pops in too
     } else if (popped > 0) {
       // manual item tap: score the clears, no new item, keep the queued color
-      const gained = scorePop(pointsPopped || 0, popped, coined);
+      const gained = scorePop(pointsPopped || 0, popped, coined, color);
       notify("onPop", { r: r0, c: c0, color, cleared: popped, chainCount: popped, gained, placement: false });
-      const sub = multLabel(chainBonus(popped), streakMult());
+      const sub = multLabel(chainBonus(color === 4 ? popped + grapeBulk : popped), streakMult(color));
       setTimeout(() => showGain(r0, c0, gained, POP_COLORS[color] || "#fff", sub), totalAt);
       addShake(Math.min(12, popped * 0.7));
     }
@@ -4916,7 +5071,8 @@
   // and growing the board is monotonic: probing 개간 that way would enlarge it for real.
   const CAT_FIELDS = [
     ["odds",  () => oddsMult.slice()],
-    ["score", () => fruitMult.concat(fruitFlat, fruitCrown)],
+    ["score", () => fruitMult.concat(fruitFlat, fruitCrown,
+                      [cherryPile, grapeBulk, +lemonFree, coinFruitMult])],
     ["touch", () => [touchBonus]],
     ["spawn", () => [spawnBonus]],
     ["risk",  () => [brickChance, crackerBonus, crackerCoin, +crackerBoom, +crackerDouble, +crackerEvery]],
@@ -4924,7 +5080,8 @@
     ["combo", () => [chainStep, STREAK_STEP, STREAK_CAP]],
     ["coin",  () => [coinFruitBonus, starCoinMult, payoutMult, coinFlat, coinFlatPer, spendFlat,
                      interestPer, interestPct, interestCap, shopDiscount]],
-    ["item",  () => [bombRadiusBonus, itemEase, birdFlock, +crossLine, +starEverything]],
+    ["item",  () => [bombRadiusBonus, itemEase, birdFlock, +crossLine, +starEverything,
+                     +peachBurst, +citrusFuse, +kiwiSeed, bananaSpread]],
     ["board", () => [zoneMult, +zoneCoin, zoneBonus]],
   ];
   let relicCatCache = null;
@@ -4950,9 +5107,15 @@
           chainStep = 0; coinFruitBonus = 0; starCoinMult = 1; payoutMult = 1;
           coinFlat = 0; coinFlatPer = COIN_FLAT_PER; interestPer = 0; interestPct = 0; interestCap = INTEREST_CAP;
     crackerBonus = 0; crackerCoin = 0; crackerBoom = false; crackerDouble = false; crackerEvery = false;
+    peachBurst = false; citrusFuse = false; kiwiSeed = false; lemonFree = false;
+    grapeBulk = 0; bananaSpread = 0; cherryPile = 0; coinFruitMult = 1;
           starEverything = false; spendFlat = 0; shopDiscount = 1;
           fruitCrown = [1,1,1,1,1,1,1];
           crackerBonus = 0; crackerCoin = 0; crackerBoom = false; crackerDouble = false; crackerEvery = false;
+          peachBurst = false; citrusFuse = false; kiwiSeed = false; lemonFree = false;
+          grapeBulk = 0; bananaSpread = 0; cherryPile = 0; coinFruitMult = 1;
+    peachBurst = false; citrusFuse = false; kiwiSeed = false; lemonFree = false;
+    grapeBulk = 0; bananaSpread = 0; cherryPile = 0; coinFruitMult = 1;
           bombRadiusBonus = 0; itemEase = 0; birdFlock = 1; crossLine = false;
           zoneMult = 1; zoneCoin = false; zoneBonus = 0;
           STREAK_STEP = STREAK_STEP_BASE; STREAK_CAP = 2.0;
@@ -5464,6 +5627,7 @@
     addCoins(Math.round(COIN_PAYOUT(stage) * payoutMult), (ROWS - 1) / 2, (COLS - 1) / 2);
     stage++;
     stageScore = 0;
+    stageStack = [0, 0, 0, 0, 0, 0, 0];   // 체리 더미 is a stage's worth, not a run's
     touchesLeft = stageTouches();
     flash = Math.max(flash, 0.5); addShake(7);
     // interest has to be SEEN or it is not a strategy, just a number that moved
@@ -6039,6 +6203,21 @@
           appear[r][c] = Math.max(0, a - 0.071);
         }
 
+        // a kiwi's seed, with how many touches are left on it
+        if (grid[r][c] === SEED) {
+          const cxs = x + cell / 2, cys = y + cell / 2;
+          ctx.save();
+          ctx.fillStyle = "#6b4a2f";
+          ctx.beginPath(); ctx.ellipse(cxs, cys, cell * 0.17, cell * 0.23, 0, 0, PI2); ctx.fill();
+          ctx.fillStyle = "#43d17a";
+          ctx.beginPath(); ctx.ellipse(cxs - cell * 0.05, cys - cell * 0.08, cell * 0.06, cell * 0.09, -0.5, 0, PI2); ctx.fill();
+          ctx.fillStyle = "#cfd6e6";
+          ctx.font = `800 ${Math.round(cell * 0.26)}px system-ui, sans-serif`;
+          ctx.textAlign = "center"; ctx.textBaseline = "middle";
+          ctx.fillText(`${SEED_TOUCHES - hp[r][c]}/${SEED_TOUCHES}`, cxs, cys + cell * 0.34);
+          ctx.restore();
+          continue;
+        }
         // cracker (wall) — one hit, one look
         if (grid[r][c] === BRICK) {
           const h = 1;
@@ -6337,7 +6516,7 @@
             tapItem(f.tr, f.tc);
           } else {                                // plain fruit / brick -> eat it
             const col = grid[f.tr][f.tc];
-            const isBrick = col === BRICK;
+            const isBrick = col < 0;   // cracker or seed: grey, and no fruit score text
             const beak = takeCoin(f.tr, f.tc);
             grid[f.tr][f.tc] = -1; special[f.tr][f.tc] = null; hp[f.tr][f.tc] = 0;
             // a brick broken by a bird is still a brick breaking: this path never said so
@@ -7032,7 +7211,13 @@
       get zoneCoin() { return zoneCoin; }, get zoneBonus() { return zoneBonus; },
       emptyCells, ITEM_PRICES, canBuyItem, armItem, placeBoughtItem, renderItemShop,
       filledCount, modalOpen, MODAL_IDS,
-      CRACKER_SCORE, crackerValue, crackerBroken,
+      CRACKER_SCORE, crackerValue, crackerBroken, SEED, SEED_TOUCHES,
+      fruitSignature,
+      get stageStack() { return stageStack; }, get cherryPile() { return cherryPile; },
+      get grapeBulk() { return grapeBulk; }, get lemonFree() { return lemonFree; },
+      get bananaSpread() { return bananaSpread; }, get coinFruitMult() { return coinFruitMult; },
+      get peachBurst() { return peachBurst; }, get citrusFuse() { return citrusFuse; },
+      get kiwiSeed() { return kiwiSeed; },
       get crackerScore() { return crackerScore; }, set crackerScore(v) { crackerScore = v; },
       get crackerBonus() { return crackerBonus; }, get crackerCoin() { return crackerCoin; },
       get crackerBoom() { return crackerBoom; }, get crackerDouble() { return crackerDouble; },
