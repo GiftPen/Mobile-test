@@ -908,6 +908,9 @@
   const SEED_TOUCHES = 3;      // ...in this many touches
   const CRACKER_EVERY = 5;       // one cracker spawns every N touches once unlocked
   const CRACKER_SCORE = 100;   // what breaking one is worth, before relics
+  // 크래커 왕's growth, kept apart from the base: how much a cracker is worth and how fast
+  // the legendary grows it are two decisions, and tying them together hides one of them.
+  const CRACKER_KING_STEP = 200;
   // ---- Star Rush stage curve (DRAFT numbers, meant to be tuned by feel) ----
   const STAGES_PER_ROUND = 3;  // a round is 1-1, 1-2, 1-3; traits land when a round ends
   const RUSH_TOUCHES   = 15;   // touches granted per stage
@@ -1734,7 +1737,7 @@
   // it by stage four. Measured at 40 breaks it was 1.1e14 a cracker and the run reached 5e19.
   // It adds the base instead -- still "the more you break, the more they are worth", but it
   // grows with how much you actually play rather than with an exponent.
-  function crackerBroken() { if (crackerDouble) crackerScore += CRACKER_SCORE; }
+  function crackerBroken() { if (crackerDouble) crackerScore += CRACKER_KING_STEP; }
   const INTEREST_CAP    = 5;    // most coins interest can pay in one round, before 금고
   const SPEND_PER = 2;          // coins spent per +1 fruit score, for 탕진
   let coinsSpent = 0;           // ACCUMULATED, not derived: applyRelics must not wipe it
@@ -3748,7 +3751,7 @@
     crumb_blast: { icon: "💥", price: 24,
       desc: () => d("crackerBoom"), apply() { crackerBoom = true; } },
     cracker_king: { icon: "👑", price: 44,
-      desc: () => d("crackerKing", CRACKER_SCORE),
+      desc: () => d("crackerKing", CRACKER_KING_STEP),
       apply() { crackerEvery = true; crackerDouble = true; } },
 
     // ---- 유니크: the score half of a fruit build ----
@@ -7674,7 +7677,7 @@
       emptyCells, ITEM_PRICES, canBuyItem, armItem, placeBoughtItem, renderItemShop,
       BASKET_FRUIT,
       filledCount, modalOpen, MODAL_IDS,
-      CRACKER_SCORE, crackerValue, crackerBroken, SEED, SEED_TOUCHES,
+      CRACKER_SCORE, CRACKER_KING_STEP, crackerValue, crackerBroken, SEED, SEED_TOUCHES,
       fruitSignature,
       get stageStack() { return stageStack; }, get cherryPile() { return cherryPile; },
       get stackOnPop() { return stackOnPop; },
