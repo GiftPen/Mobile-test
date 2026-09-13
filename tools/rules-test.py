@@ -1244,6 +1244,113 @@ window.addEventListener('load', () => setTimeout(() => {
     F.closeInfo();
   })();
 
+  // ---- 공명: the shop leans toward your build, without bending the grade odds ----
+  (() => {
+    F.mode = 'rush'; F.resetRun();
+    // categories are derived from what each relic's apply() moves, so they cannot go stale
+    const cats = id => F.relicCats(id);
+    schk('a fruit relic is tagged with its fruit', cats('cherry_pick').includes('fruit0'), true);
+    schk('...and with what kind of thing it does', cats('cherry_pick').includes('odds'), true);
+    schk('a coin relic is a coin relic', cats('interest').includes('coin'), true);
+    schk('a board relic is a board relic', cats('big_reclaim').includes('board'), true);
+    schk('a slot relic is a slot relic', cats('satchel').includes('slot'), true);
+    schk('a pop-modifier counts as score', cats('big_pop').includes('score'), true);
+    schk('every relic is classified or deliberately neutral',
+         Object.keys(F.RELICS).filter(id => !Array.isArray(cats(id))), []);
+    // probing must not have grown the board -- applyRelics() would have, which is why it is
+    // the relic's own apply() that is run instead
+    schk('classifying did not grow the board', F.ROWS, F.ROWS_BASE);
+
+    const share = (owned, want) => {
+      F.mode = 'rush'; F.resetRun(); F.relics = owned.slice(); F.applyRelics();
+      let slots = 0, hits = 0;
+      for (let i = 0; i < 1500; i++) for (const id of F.rollOffers(4)) {
+        slots++;
+        if (cats(id).some(c => want.includes(c))) hits++;
+      }
+      return hits / slots * 100;
+    };
+    const build = ['cherry_pick', 'cherry_ruby', 'one_cherry'];
+    const plain = share(build, ['fruit0']);
+    const tuned = share(build.concat('resonator'), ['fruit0']);
+    schk('공명 really leans the shelf', tuned > plain * 1.3, true);
+
+    // Neutral must stay neutral. "odds" and "score" are what most relics happen to do, not an
+    // identity: counting them makes everything resonate with everything, which is the same as
+    // nothing resonating. Measured on the relics that have no identity at all.
+    const neutral = Object.keys(F.RELICS).filter(id => !F.identity(id).length);
+    schk('there are neutral relics to check', neutral.length >= 3, true);
+    const neutralShare = owned => {
+      F.mode = 'rush'; F.resetRun(); F.relics = owned.slice(); F.applyRelics();
+      let slots = 0, hits = 0;
+      for (let i = 0; i < 2500; i++) for (const id of F.rollOffers(4)) {
+        slots++; if (neutral.includes(id)) hits++;
+      }
+      return hits / slots * 100;
+    };
+    // The property is the WEIGHT, not the realised share: a shelf has a fixed number of
+    // slots, so boosting anything must push everything else down. Neutral means "never
+    // boosted", which is exactly what keeps a generic power card from riding your build.
+    F.mode = 'rush'; F.resetRun();
+    F.relics = build.concat('resonator'); F.applyRelics();
+    const boosted = Object.keys(F.RELICS).filter(id => F.offerWeight(id) > 1);
+    schk('neutral relics are never boosted',
+         neutral.filter(id => F.offerWeight(id) !== 1), []);
+    schk('but something is', boosted.length > 0, true);
+    schk('and everything boosted shares an identity with the build',
+         boosted.every(id => F.identity(id).some(c =>
+           build.some(o => F.identity(o).includes(c)))), true);
+    // the weight really does climb with how much of that identity you hold
+    const w1 = (F.relics = ['cherry_pick', 'resonator'], F.applyRelics(), F.offerWeight('cherry_farm'));
+    const w2 = (F.relics = ['cherry_pick', 'cherry_ruby', 'resonator'], F.applyRelics(), F.offerWeight('cherry_farm'));
+    schk('one matching relic already leans it', w1 > 1, true);
+    schk('two lean it further', w2 > w1, true);
+    // capped, and the cap has to be REACHABLE or it is a rule that never runs. The coin
+    // family is big enough to reach it; a fruit family is not.
+    const coinIds = Object.keys(F.RELICS).filter(id => F.identity(id).includes('coin'));
+    schk('the coin family can reach the cap', coinIds.length > F.RESONANCE_MAX, true);
+    F.relics = coinIds.slice(0, F.RESONANCE_MAX + 3).concat('resonator');
+    F.traits = [{ id: 'big_pocket', amount: 2 }];        // room for them all
+    F.applyRelics();
+    const capped = F.offerWeight(coinIds[coinIds.length - 1]);
+    schk('the lean is capped', capped, 1 + F.resonance * F.RESONANCE_MAX);
+    F.traits = [];
+    // a relic past the slot cap must not bend the shop either
+    F.relics = ['cherry_pick', 'resonator'];
+    F.applyRelics();
+    const activeW = F.offerWeight('cherry_farm');
+    F.relics = ['cherry_pick', 'resonator'].concat(
+      Object.keys(F.RELICS).filter(id => !F.identity(id).includes('fruit0')).slice(0, 12));
+    F.applyRelics();
+    F.relics.push('cherry_ruby');                         // pushed past the cap
+    schk('an inert relic does not lean the shop', F.offerWeight('cherry_farm'), activeW);
+    // the realised share of a neutral card may dip -- it must never RISE
+    const nPlain = neutralShare(build);
+    const nTuned = neutralShare(build.concat('resonator'));
+    schk('a neutral relic is not carried along by the lean', nTuned <= nPlain * 1.05, true);
+    // ...and every relic is either an identity or deliberately neutral, never both-ish
+    const broadOnly = Object.keys(F.RELICS).filter(id =>
+      F.relicCats(id).length && !F.identity(id).length);
+    schk('relics tagged only odds/score are the neutral ones',
+         broadOnly.every(id => neutral.includes(id)), true);
+    F.relics = build.slice(); F.applyRelics();
+    schk('and without it the shop is flat again', F.resonance, 0);
+
+    // the grade odds are shown to the player, so they must survive the lean untouched
+    F.mode = 'rush'; F.resetRun();
+    F.relics = build.concat('resonator'); F.applyRelics();
+    const seen = Object.fromEntries(F.TIER_KEYS.map(t => [t, 0]));
+    const N = 3000;
+    for (let i = 0; i < N; i++) for (const id of F.rollOffers(F.SHOP_OFFERS)) seen[F.relicTier(F.RELICS[id])]++;
+    const slots = N * F.SHOP_OFFERS;
+    const off = F.TIER_KEYS.filter(t => {
+      const got = seen[t] / slots * 100, want = F.TIERS[t].odds;
+      return Math.abs(got - want) > Math.max(0.8, want * 0.1);
+    });
+    schk('resonance does not move the grade odds', off, []);
+    F.relics = []; F.applyRelics(); F.resetRun();
+  })();
+
   // ---- number display: compact only where precision is decoration ----
   schk('full digits get separators',        F.fmtNum(1234567).replace(/\u00a0/g,','), '1,234,567');
   schk('fmtNum rounds',                     F.fmtNum(1234.6), '1,235');

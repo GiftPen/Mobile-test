@@ -55,6 +55,8 @@
 "golden_harvest": "relic_golden_harvest",
 "단골": "relic_regular",
 "regular": "relic_regular",
+"공명": "relic_resonator",
+"resonator": "relic_resonator",
 "별자리 왕": "relic_star_king",
 "star_king": "relic_star_king",
 "덩치": "relic_chain_master",

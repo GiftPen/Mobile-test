@@ -1535,7 +1535,7 @@
     chainStep = 0; coinFruitBonus = 0; starCoinMult = 1; payoutMult = 1;
     coinFlat = 0; interestPer = 0; interestPct = 0; interestCap = INTEREST_CAP;
     starEverything = false;
-    spendFlat = 0; shopDiscount = 1;
+    spendFlat = 0; shopDiscount = 1; resonance = 0;
     bombRadiusBonus = 0; itemEase = 0; birdFlock = 1; crossLine = false;
     zoneMult = 1; zoneCoin = false; zoneBonus = 0; zoneCells = new Set();
     STREAK_STEP = STREAK_STEP_BASE; STREAK_CAP = 2.0;
@@ -1997,6 +1997,7 @@
         banana_cellar: "바나나 저장고",
         banana_grove: "바나나 농장",
         banana_hunter: "바나나 사냥꾼",
+        resonator: "공명",
         spendthrift: "탕진",
         golden_harvest: "금빛 수확",
         regular: "단골",
@@ -2154,6 +2155,7 @@
       tutSkip: "건너뛰기",
       tutReplay: "튜토리얼 다시 보기",
       tabHelp: "❔ 도움말",
+      resonance: () => "같은 계열 유물이 상점에 더 자주 등장합니다",
       statHead: "내 수치",
       statCoinFruit: "코인 달린 과일",
       statBrick: "벽돌 등장",
@@ -2255,6 +2257,7 @@
         banana_cellar: "Banana Cellar",
         banana_grove: "Banana Plantation",
         banana_hunter: "Banana Hunter",
+        resonator: "Resonance",
         spendthrift: "Spendthrift",
         golden_harvest: "Golden Harvest",
         regular: "Regular",
@@ -2412,6 +2415,7 @@
       tutSkip: "Skip",
       tutReplay: "Replay tutorial",
       tabHelp: "❔ Help",
+      resonance: () => "Relics like the ones you own show up more often",
       statHead: "Your numbers",
       statCoinFruit: "Coin-carrying fruit",
       statBrick: "Brick spawn",
@@ -2513,6 +2517,7 @@
         banana_cellar: "バナナ貯蔵庫",
         banana_grove: "バナナ農園",
         banana_hunter: "バナナ狩人",
+        resonator: "共鳴",
         spendthrift: "浪費家",
         golden_harvest: "黄金の収穫",
         regular: "常連",
@@ -2669,6 +2674,7 @@
       tutSkip: "スキップ",
       tutReplay: "チュートリアルをもう一度",
       tabHelp: "❔ ヘルプ",
+      resonance: () => "手持ちと同じ系統のレリックが出やすくなります",
       statHead: "あなたの数値",
       statCoinFruit: "コイン付きフルーツ",
       statBrick: "ブロック出現",
@@ -2770,6 +2776,7 @@
         banana_cellar: "香蕉仓库",
         banana_grove: "香蕉农场",
         banana_hunter: "香蕉猎人",
+        resonator: "共鸣",
         spendthrift: "挥霍",
         golden_harvest: "黄金收成",
         regular: "常客",
@@ -2926,6 +2933,7 @@
       tutSkip: "跳过",
       tutReplay: "重看教程",
       tabHelp: "❔ 帮助",
+      resonance: () => "与持有遗物同类的遗物更常出现",
       statHead: "我的数值",
       statCoinFruit: "带金币水果",
       statBrick: "砖块出现",
@@ -3212,6 +3220,10 @@
       modify: { pop: (v, ctx) => (ctx.coined > 0 ? v * 1.5 : v) } },
     regular: { icon: "🧾", price: 12,
       desc: () => d("discount", 20), apply() { shopDiscount *= 0.8; } },
+    // resonance: the shop leans toward what you already own. Only within a grade, so the
+    // grade odds on the collection screen stay honest.
+    resonator: { icon: "🎵", price: 25,
+      desc: () => d("resonance"), apply() { resonance += 0.5; } },
     star_king: { icon: "🌌", price: 36,
       desc: () => d("starAll"), apply() { starEverything = true; } },
 
@@ -3461,7 +3473,7 @@
     chainStep = 0; coinFruitBonus = 0; starCoinMult = 1; payoutMult = 1;
     coinFlat = 0; interestPer = 0; interestPct = 0; interestCap = INTEREST_CAP;
     starEverything = false;
-    spendFlat = 0; shopDiscount = 1;
+    spendFlat = 0; shopDiscount = 1; resonance = 0;
     bombRadiusBonus = 0; itemEase = 0; birdFlock = 1; crossLine = false;
     zoneMult = 1; zoneCoin = false; zoneBonus = 0;
     STREAK_STEP = STREAK_STEP_BASE; STREAK_CAP = 2.0;      // relics may raise these; reset first
@@ -4685,10 +4697,106 @@
       let r = Math.random() * total, pick = live[live.length - 1];
       for (const t of live) { r -= TIERS[t].odds; if (r < 0) { pick = t; break; } }
       const bucket = byTier[pick];
-      out.push(bucket.splice(randInt(bucket.length), 1)[0]);
+      // Weighted WITHIN the grade, never across it: the grade odds are displayed to the
+      // player and asserted by the suite, so resonance must not be able to move them.
+      let total2 = 0;
+      for (const id of bucket) total2 += offerWeight(id);
+      let r2 = Math.random() * total2, k = bucket.length - 1;
+      for (let j = 0; j < bucket.length; j++) { r2 -= offerWeight(bucket[j]); if (r2 < 0) { k = j; break; } }
+      out.push(bucket.splice(k, 1)[0]);
     }
     return out;
   }
+  // ---- what a relic is ABOUT ----
+  // Derived, not declared. A hand-written category on 88 relics is wrong the first time one
+  // is added, and the whole point of this is that the shop knows what your build is made of.
+  //
+  // Each relic's apply() is run ALONE, against a snapshot of the derived state, and whatever
+  // it moved names the category. apply() is contractually allowed to touch derived state and
+  // nothing else, so this is safe -- applyRelics() is NOT used, because it calls syncRows()
+  // and growing the board is monotonic: probing 개간 that way would enlarge it for real.
+  const CAT_FIELDS = [
+    ["odds",  () => oddsMult.slice()],
+    ["score", () => fruitMult.concat(fruitFlat)],
+    ["touch", () => [touchBonus]],
+    ["spawn", () => [spawnBonus]],
+    ["risk",  () => [brickChance]],
+    ["slot",  () => [offerBonus]],
+    ["combo", () => [chainStep, STREAK_STEP, STREAK_CAP]],
+    ["coin",  () => [coinFruitBonus, starCoinMult, payoutMult, coinFlat, spendFlat,
+                     interestPer, interestPct, interestCap, shopDiscount]],
+    ["item",  () => [bombRadiusBonus, itemEase, birdFlock, +crossLine, +starEverything]],
+    ["board", () => [zoneMult, +zoneCoin, zoneBonus]],
+  ];
+  let relicCatCache = null;
+  function relicCats(id) {
+    if (!relicCatCache) {
+      relicCatCache = {};
+      for (const rid of Object.keys(RELICS)) {
+        const R = RELICS[rid];
+        const cats = new Set();
+        if (R.rows)  cats.add("board");
+        if (R.slots) cats.add("slot");
+        if (R.modify && R.modify.pop) cats.add("score");
+        if (R.onFruitPop || R.onPop) cats.add("score");
+        if (R.apply) {
+          const before = CAT_FIELDS.map(([, read]) => read().join(","));
+          try { R.apply(); } catch (e) {}
+          CAT_FIELDS.forEach(([name, read], i) => {
+            if (read().join(",") !== before[i]) cats.add(name);
+          });
+          // put everything back: this ran outside a recompute, so nothing else will
+          oddsMult = [0,0,0,0,0,0,0]; fruitMult = [1,1,1,1,1,1,1]; fruitFlat = [0,0,0,0,0,0,0];
+          touchBonus = 0; spawnBonus = 0; brickChance = 0; offerBonus = 0;
+          chainStep = 0; coinFruitBonus = 0; starCoinMult = 1; payoutMult = 1;
+          coinFlat = 0; interestPer = 0; interestPct = 0; interestCap = INTEREST_CAP;
+          starEverything = false; spendFlat = 0; shopDiscount = 1;
+          bombRadiusBonus = 0; itemEase = 0; birdFlock = 1; crossLine = false;
+          zoneMult = 1; zoneCoin = false; zoneBonus = 0;
+          STREAK_STEP = STREAK_STEP_BASE; STREAK_CAP = 2.0;
+        }
+        // a fruit-specific relic resonates with that fruit, not merely with "score"
+        const fr = new Set();
+        if (R.apply) {
+          const o0 = oddsMult.slice(), m0 = fruitMult.slice(), f0 = fruitFlat.slice();
+          try { R.apply(); } catch (e) {}
+          for (let i = 0; i < 7; i++)
+            if (oddsMult[i] !== o0[i] || fruitMult[i] !== m0[i] || fruitFlat[i] !== f0[i]) fr.add(i);
+          oddsMult = o0; fruitMult = m0; fruitFlat = f0;
+        }
+        for (const i of fr) cats.add("fruit" + i);
+        relicCatCache[rid] = [...cats];
+      }
+      // the probe left the derived state at its defaults; put the real run's back
+      applyRelics();
+    }
+    return relicCatCache[id] || [];
+  }
+  // How strongly the shop leans toward what you already have. Zero unless a relic says so,
+  // and it only re-weights WITHIN a grade -- the grade odds the game displays stay true.
+  let resonance = 0;
+  // Reachable on purpose: the slot cap is 8, so a ceiling of 8 would never actually bind and
+  // would be a rule that never runs. At 6 a focused build meets it before it fills the bag.
+  const RESONANCE_MAX = 6;
+  // "odds" and "score" are not an identity, they are the two things most relics happen to do
+  // -- 34% and 19% of the table. Counting them made nearly every card resonate with nearly
+  // every build, which is the same as none of them doing it. A relic whose only tags are
+  // those is NEUTRAL: it keeps its flat chance, which is what a generic power card should do.
+  const BROAD = ["odds", "score"];
+  const identity = id => relicCats(id).filter(c => !BROAD.includes(c));
+  function offerWeight(id) {
+    if (!resonance) return 1;
+    const mine = identity(id);
+    if (!mine.length) return 1;                       // neutral: no build to belong to
+    let hits = 0;
+    // activeRelics, not relics: a card past the slot cap does nothing else in the run, so it
+    // has no business bending the shop either
+    for (const owned of activeRelics()) {
+      if (identity(owned).some(x => mine.includes(x))) hits++;
+    }
+    return 1 + resonance * Math.min(RESONANCE_MAX, hits);
+  }
+
   // one place decides how wide the shelf is, so the ceiling cannot be bypassed by a future
   // relic quietly adding to offerBonus
   const shelfSize = () => Math.min(SHOP_OFFERS_MAX, SHOP_OFFERS + offerBonus);
@@ -6699,6 +6807,7 @@
       rollZones, zoneAt, zoneCount, fruitScoreAt, ZONE_BASE,
       payInterest, interestDue, coinFlatBonus, COIN_FLAT_PER, INTEREST_CAP,
       priceOf, itemPrice, spendFlatBonus, SPEND_PER,
+      relicCats, offerWeight, RESONANCE_MAX, identity, get resonance() { return resonance; },
       get coinsSpent() { return coinsSpent; }, set coinsSpent(v) { coinsSpent = v; },
       get spendFlat() { return spendFlat; }, get shopDiscount() { return shopDiscount; },
       get coinFlat() { return coinFlat; }, get interestPer() { return interestPer; },
