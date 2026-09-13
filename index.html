@@ -4644,7 +4644,9 @@
         setTimeout(() => {
           ghost[r][c] = null;                    // this cell's turn: fruit goes, particles fly
           // a brick bursts grey wherever it dies -- vis would paint it the blast's fruit colour
-          burst(r, c, cellColor === BRICK ? "#9aa0b5" : vis);
+          // a cracker or a seed bursts grey wherever it dies -- vis would paint it the
+          // blast's fruit colour
+          burst(r, c, cellColor < 0 ? "#9aa0b5" : vis);
           if (cellColor === BRICK && !brickHeard.has(popAt)) { brickHeard.add(popAt); SFX.play("brick"); }
           popScoreText(r, c, cellColor, fruitScoreAt(r, c, cellColor));
           if (cellColor >= 0) SFX.play("pop", cellColor);
