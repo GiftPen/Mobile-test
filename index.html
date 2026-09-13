@@ -332,7 +332,43 @@
   .mode-btn.arcade { background: #e5484d; box-shadow: 0 6px 0 #a3282c; }
   .mode-btn.challenge { background: #7c5cff; box-shadow: 0 6px 0 #503aa8; }
   .mode-btn:active { transform: translateY(3px); box-shadow: none; }
-  .menu-icons { display: flex; gap: 34px; margin-top: 42px; }
+  /* quieter than the two modes: it is a place to look, not a place to play */
+  .mode-btn.book { background: #232842; box-shadow: 0 6px 0 #161a2c; color: #c9cede;
+    font-size: 17px; padding: 14px; margin-top: 18px; }
+  .menu-icons { display: flex; gap: 34px; margin-top: 30px; }
+
+  /* ---- collection ---- */
+  #book { position: fixed; inset: 0; z-index: 31; background: rgba(8,9,15,.96);
+    display: flex; flex-direction: column; padding: 14px 12px; gap: 10px; }
+  /* an id beats .hidden on specificity, so the overlay needs its own hiding rule -- without
+     it the collection was simply always on screen */
+  #book.hidden { display: none; }
+  #book h2 { margin: 0; font-size: 20px; text-align: center; }
+  #bk-prog { text-align: center; font-size: 13px; color: var(--muted); font-weight: 700; }
+  #bk-prog b { color: #ffd23e; }
+  #bk-tabs { display: flex; gap: 4px; }
+  .bktab { flex: 1 1 0; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    background: #1c2032; color: var(--muted); border: none; border-radius: 10px;
+    padding: 9px 2px; font-size: 12px; font-weight: 800; box-shadow: none; margin: 0; }
+  .bktab.on { background: #2a2f4d; color: var(--text); }
+  #bk-body { flex: 1; min-height: 0; overflow-y: auto; -webkit-overflow-scrolling: touch;
+    display: grid; grid-template-columns: repeat(auto-fill, minmax(96px, 1fr));
+    gap: 8px; align-content: start; padding-bottom: 6px; }
+  #bk-body::-webkit-scrollbar { display: none; }
+  #bk-body { scrollbar-width: none; }
+  .bk-cell { background: #171a28; border: 1px solid #262b40; border-radius: 12px;
+    padding: 9px 6px; display: flex; flex-direction: column; align-items: center; gap: 5px;
+    text-align: center; }
+  .bk-ic { font-size: 30px; line-height: 1.1; }
+  .bk-ic.art-ic { width: 38px; height: 38px; }
+  .bk-nm { font-size: 11px; font-weight: 800; line-height: 1.2; }
+  .bk-ds { font-size: 9px; color: var(--muted); line-height: 1.25; }
+  /* Locked: the SHAPE shows, nothing else. brightness(0) flattens emoji and art alike to a
+     silhouette, so a relic you have not met is a thing you can see the outline of and want. */
+  .bk-cell.locked { opacity: .72; }
+  .bk-cell.locked .bk-ic { filter: brightness(0) invert(1); opacity: .22; }
+  .bk-cell.locked .bk-nm { color: #4d5470; }
+  #bk-close { margin-top: 2px; }
   .icon-btn { background: none; box-shadow: none; margin: 0; padding: 0; display: flex; flex-direction: column;
     align-items: center; gap: 6px; color: var(--muted); }
   .icon-btn .ic { width: 56px; height: 56px; border-radius: 50%; background: #1e2130; font-size: 24px;
@@ -666,6 +702,13 @@
     <button id="tut-skip" class="ghost-btn" data-i18n="tutSkip">건너뛰기</button>
   </div>
 
+  <div id="book" class="hidden">
+    <h2 data-i18n="btnBook">📖 도감</h2>
+    <div id="bk-prog"></div>
+    <div id="bk-tabs"></div>
+    <div id="bk-body"></div>
+    <button id="bk-close" class="ghost-btn" data-i18n="btnClose">닫기</button>
+  </div>
   <div id="settings" class="hidden">
     <div class="set-card">
       <h2 data-i18n="btnSettings">설정</h2>
@@ -719,6 +762,7 @@
       </div>
       <button id="btn-arcade" class="mode-btn arcade" data-i18n="modeArcade">아케이드 모드</button>
       <button id="btn-challenge" class="mode-btn challenge" data-i18n="modeRush">⭐ 스타 러시</button>
+      <button id="btn-book" class="mode-btn book" data-i18n="btnBook">📖 도감</button>
       <div class="menu-icons">
         <button class="icon-btn" id="btn-settings"><span class="ic">⚙️</span><span class="lb" data-i18n="btnSettings">설정</span></button>
         <button class="icon-btn" id="btn-ranking"><span class="ic">🏆</span><span class="lb" data-i18n="btnRanking">랭킹</span></button>
@@ -1515,6 +1559,19 @@
   // serializeRun/restoreRun existed but nothing ever wrote them down, so a run only lived in
   // memory. Mobile browsers discard backgrounded tabs freely, and a Star Rush run is five to
   // ten minutes of relics and score to lose that way.
+  // What the player has ever owned. Kept apart from the run save on purpose: a run ends,
+  // this does not. Stored as ids so it survives renames of everything except the ids.
+  const SEEN_KEY = "fs_seen_v1";
+  let seen = new Set();
+  try {
+    const raw = JSON.parse(localStorage.getItem(SEEN_KEY) || "[]");
+    if (Array.isArray(raw)) seen = new Set(raw.filter(x => typeof x === "string"));
+  } catch (e) {}
+  function markSeen(id) {
+    if (!id || seen.has(id)) return;
+    seen.add(id);
+    try { localStorage.setItem(SEEN_KEY, JSON.stringify([...seen])); } catch (e) {}
+  }
   const SAVE_KEY = "fs_run_v1";
   function saveRun() {
     if (!running || tut) return;                 // nothing to keep mid-tutorial
@@ -2084,6 +2141,8 @@
       tutSkip: "건너뛰기",
       tutReplay: "튜토리얼 다시 보기",
       tabHelp: "❔ 도움말",
+      btnBook: "📖 도감",
+      bookProgress: "모은 유물·특성",
       helpRules: "규칙", helpItems: "아이템", helpRun: "스타 러시",
       helpRule1: "빈 칸을 탭해 과일을 놓습니다. 같은 색 과일 옆(3×3)에 놓으면 <b>이어진 같은 색이 모두 터집니다</b>.",
       helpRule2: "한 번에 많이 터뜨릴수록 <b>덩어리</b> 배율이, 연속으로 성공할수록 <b>콤보</b> 배율이 올라갑니다.",
@@ -2319,6 +2378,8 @@
       tutSkip: "Skip",
       tutReplay: "Replay tutorial",
       tabHelp: "❔ Help",
+      btnBook: "📖 Collection",
+      bookProgress: "Discovered",
       helpRules: "RULES", helpItems: "ITEMS", helpRun: "STAR RUSH",
       helpRule1: "Tap an empty cell to place a fruit. Put it next to a matching one (3×3) and <b>the whole connected group pops</b>.",
       helpRule2: "The more you pop at once, the higher the <b>cluster</b> multiplier; the longer your streak, the higher the <b>combo</b>.",
@@ -2553,6 +2614,8 @@
       tutSkip: "スキップ",
       tutReplay: "チュートリアルをもう一度",
       tabHelp: "❔ ヘルプ",
+      btnBook: "📖 図鑑",
+      bookProgress: "集めた数",
       helpRules: "ルール", helpItems: "アイテム", helpRun: "スターラッシュ",
       helpRule1: "空いたマスをタップしてフルーツを置きます。同じ色の隣(3×3)に置くと<b>つながった同色がすべて割れます</b>。",
       helpRule2: "一度に多く割るほど<b>かたまり</b>倍率が、連続で成功するほど<b>コンボ</b>倍率が上がります。",
@@ -2787,6 +2850,8 @@
       tutSkip: "跳过",
       tutReplay: "重看教程",
       tabHelp: "❔ 帮助",
+      btnBook: "📖 图鉴",
+      bookProgress: "已收集",
       helpRules: "规则", helpItems: "道具", helpRun: "星辰冲刺",
       helpRule1: "点击空格放置水果。放在同色旁边(3×3)时，<b>相连的同色会全部消除</b>。",
       helpRule2: "一次消除越多，<b>成团</b>倍率越高；连续成功越久，<b>连击</b>倍率越高。",
@@ -4621,6 +4686,7 @@
     coinsSpent += priceOf(R);           // 탕진 turns this into score
     SFX.play("buy");
     relics.push(id);
+    markSeen(id);                       // the collection remembers, the run does not
     if (R.life) relicLife[id] = R.life.amount;   // starts its clock on purchase
     applyRelics();                      // recompute, so buying mid-run matches a fresh run
     touchesLeft = Math.max(touchesLeft, stageTouches());   // a touch relic pays out this stage
@@ -4684,6 +4750,7 @@
   }
   function pickTrait(id) {
     const T = TRAITS[id]; if (!T) return;
+    markSeen(id);
     SFX.play(graftArmed && doubles > 0 && T.scalable ? "graft" : "trait");
     // armed is a UI flag; the charge is the truth. Without the doubles check an armed flag
     // left over from a previous screen would double a trait for free.
@@ -6234,6 +6301,63 @@
     na.disabled = Ads.adsRemoved();
     document.getElementById("s-ver").textContent = "Fruit Star · " + BUILD_VER;
   }
+  // ---- collection ----
+  // One screen for everything that exists, which is the only place the player can learn that
+  // it does: a legendary is a 1% draw, so "play more" is not a way to find out.
+  let bookTab = TIER_KEYS[0];
+  const bookEntries = tab => tab === "traits"
+    ? Object.keys(TRAITS).filter(id => !TRAITS[id].meta).map(id => ({ id, o: TRAITS[id], trait: true }))
+    : Object.keys(RELICS).filter(id => relicTier(RELICS[id]) === tab)
+        .sort((a, b) => RELICS[a].price - RELICS[b].price)
+        .map(id => ({ id, o: RELICS[id] }));
+  const bookAll = () => TIER_KEYS.concat("traits").flatMap(bookEntries);
+
+  function renderBook() {
+    const all = bookAll();
+    const got = all.filter(e => seen.has(e.id)).length;
+    const prog = document.getElementById("bk-prog");
+    prog.textContent = "";
+    prog.append(d("bookProgress"), " ");
+    const b = document.createElement("b"); b.textContent = `${got} / ${all.length}`;
+    prog.appendChild(b);
+
+    const tabs = document.getElementById("bk-tabs");
+    tabs.textContent = "";
+    for (const t of TIER_KEYS.concat("traits")) {
+      const btn = document.createElement("button");
+      btn.className = "bktab" + (t === bookTab ? " on" : "");
+      btn.textContent = t === "traits" ? d("tabTraits") : TIERS[t].name;
+      if (t !== "traits") btn.style.color = t === bookTab ? TIERS[t].color : "";
+      btn.addEventListener("click", () => { bookTab = t; SFX.play("tap"); renderBook(); });
+      tabs.appendChild(btn);
+    }
+
+    const body = document.getElementById("bk-body");
+    body.textContent = "";
+    for (const e of bookEntries(bookTab)) {
+      const known = seen.has(e.id);
+      const cell = document.createElement("div");
+      cell.className = "bk-cell" + (known ? "" : " locked");
+      if (known && !e.trait) cell.style.borderColor = TIERS[relicTier(e.o)].color + "55";
+      // the icon shows either way -- as itself, or as its silhouette
+      const ic = e.trait ? traitIcon(e.id, "bk-ic") : relicIcon(e.id, "bk-ic");
+      const nm = document.createElement("div"); nm.className = "bk-nm";
+      nm.textContent = known ? e.o.name : "???";
+      cell.append(ic, nm);
+      if (known) {
+        const ds = document.createElement("div"); ds.className = "bk-ds";
+        ds.textContent = e.trait ? e.o.desc(traitEffects(e.o, 1)) : e.o.desc;
+        cell.appendChild(ds);
+      }
+      body.appendChild(cell);
+    }
+    body.scrollTop = 0;
+  }
+  function openBook() { renderBook(); $sh("book").classList.remove("hidden"); }
+  function closeBook() { $sh("book").classList.add("hidden"); }
+  document.getElementById("btn-book").addEventListener("click", () => { SFX.play("tap"); openBook(); });
+  document.getElementById("bk-close").addEventListener("click", () => { SFX.play("tap"); closeBook(); });
+
   function openSettings() { renderMenuSettings(); $sh("settings").classList.remove("hidden"); }
   function closeSettings() { $sh("settings").classList.add("hidden"); }
 
@@ -6380,6 +6504,9 @@
       start, showMenu, gameOver,
       set revivedThisRun(v) { revivedThisRun = v; },
       renderSettings, openTraits, openInfo, openSettings, closeSettings, renderMenuSettings,
+      openBook, closeBook, renderBook, bookAll, bookEntries, markSeen, SEEN_KEY,
+      get seen() { return seen; }, set seen(v) { seen = v; },
+      get bookTab() { return bookTab; }, set bookTab(v) { bookTab = v; },
       setHaptics, BUILD_VER, startTutorial, finishTutorial, nextTutStep, tutorialDone,
       TUT_KEY, TUT_STEPS, tutAllows, get tut() { return tut; },
       get previewShows() { return previewShows; },

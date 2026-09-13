@@ -45,9 +45,24 @@ function next() {
       const cv = D2.getElementById('game').getBoundingClientRect();
       const bar = D2.getElementById('ishop').getBoundingClientRect();
       F.coins = 999; F.openShop();
-      setTimeout(() => {
+      setTimeout(() => { try {
         const card = D2.querySelector('#shop .shop-card').getBoundingClientRect();
-        out.push({ name, w, h, rows: F.ROWS, guarded,
+        // The collection is the one full-screen list in the game: six tabs and a grid that
+        // has to survive a 260px Flip cover as well as a tablet. Opened OVER the shop rather
+        // than closing it: this harness grows ROWS without growing `grid`, so anything that
+        // walks the board afterwards (closeShop -> renderItemShop -> emptyCells) reads past
+        // the end of it.
+        F.seen = new Set(Object.keys(F.RELICS).slice(0, 20));
+        F.bookTab = 'epic'; F.openBook();
+        const tabs = [...D2.querySelectorAll('.bktab')].map(t => t.getBoundingClientRect());
+        const cellR = [...D2.querySelectorAll('.bk-cell')].map(c => c.getBoundingClientRect());
+        const bkClose = D2.getElementById('bk-close').getBoundingClientRect();
+        const bookOff = Math.max(
+          0, Math.round(Math.max(...tabs.map(t => t.right)) - w),
+          0, Math.round(Math.max(...cellR.map(c => c.right)) - w),
+          0, Math.round(bkClose.bottom - h));
+        F.closeBook();
+        out.push({ name, w, h, rows: F.ROWS, guarded, bookOff, bookCells: cellR.length,
           cell: +(cv.width / 8).toFixed(1),
           vScroll: de.scrollHeight - de.clientHeight,
           hScroll: de.scrollWidth - de.clientWidth,
@@ -56,6 +71,7 @@ function next() {
           shopOff: Math.max(0, Math.round(card.bottom - h)) + Math.max(0, Math.round(-card.top)),
         });
         f.remove(); next();
+      } catch (e) { out.push({ name, rows, err: 'inner: ' + e.message }); f.remove(); next(); }
       }, 220);
     }, 450);
   } catch (e) { out.push({ name, rows, err: String(e) }); f.remove(); next(); } }, 380);
@@ -68,7 +84,7 @@ open('_dev.html','w',encoding='utf-8').write(HOST)
 try:
     out = subprocess.run(['/Applications/Google Chrome.app/Contents/MacOS/Google Chrome',
         '--headless','--disable-gpu','--no-first-run','--window-size=900,1300',
-        '--virtual-time-budget=90000','--dump-dom','http://localhost:8899/_dev.html'],
+        '--virtual-time-budget=150000','--dump-dom','http://localhost:8899/_dev.html'],
         capture_output=True, text=True, timeout=300).stdout
 finally:
     os.remove('_dev.html')
@@ -91,6 +107,8 @@ for r in rows:
     if r['barOff']:   fails.append(f"{tag}: 아이템 바가 {r['barOff']}px 화면 밖")
     if r['boardOff']: fails.append(f"{tag}: 보드가 {r['boardOff']}px 화면 밖")
     if r['shopOff']:  fails.append(f"{tag}: 상점 창이 {r['shopOff']}px 화면 밖")
+    if r.get('bookOff'):   fails.append(f"{tag}: 도감이 {r['bookOff']}px 화면 밖")
+    if not r.get('bookCells'): fails.append(f"{tag}: 도감에 항목이 없음")
     if r['vScroll'] > 0: fails.append(f"{tag}: 세로 스크롤 {r['vScroll']}px")
     if r['hScroll'] > 0: fails.append(f"{tag}: 가로 스크롤 {r['hScroll']}px")
     if r['cell'] < MIN_CELL: fails.append(f"{tag}: 셀 {r['cell']}px < {MIN_CELL}px")
