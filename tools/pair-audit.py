@@ -31,7 +31,7 @@ window.addEventListener('load', () => setTimeout(() => {
     starCoin: () => F.starCoinMult, payout: () => F.payoutMult, coinOdds: () => F.coinFruitBonus,
     coinFlat: () => F.coinFlat, chain5: () => F.chainBonus(5), streakStep: () => F.STREAK_STEP,
     streakCap: () => F.STREAK_CAP, ckBonus: () => F.crackerBonus, ckCoin: () => F.crackerCoin,
-    bulk: () => F.grapeBulk, brick: () => F.brickChance, res: () => F.resonance,
+    bulk: () => F.grapeBulk, cracker: () => F.crackerChance, res: () => F.resonance,
     ckValue: () => F.crackerValue(), interest: () => F.interestDue(),
     disc: () => F.shopDiscount, rows: () => F.ROWS, ease: () => F.itemEase,
     zoneMult: () => F.zoneMult, zones: () => F.zoneCount(),

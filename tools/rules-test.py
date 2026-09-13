@@ -117,18 +117,18 @@ window.addEventListener('load', () => setTimeout(() => {
   const refColors  = m => Math.min(7, 4 + Math.floor((m + 1) / 3));
   const refSpawns  = m => Math.min(4, 1 + Math.floor(m / 3));
   // one hit, always: the obstacle is a cracker now, not a wall to grind down
-  const refBrickHp = m => (m >= 1 ? 1 : 0);
+  const refCrackerOn = m => (m >= 1 ? 1 : 0);
   const A = F.MODES.arcade, R = F.MODES.rush;
   for (let m = 0; m <= 40; m++) {
     if (A.colors(m)  !== refColors(m))  modeFails.push({m, knob:'colors',  got:A.colors(m),  want:refColors(m)});
     if (A.spawns(m)  !== refSpawns(m))  modeFails.push({m, knob:'spawns',  got:A.spawns(m),  want:refSpawns(m)});
-    if (A.brickHp(m) !== refBrickHp(m)) modeFails.push({m, knob:'brickHp', got:A.brickHp(m), want:refBrickHp(m)});
+    if (A.crackerOn(m) !== refCrackerOn(m)) modeFails.push({m, knob:'crackerOn', got:A.crackerOn(m), want:refCrackerOn(m)});
   }
-  // rush: 7 colours from turn one, flat spawn, no score-driven bricks (design doc 10-4)
+  // rush: 7 colours from turn one, flat spawn, no score-driven crackers (design doc 10-4)
   for (let m = 0; m <= 40; m++) {
     if (R.colors(m)  !== 7) modeFails.push({m, knob:'rush.colors',  got:R.colors(m),  want:7});
     if (R.spawns(m)  !== F.RUSH_SPAWNS) modeFails.push({m, knob:'rush.spawns', got:R.spawns(m), want:F.RUSH_SPAWNS});
-    if (R.brickHp(m) !== 0) modeFails.push({m, knob:'rush.brickHp', got:R.brickHp(m), want:0});
+    if (R.crackerOn(m) !== 0) modeFails.push({m, knob:'rush.crackerOn', got:R.crackerOn(m), want:0});
   }
   // Rush's per-turn count is a flat base with no ceiling of its own: what a build reaches is
   // base + relics + traits, and SPAWN_MAX is an ARCADE knob that does not apply to it. Raising
@@ -177,7 +177,7 @@ window.addEventListener('load', () => setTimeout(() => {
   // the live knobs must follow the active mode
   F.mode = 'rush';
   if (F.activeColors(0) !== 7) modeFails.push({knob:'live colours in rush', got:F.activeColors(0), want:7});
-  if (F.brickHpLevel(9) !== 0) modeFails.push({knob:'live bricks in rush', got:F.brickHpLevel(9), want:0});
+  if (F.crackerLevel(9) !== 0) modeFails.push({knob:'live crackers in rush', got:F.crackerLevel(9), want:0});
   F.mode = 'arcade';
   if (F.activeColors(0) !== 4) modeFails.push({knob:'live colours in arcade', got:F.activeColors(0), want:4});
 
@@ -303,15 +303,15 @@ window.addEventListener('load', () => setTimeout(() => {
   chk('big_pop: under 5 cleared unaffected', small, 10);
   chk('big_pop: 5+ cleared x1.5', big, Math.round(bigPlain * 1.5));
 
-  // the brick contract pays score and charges board space
+  // the cracker contract pays score and charges board space
   F.resetRun(); F.mode = 'rush'; F.coins = 100; F.streak = 0;
   F.relics = ['brick_deal']; F.applyRelics();
-  chk('brick deal: bricks now spawn', F.brickChance > 0, true);
+  chk('cracker deal: crackers now spawn', F.crackerChance > 0, true);
   F.score = 0; F.scorePop(10, 1); const withDeal = F.score;
   F.relics = []; F.applyRelics();
-  chk('brick deal: no bricks without it', F.brickChance, 0);
+  chk('cracker deal: no crackers without it', F.crackerChance, 0);
   F.score = 0; F.scorePop(10, 1); const plain = F.score;
-  chk('brick deal: +30% on pops', withDeal, Math.round(plain * 1.3));
+  chk('cracker deal: +30% on pops', withDeal, Math.round(plain * 1.3));
 
   // discarding frees a slot and returns half, and only inside the shop
   F.resetRun(); F.mode = 'rush'; F.coins = 100;
@@ -648,7 +648,7 @@ window.addEventListener('load', () => setTimeout(() => {
       payout: F.payoutMult, coinOdds: +F.coinFruitBonus.toFixed(4), coinFlat: F.coinFlat,
       chain: +F.chainBonus(5).toFixed(4), step: +F.streakMult(0).toFixed(4), cap: F.STREAK_CAP,
       ckBonus: F.crackerBonus, ckCoin: F.crackerCoin, bulk: F.grapeBulk,
-      brick: +F.brickChance.toFixed(4), res: +F.resonance.toFixed(4),
+      cracker: +F.crackerChance.toFixed(4), res: +F.resonance.toFixed(4),
       disc: +F.shopDiscount.toFixed(4), rows: F.ROWS,
       score: F.FRUIT_POINTS.map((_, i) => F.fruitScore(i)),
       touch: F.touchBonus, spawn: F.spawnBonus, offer: F.offerBonus,
@@ -1266,7 +1266,7 @@ window.addEventListener('load', () => setTimeout(() => {
       F.bombRadius(), F.itemEase, F.birdFlock, F.starCoinMult, F.payoutMult,
       +F.coinFruitBonus.toFixed(4), F.coinFlat, +F.chainBonus(5).toFixed(4),
       +F.streakMult(0).toFixed(4), F.STREAK_CAP, F.STREAK_STEP, F.crackerBonus, F.crackerCoin,
-      F.grapeBulk, +F.brickChance.toFixed(4), +F.resonance.toFixed(4),
+      F.grapeBulk, +F.crackerChance.toFixed(4), +F.resonance.toFixed(4),
       +F.shopDiscount.toFixed(4), F.ROWS, F.doubles,
     ]);
     const deadTraits = [];
@@ -1513,7 +1513,7 @@ window.addEventListener('load', () => setTimeout(() => {
     schk('the stats section is there', [...document.querySelectorAll('.st-row')].length > 8, true);
     schk('nothing is marked changed on a fresh run',
          [...document.querySelectorAll('.st-row.up')].length, 0);
-    const coinLab = F.d('statCoinFruit'), brickLab = F.d('statBrick'), bombLab = F.d('statBomb');
+    const coinLab = F.d('statCoinFruit'), crackerLab = F.d('statCracker'), bombLab = F.d('statBomb');
     schk('coin fruit starts at the base rate', nowOf(coinLab),
          `${Math.round(F.COIN_FRUIT_CHANCE * 1000) / 10}%`);
     schk('and shows no before-value yet', wasOf(coinLab), null);
@@ -1521,7 +1521,7 @@ window.addEventListener('load', () => setTimeout(() => {
     // each of these moves exactly one row, and the row must follow the GAME, not a guess
     const moves = [
       ['clover', coinLab, () => `${Math.round((F.COIN_FRUIT_CHANCE + F.coinFruitBonus) * 1000) / 10}%`],
-      ['brick_deal',  brickLab, () => `${Math.round(F.brickChance * 1000) / 10}%`],
+      ['brick_deal',  crackerLab, () => `${Math.round(F.crackerChance * 1000) / 10}%`],
       ['bomb_mod',    bombLab,  () => `${F.bombRadius() * 2 + 1}×${F.bombRadius() * 2 + 1}`],
       ['flock',       F.d('statBird'), () => String(F.birdFlock)],
       ['satchel',     F.d('statSlots'), () => String(F.relicCap())],

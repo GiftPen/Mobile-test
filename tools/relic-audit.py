@@ -30,7 +30,7 @@ window.addEventListener('load', () => setTimeout(() => {
     F.starCoinMult, F.ROWS, zoneProbe(),
     [1,3,5,9].map(k => F.chainBonus(k)),
     F.STREAK_CAP, F.streakMult(),
-    F.brickChance, F.coinFruitBonus, F.payoutMult,
+    F.crackerChance, F.coinFruitBonus, F.payoutMult,
     F.coinFlat, F.interestPer, F.interestPct, F.interestCap, F.starEverything, F.interestDue(),
     F.spendFlat, F.priceOf(F.RELICS.crown), F.itemPrice('bomb'),
     F.resonance, F.offerWeight('one_cherry'),

@@ -133,6 +133,31 @@ window.addEventListener('load', () => setTimeout(async () => {
   hidden(false); document.dispatchEvent(new Event('visibilitychange'));
   await sleep(40);
 
+    // ---- reviving must rescue, not tax ----
+  // It clears a quarter of the board. It used to take items with it (an ad that eats the
+  // star you were saving) and re-roll the bonus zone, which is a different stage's map.
+  F.mode = 'rush'; F.start('rush');
+  await sleep(140);
+  for (let r = 0; r < F.ROWS; r++) for (let c = 0; c < F.COLS; c++)
+    { F.grid[r][c] = 2; F.special[r][c] = null; }
+  F.special[0][0] = 'star'; F.special[1][1] = 'bomb'; F.special[2][2] = 'bird';
+  F.relics = ['hotspot']; F.applyRelics(); F.rollZones();
+  const zoneBefore = [...F.zoneCells].sort().join(',');
+  const filledBefore = F.filledCount();
+  F.revivedThisRun = false; F.running = true;
+  F.reviveRun();
+  await sleep(120);
+  chk('a revive keeps every item on the board',
+      [F.special[0][0], F.special[1][1], F.special[2][2]], ['star', 'bomb', 'bird']);
+  chk('the bonus zone is where it was', [...F.zoneCells].sort().join(','), zoneBefore);
+  const cleared = filledBefore - F.filledCount();
+  chk('it clears about the share it says it does',
+      Math.abs(cleared / filledBefore - F.REVIVE_CLEAR) < 0.06, true);
+  chk('and leaves somewhere to play', F.emptyCells().length > 0, true);
+  chk('the run is live again', F.running, true);
+  // the label has to say how much, or "1/4" is a secret
+  chk('the button says what it does', /1\/4|1\u20444/.test(F.d('reviveAd')), true);
+
   document.title = 'RESULT ' + JSON.stringify({ fails });
  } catch (e) { document.title = 'THREW ' + e.message; }
 }, 800));

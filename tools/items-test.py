@@ -59,7 +59,7 @@ window.addEventListener('load', async () => {
     await pump(10);
     return { ok, sp: F.special[4][4], col: F.grid[4][4] };
   };
-  for (const kind of ['bird', 'line', 'bomb', 'star']) {
+  for (const kind of ['bird', 'lineH', 'lineV', 'bomb', 'star']) {
     const r = await buyAndPlace(kind);
     chk(kind + ': the purchase goes through', r.ok, true);
     chk(kind + ': the cell holds a fruit', r.col >= 0, true);
@@ -67,9 +67,24 @@ window.addEventListener('load', async () => {
         ['bird', 'lineH', 'lineV', 'lineX', 'bomb', 'star'].includes(r.sp), true);
   }
 
+  // the basket is not a cell item: it fills the BOARD
+  {
+    F.mode = 'rush'; F.resetRun(); F.relics = []; F.applyRelics();
+    clearBoard();
+    F.running = true; F.busy = false; F.paused = false; F.coins = 500;
+    const before = F.filledCount();
+    F.armItem('basket');
+    const ok = F.placeBoughtItem(4, 4);
+    await pump(20);
+    chk('the basket purchase goes through', ok, true);
+    chk('and it fills the board, not a cell', F.filledCount() - before >= F.BASKET_FRUIT, true);
+    chk('the cell it was placed on holds a plain fruit', F.special[4][4], null);
+    chk('and the fruit it drops obey the odds', F.grid.flat().filter(v => v >= 0).length > 0, true);
+  }
+
   // and the bought line must actually sweep a row or a column when it goes off
   {
-    await buyAndPlace('line');
+    await buyAndPlace('lineH');
     const row = [], col = [];
     for (let c = 0; c < F.COLS; c++) { if (c !== 4) { F.grid[4][c] = 2; row.push(c); } }
     for (let r = 0; r < F.ROWS; r++) { if (r !== 4) { F.grid[r][4] = 2; col.push(r); } }
@@ -83,15 +98,13 @@ window.addEventListener('load', async () => {
                                         : rowGone && colGone, true);
   }
 
-  // 십자로 must cover what you paid for, the same as an earned line
-  {
-    let sawX = false;
-    for (let i = 0; i < 12 && !sawX; i++) {
-      const r = await buyAndPlace('line', ['crossing']);
-      if (r.sp === 'lineX') sawX = true; else chk('crossing: bought line is a cross', r.sp, 'lineX');
-    }
-    chk('십자로 applies to a bought line too', sawX, true);
-  }
+  // a row is a row and a column is a column -- the shop sells them separately now
+  chk('the row item is a row', (await buyAndPlace('lineH')).sp, 'lineH');
+  chk('the column item is a column', (await buyAndPlace('lineV')).sp, 'lineV');
+
+  // 십자로 must cover what you paid for, either one
+  chk('십자로 turns a bought row into a cross', (await buyAndPlace('lineH', ['crossing'])).sp, 'lineX');
+  chk('십자로 turns a bought column into a cross', (await buyAndPlace('lineV', ['crossing'])).sp, 'lineX');
   F.relics = []; F.applyRelics(); F.resetEffects();
 
   // ---- 금빛 수확: the coin-fruit bonus has to reach the SCORE, not just the modifier ----
@@ -294,7 +307,7 @@ window.addEventListener('load', async () => {
     F.mode = 'rush'; F.resetRun(); F.relics = relics.slice(); F.applyRelics();
     clearBoard();
     for (let r = 0; r < F.ROWS; r++) for (let c = 0; c < F.COLS; c++) F.coinCell[r][c] = 0;
-    F.grid[2][4] = F.BRICK; F.hp[2][4] = 1;
+    F.grid[2][4] = F.CRACKER; F.hp[2][4] = 1;
     for (const [r, c] of [[3,5],[4,4],[4,5]]) F.grid[r][c] = 5;
     F.nextColor = 5; F.nextColor2 = 5;
     F.score = 0; F.streak = 0; F.coins = 0; F.busy = false;
@@ -338,7 +351,7 @@ window.addEventListener('load', async () => {
   // 가루 폭발 takes the neighbours with it
   F.mode = 'rush'; F.resetRun(); F.relics = ['crumb_blast']; F.applyRelics();
   clearBoard();
-  F.grid[2][4] = F.BRICK; F.hp[2][4] = 1;
+  F.grid[2][4] = F.CRACKER; F.hp[2][4] = 1;
   for (const [r, c] of [[3,5],[4,4],[4,5]]) F.grid[r][c] = 5;
   const bystanders = [[1,3],[1,4],[1,5],[2,3],[2,5]];
   for (const [r, c] of bystanders) F.grid[r][c] = 6;     // a colour nothing else touches
@@ -352,41 +365,41 @@ window.addEventListener('load', async () => {
   chk('가루 폭발 clears the 3x3 around the cracker', wb.seen.size, bystanders.length);
   F.relics = []; F.applyRelics(); F.resetEffects();
 
-  // ---- every way a brick can break has to make the brick sound ----
+  // ---- every way a cracker can break has to make the cracker sound ----
   // A bird eating one was silent: that path mutates the grid directly instead of going
-  // through the chain, so it never reached SFX.play('brick').
+  // through the chain, so it never reached SFX.play('cracker').
   const heard = [];
   const realPlay = F.SFX.play;
   F.SFX.play = (n, a) => { heard.push(n); return realPlay.call(F.SFX, n, a); };
 
   clearBoard();
   F.busy = false; F.birds.length = 0;
-  F.grid[0][0] = F.BRICK; F.hp[0][0] = 1;         // one hit and it is gone
+  F.grid[0][0] = F.CRACKER; F.hp[0][0] = 1;         // one hit and it is gone
   F.grid[7][7] = 2;
   F.birds.push({ sr: 7, sc: 7, tr: 0, tc: 0, t: 0.99, curve: 1 });
   heard.length = 0;
   await pump(30);
-  chk('a bird breaking a brick makes the brick sound', heard.includes('brick'), true);
-  chk('and the brick is actually gone', F.grid[0][0], -1);
+  chk('a bird breaking a cracker makes the cracker sound', heard.includes('cracker'), true);
+  chk('and the cracker is actually gone', F.grid[0][0], -1);
 
   // the chain path, which did work, must keep working
   clearBoard();
   F.birds.length = 0;
-  F.grid[3][3] = F.BRICK; F.hp[3][3] = 1;
+  F.grid[3][3] = F.CRACKER; F.hp[3][3] = 1;
   F.grid[3][4] = 1; F.special[3][4] = 'bomb';     // blast it from next door
   heard.length = 0;
   F.tapItem(3, 4);
   await pump(80, 12);
-  chk('a blast next to a brick makes it too', heard.includes('brick'), true);
-  chk('and that brick is gone as well', F.grid[3][3], -1);
+  chk('a blast next to a cracker makes it too', heard.includes('cracker'), true);
+  chk('and that cracker is gone as well', F.grid[3][3], -1);
 
-  // a brick CHIPPED by an adjacent colour pop is a third path again: it survives the hit, so
+  // a cracker CHIPPED by an adjacent colour pop is a third path again: it survives the hit, so
   // it never reaches the frontier and never reaches the bird. Give it 3 HP so it cannot be
-  // confused with a brick that broke.
+  // confused with a cracker that broke.
   F.resetEffects();
   clearBoard();
   F.busy = false;
-  F.grid[2][4] = F.BRICK; F.hp[2][4] = 3;
+  F.grid[2][4] = F.CRACKER; F.hp[2][4] = 3;
   for (const [r, c] of [[3,5],[4,4],[4,5]]) F.grid[r][c] = 5;   // a cluster to set off
   F.nextColor = 5; F.nextColor2 = 5;
   const r3 = cv.getBoundingClientRect(), cw3 = r3.width / F.COLS, ch3 = r3.height / F.ROWS;
@@ -395,22 +408,22 @@ window.addEventListener('load', async () => {
   cv.dispatchEvent(new PointerEvent('pointerdown', {clientX:x3, clientY:y3, bubbles:true}));
   cv.dispatchEvent(new PointerEvent('pointerup',   {clientX:x3, clientY:y3, bubbles:true}));
   await pump(90, 12);
-  chk('a brick merely chipped still makes the sound', heard.includes('brick'), true);
-  chk('and it survived the chip', F.grid[2][4], F.BRICK);
+  chk('a cracker merely chipped still makes the sound', heard.includes('cracker'), true);
+  chk('and it survived the chip', F.grid[2][4], F.CRACKER);
   chk('but it did lose health', F.hp[2][4] < 3, true);
 
-  // and a blast with no brick anywhere near must not
+  // and a blast with no cracker anywhere near must not
   clearBoard();
   F.grid[3][4] = 1; F.special[3][4] = 'bomb';
   heard.length = 0;
   F.tapItem(3, 4);
   await pump(80, 12);
-  chk('but a blast with no brick near it does not', heard.includes('brick'), false);
+  chk('but a blast with no cracker near it does not', heard.includes('cracker'), false);
   F.SFX.play = realPlay;
 
-  // the brick sound is granular, not one filtered sweep -- a sweep only ever says "shh"
-  chk('the brick sound has alternatives to pick from', F.SFX.BRICK_KEYS.length >= 3, true);
-  chk('and the chosen one is not the old sweep', F.SFX.brickStyle !== 'old', true);
+  // the cracker sound is granular, not one filtered sweep -- a sweep only ever says "shh"
+  chk('the cracker sound has alternatives to pick from', F.SFX.CRACKER_KEYS.length >= 3, true);
+  chk('and the chosen one is not the old sweep', F.SFX.crackerStyle !== 'old', true);
 
   // ---- the swoop is paced by the clock, not by the frame rate ----
   // It used to step a fixed amount per FRAME, so it ran at double speed on a 120Hz phone and

@@ -205,10 +205,11 @@
   #rush-next:disabled span { opacity: .5; }
   /* height is fixed and the row is always present: this sits directly under the board, and
      anything that resized with affordability would shove the board on every coin gained */
-  #ishop { display: flex; justify-content: center; gap: 8px; height: 54px; margin-top: 8px;
-    width: 100%; max-width: 520px; }
+  #ishop { display: flex; justify-content: center; gap: 6px; height: 54px; margin-top: 8px;
+    width: 100%; max-width: 520px; padding: 0 4px; }
   #ishop.hidden { display: none; }
-  .ib { margin: 0; width: 62px; display: flex; flex-direction: column; align-items: center;
+  .ib { margin: 0; flex: 1 1 0; min-width: 0; max-width: 62px;
+    display: flex; flex-direction: column; align-items: center;
     justify-content: center; gap: 2px; padding: 0; border-radius: 13px; border: 1px solid #2b3048;
     background: #1c2032; color: var(--text); box-shadow: none; font-family: inherit; }
   .ib-ic { font-size: 21px; line-height: 1; }
@@ -708,7 +709,9 @@
   </div>
   <div id="ishop">
     <button class="ib" data-item="bird"><span class="ib-ic">🐦</span><span class="ib-p"><i class="cn"></i>10</span></button>
-    <button class="ib" data-item="line"><span class="ib-ic">↔️</span><span class="ib-p"><i class="cn"></i>15</span></button>
+    <button class="ib" data-item="lineH"><span class="ib-ic">↔️</span><span class="ib-p"><i class="cn"></i>15</span></button>
+    <button class="ib" data-item="lineV"><span class="ib-ic">↕️</span><span class="ib-p"><i class="cn"></i>15</span></button>
+    <button class="ib" data-item="basket"><span class="ib-ic">🧺</span><span class="ib-p"><i class="cn"></i>22</span></button>
     <button class="ib" data-item="bomb"><span class="ib-ic">💣</span><span class="ib-p"><i class="cn"></i>30</span></button>
     <button class="ib" data-item="star"><span class="ib-ic">🌟</span><span class="ib-p"><i class="cn"></i>70</span></button>
   </div>
@@ -728,7 +731,7 @@
     <button class="dock-btn" data-item="line">↔️</button>
     <button class="dock-btn" data-item="bomb">💣</button>
     <button class="dock-btn" data-item="star">🌟</button>
-    <button class="dock-btn" data-item="brick">🧱</button>
+    <button class="dock-btn" data-item="cracker">🍪</button>
   </div>
 
   <div id="adstub" class="hidden">
@@ -849,7 +852,7 @@
   // difficulty levels (MAX_LEVEL is computed from where the knobs cap) and nothing else.
   const SPAWN_MAX = 4;
   // one staged difficulty step per MILESTONE_STEP points, cycling:
-  //   brick(+HP) -> +1 color -> +1 spawn -> brick(+HP) -> ...
+  //   cracker unlock -> +1 color -> +1 spawn -> cracker unlock -> ...
   const MILESTONE_STEP = 1000; // TEST value (now); SHIP = 5000 points per difficulty step
   let MAX_LEVEL = 10;          // auto-computed at boot from where every difficulty knob caps
   const FILL_SEGS = 16;        // segments in the board-fill / danger gauge
@@ -895,10 +898,10 @@
   // The swoop used to advance a fixed amount per FRAME: ~0.9s at 60Hz and half that on a
   // 120Hz phone, which read as a dart rather than a swoop. Wall clock, and slower.
   const BIRD_FLY_MS = 1050;
-  const BRICK = -2;            // grid value for a cracker (wall; only items can clear it)
+  const CRACKER = -2;            // grid value for a cracker (wall; only items can clear it)
   const SEED  = -3;            // a kiwi's leftover: blocks the cell, counts down, grows back
   const SEED_TOUCHES = 3;      // ...in this many touches
-  const BRICK_EVERY = 5;       // one cracker spawns every N touches once unlocked
+  const CRACKER_EVERY = 5;       // one cracker spawns every N touches once unlocked
   const CRACKER_SCORE = 100;   // what breaking one is worth, before relics
   // ---- Star Rush stage curve (DRAFT numbers, meant to be tuned by feel) ----
   const STAGES_PER_ROUND = 3;  // a round is 1-1, 1-2, 1-3; traits land when a round ends
@@ -1353,87 +1356,28 @@
   </g>
 </svg>`;
 
-  // brick HP states: 3 = full, 2 = damaged, 1 = nearly broken
-  const BRICK3_SVG = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" width="100%" height="100%">
+  // Only ever seen if cracker.png is missing, but it still has to read as a cracker rather
+  // than as the brick wall it used to draw.
+  const CRACKER_SVG = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" width="100%" height="100%">
   <defs>
-    <linearGradient id="mortarGrad" x1="0%" y1="0%" x2="0%" y2="100%"><stop offset="0%" stop-color="#2d3142" /><stop offset="100%" stop-color="#1b1d28" /></linearGradient>
-    <linearGradient id="brickMain" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" stop-color="#e27158" /><stop offset="40%" stop-color="#c84c31" /><stop offset="85%" stop-color="#932b17" /><stop offset="100%" stop-color="#6a1b0c" /></linearGradient>
-    <linearGradient id="brickAlt" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" stop-color="#d9654c" /><stop offset="40%" stop-color="#b84026" /><stop offset="85%" stop-color="#802210" /><stop offset="100%" stop-color="#551205" /></linearGradient>
-    <linearGradient id="bevelTop" x1="0%" y1="0%" x2="0%" y2="100%"><stop offset="0%" stop-color="#f89e86" /><stop offset="100%" stop-color="#d95a3f" /></linearGradient>
-    <linearGradient id="bevelBottom" x1="0%" y1="0%" x2="0%" y2="100%"><stop offset="0%" stop-color="#601607" /><stop offset="100%" stop-color="#3d0a00" /></linearGradient>
+    <linearGradient id="ckTop" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#f3b563" /><stop offset="55%" stop-color="#e09b46" />
+      <stop offset="100%" stop-color="#c07c2e" /></linearGradient>
   </defs>
-  <rect width="100" height="100" fill="url(#mortarGrad)" />
-  <g>
-    <g transform="translate(0, 0)"><rect x="0" y="0" width="47" height="22" fill="url(#brickMain)" /><polygon points="0,0 47,0 45,2 2,2 2,20 0,22" fill="url(#bevelTop)" /><polygon points="47,0 47,22 0,22 2,20 45,20 45,2" fill="url(#bevelBottom)" /></g>
-    <g transform="translate(51, 0)"><rect x="0" y="0" width="49" height="22" fill="url(#brickAlt)" /><polygon points="0,0 49,0 47,2 2,2 2,20 0,22" fill="url(#bevelTop)" /><polygon points="49,0 49,22 0,22 2,20 47,20 47,2" fill="url(#bevelBottom)" /></g>
-    <g transform="translate(0, 26)"><rect x="0" y="0" width="22" height="22" fill="url(#brickAlt)" /><polygon points="0,0 22,0 20,2 2,2 2,20 0,22" fill="url(#bevelTop)" /><polygon points="22,0 22,22 0,22 2,20 20,20 20,2" fill="url(#bevelBottom)" /></g>
-    <g transform="translate(26, 26)"><rect x="0" y="0" width="48" height="22" fill="url(#brickMain)" /><polygon points="0,0 48,0 46,2 2,2 2,20 0,22" fill="url(#bevelTop)" /><polygon points="48,0 48,22 0,22 2,20 46,20 46,2" fill="url(#bevelBottom)" /></g>
-    <g transform="translate(78, 26)"><rect x="0" y="0" width="22" height="22" fill="url(#brickMain)" /><polygon points="0,0 22,0 20,2 2,2 2,20 0,22" fill="url(#bevelTop)" /><polygon points="22,0 22,22 0,22 2,20 20,20 20,2" fill="url(#bevelBottom)" /></g>
-    <g transform="translate(0, 52)"><rect x="0" y="0" width="47" height="22" fill="url(#brickMain)" /><polygon points="0,0 47,0 45,2 2,2 2,20 0,22" fill="url(#bevelTop)" /><polygon points="47,0 47,22 0,22 2,20 45,20 45,2" fill="url(#bevelBottom)" /></g>
-    <g transform="translate(51, 52)"><rect x="0" y="0" width="49" height="22" fill="url(#brickAlt)" /><polygon points="0,0 49,0 47,2 2,2 2,20 0,22" fill="url(#bevelTop)" /><polygon points="49,0 49,22 0,22 2,20 47,20 47,2" fill="url(#bevelBottom)" /></g>
-    <g transform="translate(0, 78)"><rect x="0" y="0" width="22" height="22" fill="url(#brickAlt)" /><polygon points="0,0 22,0 20,2 2,2 2,20 0,22" fill="url(#bevelTop)" /><polygon points="22,0 22,22 0,22 2,20 20,20 20,2" fill="url(#bevelBottom)" /></g>
-    <g transform="translate(26, 78)"><rect x="0" y="0" width="48" height="22" fill="url(#brickMain)" /><polygon points="0,0 48,0 46,2 2,2 2,20 0,22" fill="url(#bevelTop)" /><polygon points="48,0 48,22 0,22 2,20 46,20 46,2" fill="url(#bevelBottom)" /></g>
-    <g transform="translate(78, 78)"><rect x="0" y="0" width="22" height="22" fill="url(#brickMain)" /><polygon points="0,0 22,0 20,2 2,2 2,20 0,22" fill="url(#bevelTop)" /><polygon points="22,0 22,22 0,22 2,20 20,20 20,2" fill="url(#bevelBottom)" /></g>
+  <rect x="8" y="8" width="84" height="84" rx="13" fill="#a4661f" />
+  <rect x="8" y="6" width="84" height="84" rx="13" fill="url(#ckTop)" />
+  <g fill="#b9752a" opacity=".85">
+    <circle cx="30" cy="30" r="3.4" /><circle cx="50" cy="24" r="3.4" /><circle cx="70" cy="32" r="3.4" />
+    <circle cx="26" cy="52" r="3.4" /><circle cx="48" cy="48" r="3.4" /><circle cx="72" cy="54" r="3.4" />
+    <circle cx="32" cy="72" r="3.4" /><circle cx="54" cy="70" r="3.4" /><circle cx="74" cy="74" r="3.4" />
   </g>
-  <g fill="#551205" opacity="0.35"><circle cx="15" cy="10" r="0.8" /><circle cx="35" cy="15" r="0.6" /><circle cx="70" cy="8" r="0.9" /><circle cx="48" cy="38" r="0.8" /><circle cx="62" cy="34" r="0.7" /><circle cx="18" cy="62" r="0.8" /><circle cx="75" cy="65" r="0.9" /><circle cx="50" cy="88" r="0.8" /></g>
+  <path d="M 16 16 L 40 16 L 16 40 Z" fill="#ffffff" opacity=".18" />
 </svg>`;
 
-  const BRICK2_SVG = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" width="100%" height="100%">
-  <defs>
-    <linearGradient id="mortarGrad2" x1="0%" y1="0%" x2="0%" y2="100%"><stop offset="0%" stop-color="#2d3142" /><stop offset="100%" stop-color="#1b1d28" /></linearGradient>
-    <linearGradient id="brickMain2" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" stop-color="#e27158" /><stop offset="40%" stop-color="#c84c31" /><stop offset="85%" stop-color="#932b17" /><stop offset="100%" stop-color="#6a1b0c" /></linearGradient>
-    <linearGradient id="brickAlt2" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" stop-color="#d9654c" /><stop offset="40%" stop-color="#b84026" /><stop offset="85%" stop-color="#802210" /><stop offset="100%" stop-color="#551205" /></linearGradient>
-    <linearGradient id="fractureClay" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" stop-color="#ff8c69" /><stop offset="50%" stop-color="#ab321c" /><stop offset="100%" stop-color="#4a0e05" /></linearGradient>
-  </defs>
-  <rect width="100" height="100" fill="url(#mortarGrad2)" />
-  <g>
-    <rect x="0" y="0" width="47" height="22" fill="url(#brickMain2)" /><rect x="51" y="0" width="49" height="22" fill="url(#brickAlt2)" />
-    <rect x="0" y="26" width="22" height="22" fill="url(#brickAlt2)" />
-    <path d="M 26 26 L 74 26 L 74 48 L 56 48 L 52 42 L 48 48 L 26 48 Z" fill="url(#brickMain2)" />
-    <rect x="78" y="26" width="22" height="22" fill="url(#brickMain2)" />
-    <path d="M 0 52 L 47 52 L 44 60 L 48 68 L 47 74 L 0 74 Z" fill="url(#brickMain2)" />
-    <path d="M 51 52 L 53 58 L 50 66 L 54 74 L 100 74 L 100 52 Z" fill="url(#brickAlt2)" />
-    <rect x="0" y="78" width="22" height="22" fill="url(#brickAlt2)" /><rect x="26" y="78" width="48" height="22" fill="url(#brickMain2)" /><rect x="78" y="78" width="22" height="22" fill="url(#brickMain2)" />
-  </g>
-  <polygon points="46,38 56,36 60,46 52,58 42,54 40,44" fill="url(#fractureClay)" /><polygon points="48,42 54,40 56,48 50,54 44,50" fill="#1b1d28" />
-  <g stroke="#1b1d28" stroke-linecap="round" stroke-linejoin="round">
-    <path d="M 50 14 L 48 26 L 54 36 L 46 44 L 52 58 L 47 74 L 52 86" stroke-width="2.2" fill="none" />
-    <path d="M 48 26 L 38 20 L 32 26" stroke-width="1.2" fill="none" /><path d="M 54 36 L 66 32 L 72 38" stroke-width="1.4" fill="none" /><path d="M 46 44 L 34 50 L 28 46" stroke-width="1.3" fill="none" /><path d="M 52 58 L 64 64 L 70 60" stroke-width="1.4" fill="none" /><path d="M 47 74 L 38 82 L 32 80" stroke-width="1.2" fill="none" />
-  </g>
-  <g stroke="#f89e86" stroke-width="0.8" fill="none" opacity="0.8"><path d="M 49 15 L 47 27 L 53 37" /><path d="M 55 37 L 67 33" /><path d="M 45 45 L 33 51" /><path d="M 53 59 L 65 65" /><path d="M 48 75 L 53 87" /></g>
-  <g fill="#c84c31" stroke="#3d0a00" stroke-width="0.5"><polygon points="48,50 51,48 50,53" /><polygon points="56,52 59,50 58,55" /><polygon points="42,60 45,58 44,63" /><circle cx="53" cy="62" r="1.2" fill="#d95a3f" /><circle cx="47" cy="68" r="0.9" fill="#ff8c69" /></g>
-</svg>`;
 
-  const BRICK1_SVG = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" width="100%" height="100%">
-  <defs>
-    <linearGradient id="mortarDark3" x1="0%" y1="0%" x2="0%" y2="100%"><stop offset="0%" stop-color="#1b1d28" /><stop offset="100%" stop-color="#0a0b10" /></linearGradient>
-    <linearGradient id="brickMain3" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" stop-color="#e27158" /><stop offset="40%" stop-color="#c84c31" /><stop offset="85%" stop-color="#932b17" /><stop offset="100%" stop-color="#6a1b0c" /></linearGradient>
-    <linearGradient id="brickAlt3" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" stop-color="#d9654c" /><stop offset="40%" stop-color="#b84026" /><stop offset="85%" stop-color="#802210" /><stop offset="100%" stop-color="#551205" /></linearGradient>
-    <linearGradient id="holeDepth" x1="0%" y1="0%" x2="0%" y2="100%"><stop offset="0%" stop-color="#000000" /><stop offset="100%" stop-color="#141722" /></linearGradient>
-    <linearGradient id="rubbleGrad" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" stop-color="#f48c71" /><stop offset="60%" stop-color="#b84026" /><stop offset="100%" stop-color="#4a0e05" /></linearGradient>
-  </defs>
-  <rect width="100" height="100" fill="url(#mortarDark3)" />
-  <g>
-    <polygon points="0,0 42,0 36,18 20,22 0,22" fill="url(#brickMain3)" /><polygon points="58,0 100,0 100,22 76,22 62,12" fill="url(#brickAlt3)" />
-    <polygon points="0,26 22,26 18,48 0,48" fill="url(#brickAlt3)" /><polygon points="0,52 24,52 16,74 0,74" fill="url(#brickMain3)" />
-    <polygon points="78,26 100,26 100,48 84,48 80,36" fill="url(#brickMain3)" /><polygon points="82,52 100,52 100,74 76,74 78,60" fill="url(#brickAlt3)" />
-    <polygon points="0,78 26,78 30,100 0,100" fill="url(#brickAlt3)" /><polygon points="74,78 100,78 100,100 68,100" fill="url(#brickMain3)" />
-  </g>
-  <polygon points="26,24 48,16 66,20 78,34 72,58 76,76 56,84 34,80 20,64 24,40" fill="url(#holeDepth)" stroke="#0a0b10" stroke-width="2" />
-  <g stroke="#000000" stroke-linecap="round" stroke-linejoin="round">
-    <path d="M 0 12 L 20 18 L 26 24" stroke-width="2.5" fill="none" /><path d="M 100 10 L 80 16 L 66 20" stroke-width="2.5" fill="none" /><path d="M 48 0 L 48 16" stroke-width="2.2" fill="none" /><path d="M 0 60 L 16 62 L 20 64" stroke-width="2.5" fill="none" /><path d="M 100 62 L 84 66 L 76 76" stroke-width="2.5" fill="none" /><path d="M 44 100 L 48 88 L 56 84" stroke-width="2.5" fill="none" />
-  </g>
-  <g>
-    <polygon points="30,34 44,30 40,46 26,44" transform="rotate(-15, 35, 38)" fill="url(#rubbleGrad)" stroke="#3d0a00" stroke-width="0.8" />
-    <polygon points="56,36 70,38 66,52 52,48" transform="rotate(22, 61, 44)" fill="url(#rubbleGrad)" stroke="#3d0a00" stroke-width="0.8" />
-    <polygon points="40,58 58,56 54,72 38,70" transform="rotate(-8, 48, 64)" fill="url(#rubbleGrad)" stroke="#3d0a00" stroke-width="0.8" />
-    <polygon points="48,22 55,20 52,28" fill="#e27158" stroke="#3d0a00" stroke-width="0.6" /><polygon points="22,50 28,47 26,56" fill="#c84c31" stroke="#3d0a00" stroke-width="0.6" /><polygon points="72,62 78,58 75,68" fill="#e27158" stroke="#3d0a00" stroke-width="0.6" /><polygon points="34,76 42,72 38,82" fill="#c84c31" stroke="#3d0a00" stroke-width="0.6" /><polygon points="62,74 68,70 66,79" fill="#932b17" stroke="#3d0a00" stroke-width="0.6" />
-  </g>
-  <g fill="#f89e86" opacity="0.9"><circle cx="38" cy="26" r="1.5" /><circle cx="62" cy="28" r="1.3" /><circle cx="50" cy="40" r="1.8" /><circle cx="34" cy="54" r="1.2" /><circle cx="65" cy="56" r="1.6" /><circle cx="46" cy="74" r="1.4" /><circle cx="58" cy="66" r="1.2" /><circle cx="28" cy="38" r="0.9" /><circle cx="74" cy="46" r="1" /></g>
-</svg>`;
 
   // ---- state ----
-  let grid;                    // grid[r][c] = colorIndex | -1 (empty) | BRICK
+  let grid;                    // grid[r][c] = colorIndex | -1 (empty) | CRACKER
   let nextColor;       // the piece you'll place now (queue front)
   let nextColor2;      // the lookahead piece shown after it
   let score, best, streak;     // streak = consecutive successful taps
@@ -1478,7 +1422,7 @@
                                // until ITS staggered burst fires, so a blast reads as fruit
                                // vanishing outward instead of the whole area blinking out
   let special;                 // special[r][c] = null | "bomb" | "lineH" | "lineV" | "star"
-  let hp;                      // hp[r][c] = brick health (only when grid === BRICK)
+  let hp;                      // hp[r][c] = cracker health (1) or a kiwi seed's countdown
   let appear;                  // appear[r][c] = 1..0 pop-in animation for newly spawned cells
 
   // ---- canvas / layout ----
@@ -1571,7 +1515,7 @@
     nextColor = null; nextColor2 = null;   // null queue -> pickNext refills both slots
     score = 0; streak = 0; touchCount = 0;
     stage = 1; stageScore = 0; touchesLeft = RUSH_TOUCHES;
-    touchBonus = 0; spawnBonus = 0; slotBonus = 0; brickChance = 0; offerBonus = 0;
+    touchBonus = 0; spawnBonus = 0; slotBonus = 0; crackerChance = 0; offerBonus = 0;
     chainStep = 0; coinFruitBonus = 0; starCoinMult = 1; payoutMult = 1;
     coinFlat = 0; coinFlatPer = COIN_FLAT_PER; interestPer = 0; interestPct = 0; interestCap = INTEREST_CAP;
     crackerBonus = 0; crackerCoin = 0; crackerBoom = false; crackerDouble = false; crackerEvery = false;
@@ -1672,7 +1616,7 @@
     shake = 0; flash = 0; dirty = true;
   }
   function randInt(n) { return Math.floor(Math.random() * n); }
-  // staged difficulty: milestone m unlocks, in order, brick / color / spawn (cycling)
+  // staged difficulty: milestone m unlocks, in order, cracker / color / spawn (cycling)
   function milestone() { return Math.floor(score / MILESTONE_STEP); }
   function level() { return Math.min(MAX_LEVEL, milestone() + 1); }   // Lv.1 at score 0
 
@@ -1680,7 +1624,7 @@
   // The two modes share the whole board mechanic and differ only in the knobs below.
   // Keeping the differences in one table stops `if (mode === "rush")` from being sprayed
   // through the engine, which is what makes a second mode expensive to add.
-  //   Arcade: difficulty climbs with your score (colours 4->7, spawns 1->4, bricks unlock).
+  //   Arcade: difficulty climbs with your score (colours 4->7, spawns 1->4, crackers unlock).
   //   Rush:   the board stays flat and difficulty comes from stage quotas and relics,
   //           with all 7 colours from the first turn (design doc 10-4).
   const MODES = {
@@ -1693,7 +1637,7 @@
       spawns:  m => Math.min(SPAWN_MAX, SPAWN_BASE + Math.floor(m / 3)),
       // one hit, always. Three HP states made the obstacle a chore to grind down and the
       // art carry three versions of itself; a cracker either survives the turn or it does not.
-      brickHp: m => (m >= 1 ? 1 : 0),
+      crackerOn: m => (m >= 1 ? 1 : 0),
     },
     rush: {
       startBuds: RUSH_BUDS,
@@ -1704,14 +1648,14 @@
       colors:  () => MAX_COLORS,                            // 7 from the start
       odds:    () => BASE_ODDS,                             // rare fruit = valuable fruit
       spawns:  () => RUSH_SPAWNS,                           // relics raise this, not the score
-      brickHp: () => 0,                                     // bricks arrive via risk relics
+      crackerOn: () => 0,                                     // crackers arrive via risk relics
     },
   };
   let mode = "arcade";
   const rules = () => MODES[mode];
 
   // difficulty knobs (accept an explicit milestone m; default = current)
-  function brickHpLevel(m = milestone()) { return rules().brickHp(m); }
+  function crackerLevel(m = milestone()) { return rules().crackerOn(m); }
   function activeColors(m = milestone()) { return rules().colors(m); }
   function spawnCount(m = milestone()) { return rules().spawns(m) + spawnBonus; }
   function stageTouches() { return rules().touches + touchBonus; }
@@ -1720,7 +1664,7 @@
   function computeMaxLevel() {
     const a = MODES.arcade;
     for (let m = 0; m < 200; m++)
-      if (a.colors(m) === MAX_COLORS && a.spawns(m) === SPAWN_MAX && a.brickHp(m) >= 1)
+      if (a.colors(m) === MAX_COLORS && a.spawns(m) === SPAWN_MAX && a.crackerOn(m) >= 1)
         return m + 1;
     return 10;
   }
@@ -1747,7 +1691,7 @@
   let relics = [];                         // ids of the relics owned this run
   let relicLife = {};                      // id -> charges left, for the ones that expire
   // derived from the owned relics -- never written directly, always recomputed by applyRelics()
-  let touchBonus = 0, spawnBonus = 0, slotBonus = 0, brickChance = 0, offerBonus = 0;
+  let touchBonus = 0, spawnBonus = 0, slotBonus = 0, crackerChance = 0, offerBonus = 0;
   // more knobs for relics to turn. All derived: applyRelics() resets them every recompute.
   // ---- coin economy ----
   // Coins are currency AND, with these, score. That is a hoarding incentive, so interest is
@@ -2041,7 +1985,7 @@
       popMult:    n => `터뜨린 점수 ×${n1(n)}`,
       popMultRun: n => `터뜨린 점수 ×${n1(n)} · 이번 게임 내내`,
       bigPop:     (k, m) => `${k}개 이상 터뜨리면 점수 ×${n1(m)}`,
-      brickDeal:  (pct, br) => `터뜨린 점수 +${pct}% · 새 과일의 ${br}%가 크래커`,
+      crackerDeal:  (pct, br) => `터뜨린 점수 +${pct}% · 새 과일의 ${br}%가 크래커`,
       clusterStep:(add) => `덩어리 보너스 +${n1(add)}`,
       comboStep:  (add) => `콤보 증가폭 +${n1(add)}`,
       comboCap:   (add) => `콤보 상한 +${n1(add)}`,
@@ -2301,6 +2245,7 @@
       tutSkip: "건너뛰기",
       tutReplay: "튜토리얼 다시 보기",
       tabHelp: "❔ 도움말",
+      itemBasket: n => `🧺 과일 바구니 — 판에 과일 ${n}개를 채웁니다`,
       sellSure: "정말 팔기?",
       stackAllPop: n => `과일을 터뜨릴 때마다 그 과일 점수 +${n}`,
       bakerTrait: (pct, n) => `새 과일의 ${pct}%가 크래커 · 크래커 점수 +${n}`,
@@ -2323,7 +2268,7 @@
       resonance: () => "같은 계열 유물이 상점에 더 자주 등장합니다",
       statHead: "내 수치",
       statCoinFruit: "코인 달린 과일",
-      statBrick: "크래커 등장",
+      statCracker: "크래커 등장",
       statSpawn: "매 턴 과일",
       statTouch: "스테이지 터치",
       statComboCap: "콤보 상한",
@@ -2357,7 +2302,7 @@
       helpRun2: "스테이지 사이마다 <b>상점</b>이 열립니다. 코인으로 산 유물은 이번 게임 내내 효과가 이어집니다.",
       helpRun3: "라운드가 끝나면 <b>특성</b>을 하나 고릅니다. 목표를 일찍 채우면 남은 터치만큼 코인을 더 받습니다.",
       tut4: "아이템은 바로 옆에서 과일이 터져도 함께 발동합니다. 빛나는 칸에 놓아보세요",
-      reviveAd: "▶ 광고 보고 이어하기",
+      reviveAd: "▶ 광고 보고 이어하기 · 판의 1/4 정리",
       adRewarded: "보상형 광고 (샘플)",
       adInterstitial: "전면 광고 (샘플)",
       adClose: "닫기",
@@ -2385,7 +2330,7 @@
       popMult:    n => `Popped score ×${n1(n)}`,
       popMultRun: n => `Popped score ×${n1(n)} · whole run`,
       bigPop:     (k, m) => `Pop ${k} or more for ×${n1(m)} score`,
-      brickDeal:  (pct, br) => `Popped score +${pct}% · ${br}% of new fruit are crackers`,
+      crackerDeal:  (pct, br) => `Popped score +${pct}% · ${br}% of new fruit are crackers`,
       clusterStep:(add) => `Cluster bonus +${n1(add)}`,
       comboStep:  (add) => `Combo step +${n1(add)}`,
       comboCap:   (add) => `Combo cap +${n1(add)}`,
@@ -2641,6 +2586,7 @@
       tutSkip: "Skip",
       tutReplay: "Replay tutorial",
       tabHelp: "❔ Help",
+      itemBasket: n => `🧺 Fruit Basket — drops ${n} fruit onto the board`,
       sellSure: "Sell it?",
       stackAllPop: n => `Every fruit popped raises that fruit by +${n}`,
       bakerTrait: (pct, n) => `${pct}% of new fruit are crackers · cracker score +${n}`,
@@ -2663,7 +2609,7 @@
       resonance: () => "Relics like the ones you own show up more often",
       statHead: "Your numbers",
       statCoinFruit: "Coin-carrying fruit",
-      statBrick: "Cracker spawn",
+      statCracker: "Cracker spawn",
       statSpawn: "Fruit per turn",
       statTouch: "Touches per stage",
       statComboCap: "Combo cap",
@@ -2697,7 +2643,7 @@
       helpRun2: "A <b>shop</b> opens between stages. Relics bought with coins last the rest of the run.",
       helpRun3: "At the end of a round you pick a <b>trait</b>. Finish early and the touches you did not use pay out as coins.",
       tut4: "An item also goes off when fruit pops right beside it. Place on the glowing cell",
-      reviveAd: "▶ Watch an ad to continue",
+      reviveAd: "▶ Watch an ad to continue · clears 1/4 of the board",
       adRewarded: "Rewarded ad (sample)",
       adInterstitial: "Interstitial ad (sample)",
       adClose: "Close",
@@ -2725,7 +2671,7 @@
       popMult:    n => `割ったスコア ×${n1(n)}`,
       popMultRun: n => `割ったスコア ×${n1(n)} · ラン中ずっと`,
       bigPop:     (k, m) => `${k}個以上割ると スコア ×${n1(m)}`,
-      brickDeal:  (pct, br) => `割ったスコア +${pct}% · 新しいフルーツの${br}%がクラッカー`,
+      crackerDeal:  (pct, br) => `割ったスコア +${pct}% · 新しいフルーツの${br}%がクラッカー`,
       clusterStep:(add) => `かたまりボーナス +${n1(add)}`,
       comboStep:  (add) => `コンボ増加幅 +${n1(add)}`,
       comboCap:   (add) => `コンボ上限 +${n1(add)}`,
@@ -2980,6 +2926,7 @@
       tutSkip: "スキップ",
       tutReplay: "チュートリアルをもう一度",
       tabHelp: "❔ ヘルプ",
+      itemBasket: n => `🧺 フルーツかご — 盤面にフルーツを ${n} 個 補充します`,
       sellSure: "本当に売る?",
       stackAllPop: n => `フルーツを割るたびに そのフルーツのスコア +${n}`,
       bakerTrait: (pct, n) => `新しいフルーツの${pct}%がクラッカー · クラッカーのスコア +${n}`,
@@ -3002,7 +2949,7 @@
       resonance: () => "手持ちと同じ系統のレリックが出やすくなります",
       statHead: "あなたの数値",
       statCoinFruit: "コイン付きフルーツ",
-      statBrick: "クラッカー出現",
+      statCracker: "クラッカー出現",
       statSpawn: "毎ターンのフルーツ",
       statTouch: "ステージのタッチ",
       statComboCap: "コンボ上限",
@@ -3036,7 +2983,7 @@
       helpRun2: "ステージの合間に<b>ショップ</b>が開きます。コインで買ったレリックはラン中ずっと効きます。",
       helpRun3: "ラウンドの終わりに<b>特性</b>を1つ選びます。早く達成すると残りタッチ分のコインがもらえます。",
       tut4: "アイテムはすぐ隣でフルーツが割れても発動します。光るマスに置いてみましょう",
-      reviveAd: "▶ 広告を見て続ける",
+      reviveAd: "▶ 広告を見て続ける · 盤面の1/4を整理",
       adRewarded: "リワード広告 (サンプル)",
       adInterstitial: "インタースティシャル広告 (サンプル)",
       adClose: "閉じる",
@@ -3064,7 +3011,7 @@
       popMult:    n => `消除得分 ×${n1(n)}`,
       popMultRun: n => `消除得分 ×${n1(n)} · 整局有效`,
       bigPop:     (k, m) => `一次消除 ${k} 个以上，得分 ×${n1(m)}`,
-      brickDeal:  (pct, br) => `消除得分 +${pct}% · 新水果中 ${br}% 变饼干`,
+      crackerDeal:  (pct, br) => `消除得分 +${pct}% · 新水果中 ${br}% 变饼干`,
       clusterStep:(add) => `成团奖励 +${n1(add)}`,
       comboStep:  (add) => `连击增幅 +${n1(add)}`,
       comboCap:   (add) => `连击上限 +${n1(add)}`,
@@ -3319,6 +3266,7 @@
       tutSkip: "跳过",
       tutReplay: "重看教程",
       tabHelp: "❔ 帮助",
+      itemBasket: n => `🧺 水果篮 — 在盘面补充 ${n} 个水果`,
       sellSure: "确定卖出?",
       stackAllPop: n => `每消除一个水果，该水果分数 +${n}`,
       bakerTrait: (pct, n) => `新水果中 ${pct}% 变饼干 · 饼干分数 +${n}`,
@@ -3341,7 +3289,7 @@
       resonance: () => "与持有遗物同类的遗物更常出现",
       statHead: "我的数值",
       statCoinFruit: "带金币水果",
-      statBrick: "饼干出现",
+      statCracker: "饼干出现",
       statSpawn: "每回合水果",
       statTouch: "每关触碰",
       statComboCap: "连击上限",
@@ -3375,7 +3323,7 @@
       helpRun2: "关卡之间会开<b>商店</b>。用金币买的遗物整局有效。",
       helpRun3: "每轮结束选择一个<b>特性</b>。提前达成，剩余触摸会换成金币。",
       tut4: "旁边的水果被消除时道具也会发动。放在发光的格子上",
-      reviveAd: "▶ 看广告继续",
+      reviveAd: "▶ 看广告继续 · 清理盘面 1/4",
       adRewarded: "激励广告 (样例)",
       adInterstitial: "插屏广告 (样例)",
       adClose: "关闭",
@@ -3498,7 +3446,7 @@
       effects: [{ stat: "crackerCoin", amount: 1 }],
       desc: e => d("crackerCoin", e[0].amount) },
     baker:       { icon: "👩‍🍳", tier: "uncommon", scalable: true,
-      effects: [{ stat: "brickChance", amount: 0.12 }, { stat: "crackerBonus", amount: 250 }],
+      effects: [{ stat: "crackerChance", amount: 0.12 }, { stat: "crackerBonus", amount: 250 }],
       desc: e => d("bakerTrait", Math.round(e[0].amount * 100), e[1].amount) },
     // ---- 코인 ----
     thrift:      { icon: "👛", tier: "common", scalable: true,
@@ -3681,8 +3629,8 @@
     },
     brick_deal: {                                               // D. risk
       icon: "🧱", price: 12,
-      desc: () => d("brickDeal", 30, 18),
-      apply() { brickChance += 0.18; },
+      desc: () => d("crackerDeal", 30, 18),
+      apply() { crackerChance += 0.18; },
       modify: { pop: v => v * 1.3 },
     },
     // ---- A. odds ----
@@ -3830,8 +3778,8 @@
     avalanche: { icon: "⛰️", price: 18,
       desc: () => d("spawn", 2), apply() { spawnBonus += 2; } },
     quarry: { icon: "⛏️", price: 16,
-      desc: () => d("brickDeal", 60, 30),
-      apply() { brickChance += 0.30; }, modify: { pop: v => v * 1.6 } },
+      desc: () => d("crackerDeal", 60, 30),
+      apply() { crackerChance += 0.30; }, modify: { pop: v => v * 1.6 } },
 
     // ---- cheap enough for the very first shop ----
     pinch: { icon: "🥄", price: 5,
@@ -4061,7 +4009,7 @@
     fruitFlat = [0, 0, 0, 0, 0, 0, 0];
     fruitCrown = [1, 1, 1, 1, 1, 1, 1];
     stackOnPop = [0, 0, 0, 0, 0, 0, 0];
-    touchBonus = 0; spawnBonus = 0; brickChance = 0; offerBonus = 0;
+    touchBonus = 0; spawnBonus = 0; crackerChance = 0; offerBonus = 0;
     chainStep = 0; coinFruitBonus = 0; starCoinMult = 1; payoutMult = 1;
     coinFlat = 0; coinFlatPer = COIN_FLAT_PER; interestPer = 0; interestPct = 0; interestCap = INTEREST_CAP;
     crackerBonus = 0; crackerCoin = 0; crackerBoom = false; crackerDouble = false; crackerEvery = false;
@@ -4109,7 +4057,7 @@
         else if (e.stat === "crackerBonus") crackerBonus += e.amount;
         else if (e.stat === "crackerCoin")  crackerCoin += e.amount;
         else if (e.stat === "grapeBulk")    grapeBulk += e.amount;
-        else if (e.stat === "brickChance")  brickChance += e.amount;
+        else if (e.stat === "crackerChance")  crackerChance += e.amount;
         else if (e.stat === "resonance")    resonance += e.amount;
         else if (e.stat === "discountPct")  shopDiscount *= (1 - e.amount);
         else if (!TRAIT_META_STATS.includes(e.stat)) unknownTraitStats.add(e.stat);
@@ -4171,8 +4119,8 @@
       const e = emptyCells();
       if (!e.length) return;
       const [r, c] = e[randInt(e.length)];
-      if (brickChance > 0 && Math.random() < brickChance) {        // the brick contract's cost
-        grid[r][c] = BRICK; special[r][c] = null; hp[r][c] = 1; appear[r][c] = 1;
+      if (crackerChance > 0 && Math.random() < crackerChance) {        // the cracker contract's cost
+        grid[r][c] = CRACKER; special[r][c] = null; hp[r][c] = 1; appear[r][c] = 1;
         continue;
       }
       grid[r][c] = pickColor(); appear[r][c] = 1;
@@ -4181,11 +4129,11 @@
     }
   }
 
-  function spawnBrick(level) {
+  function spawnCracker(level) {
     const e = emptyCells();
     if (!e.length) return;
     const [r, c] = e[randInt(e.length)];
-    grid[r][c] = BRICK; special[r][c] = null; hp[r][c] = level; appear[r][c] = 1;
+    grid[r][c] = CRACKER; special[r][c] = null; hp[r][c] = level; appear[r][c] = 1;
   }
 
   function pickNext() {
@@ -4424,7 +4372,7 @@
     if (tut) tut.target = null;
     if (grid[r][c] === -1) plant(r, c, nextColor);        // empty -> place next color
     else if (special[r][c]) tapItem(r, c);                // item bud -> trigger it
-    // normal fruit or brick -> nothing
+    // normal fruit or cracker -> nothing
   });
 
   // ---- sound ---------------------------------------------------------------------
@@ -4559,13 +4507,13 @@
         noise({ f: f * 3.2, f2: f * 1.1, dur: 0.055, vol: 0.26, filter: "bandpass", q: 1.2, lead: true });
       } },
     };
-    // A brick giving way should sound like something SNAPPING, and one filtered noise sweep
+    // A cracker giving way should sound like something SNAPPING, and one filtered noise sweep
     // only ever sounds like "shh". What reads as crisp is granular: a hard transient followed
-    // by a few micro-grains of debris. Marked lead, because a brick usually breaks in the
+    // by a few micro-grains of debris. Marked lead, because a cracker usually breaks in the
     // middle of a big cluster -- on the accent budget it was being dropped exactly then.
     const grains = (list, filter) => list.forEach(([delay, f, vol]) =>
       noise({ f, dur: 0.013, vol, filter: filter || "highpass", delay, lead: true }));
-    const BRICK_STYLES = {
+    const CRACKER_STYLES = {
       crunch: { name: "바삭", play() {            // hard snap + crumbs + a little body
         noise({ f: 3800, dur: 0.022, vol: 0.30, filter: "bandpass", q: 1.4, lead: true });
         grains([[0.016, 5200, 0.16], [0.034, 4200, 0.13], [0.056, 6000, 0.09]]);
@@ -4586,9 +4534,9 @@
         noise({ f: 2600, f2: 700, dur: 0.1, vol: 0.22, filter: "highpass" });
       } },
     };
-    const BRICK_KEYS = Object.keys(BRICK_STYLES);
-    let brickStyle = BRICK_KEYS[0];
-    try { const b = localStorage.getItem("fs_brick"); if (BRICK_STYLES[b]) brickStyle = b; } catch (e) {}
+    const CRACKER_KEYS = Object.keys(CRACKER_STYLES);
+    let crackerStyle = CRACKER_KEYS[0];
+    try { const b = localStorage.getItem("fs_brick"); if (CRACKER_STYLES[b]) crackerStyle = b; } catch (e) {}
 
     const POP_KEYS = Object.keys(POP_STYLES);
     let popStyle = POP_KEYS[0];
@@ -4624,7 +4572,7 @@
                      tone({ f: 1900, f2: 2700, dur: 0.06, vol: 0.13, type: "triangle", delay: 0.08 }); },
       star:  () => PENTA.forEach((n, i) =>
                      tone({ f: hz(n) * 4, dur: 0.14, vol: 0.11, type: "sine", delay: i * 0.045 })),
-      brick: () => BRICK_STYLES[brickStyle].play(),
+      cracker: () => CRACKER_STYLES[crackerStyle].play(),
       stage: () => [0, 4, 7].forEach((n, i) =>
                      tone({ f: hz(n) * 2, dur: 0.2, vol: 0.2, type: "triangle", delay: i * 0.1 })),
       // a round is three stages of work, so it has to land bigger than a stage: the same run
@@ -4676,20 +4624,20 @@
       popStyle = k;
       try { localStorage.setItem("fs_pop", k); } catch (e) {}
     }
-    function setBrickStyle(k) {
-      if (!BRICK_STYLES[k]) return;
-      brickStyle = k;
+    function setCrackerStyle(k) {
+      if (!CRACKER_STYLES[k]) return;
+      crackerStyle = k;
       try { localStorage.setItem("fs_brick", k); } catch (e) {}
     }
     return { play, unlock, resume, setMuted, setVolume, names: Object.keys(S),
              POP_STYLES, POP_KEYS, setPopStyle, get popStyle() { return popStyle; },
-             BRICK_STYLES, BRICK_KEYS, setBrickStyle, get brickStyle() { return brickStyle; },
+             CRACKER_STYLES, CRACKER_KEYS, setCrackerStyle, get crackerStyle() { return crackerStyle; },
              get voices() { return voices; }, get MAX_VOICES() { return MAX_VOICES; },
              get state() { return ctx ? ctx.state : "none"; },
              get muted() { return muted; }, get volume() { return volume; },
              get armed() { return armed; } };
   })();
-  // TEMPORARY (?pop=1 / ?brick=1): a sound is the one thing that cannot be judged from code,
+  // TEMPORARY (?pop=1 / ?cracker=1): a sound is the one thing that cannot be judged from code,
   // so it gets picked on a phone. Tapping a chip switches the style AND plays it -- the pop
   // across three fruits, because that is how you hear whether a whole cluster will sound right.
   function styleProbe(keys, styles, set, current, preview) {
@@ -4718,9 +4666,9 @@
   if (/[?&]pop=1/.test(location.search))
     styleProbe(SFX.POP_KEYS, SFX.POP_STYLES, SFX.setPopStyle, () => SFX.popStyle,
                () => [0, 4, 6].forEach((fruit, n) => setTimeout(() => SFX.play("pop", fruit), n * 110)));
-  if (/[?&]brick=1/.test(location.search))
-    styleProbe(SFX.BRICK_KEYS, SFX.BRICK_STYLES, SFX.setBrickStyle, () => SFX.brickStyle,
-               () => SFX.play("brick"));
+  if (/[?&]cracker=1/.test(location.search))
+    styleProbe(SFX.CRACKER_KEYS, SFX.CRACKER_STYLES, SFX.setCrackerStyle, () => SFX.crackerStyle,
+               () => SFX.play("cracker"));
 
   // any first gesture wakes the context; harmless to fire more than once
   for (const ev of ["pointerdown", "touchstart", "keydown"])
@@ -4762,7 +4710,10 @@
   // Arcade earned coins with nothing to spend them on; Star Rush had only relics, so coins
   // past the last shop were dead weight. Buying an item costs coins and NOT a touch -- the
   // same rule the game already uses for tapping an item that is already on the board.
-  const ITEM_PRICES = { bird: 10, line: 15, bomb: 30, star: 70 };
+  // A row and a column are separate purchases: buying "a line" and being handed whichever
+  // one the dice picked is not a decision. 십자로 still upgrades either to a cross.
+  const ITEM_PRICES = { bird: 10, lineH: 15, lineV: 15, basket: 22, bomb: 30, star: 70 };
+  const BASKET_FRUIT = 12;     // how many fruit a 과일 바구니 drops
   let armedItem = null, wasDanger = false;
   function canBuyItem(kind) {
     return running && !busy && !paused && ITEM_PRICES[kind] != null
@@ -4784,15 +4735,20 @@
     coinsSpent += itemPrice(kind);
     SFX.play("buy");
     const color = pickColor();
-    // "line" is a shop CATEGORY; the board only knows lineH/lineV/lineX. Writing the category
-    // straight in left a special that nothing draws and nothing fires -- the cell looked like
-    // an ordinary fruit and the 15 coins bought nothing. 십자로 applies here as it does to an
-    // earned line, or the relic would quietly not cover anything you paid for.
-    grid[r][c] = color;
-    special[r][c] = kind === "line"
-      ? (crossLine ? "lineX" : (randInt(2) ? "lineH" : "lineV"))
-      : kind;
-    appear[r][c] = 1;
+    // The shop sells lineH and lineV by name now, which are the board's own words -- it used
+    // to sell "line" and write that into the cell, where nothing drew it and nothing fired it.
+    // 십자로 upgrades either to a cross, or the relic would not cover what you paid for.
+    if (kind === "basket") {
+      // the board, not this cell: a stage that an item emptied takes many turns to refill,
+      // and that gets worse every stage. This is the way to buy those turns back.
+      grid[r][c] = color; appear[r][c] = 1;
+      spawnBuds(BASKET_FRUIT);
+    } else {
+      grid[r][c] = color;
+      // 십자로 upgrades either line to a cross, whichever one you paid for
+      special[r][c] = crossLine && (kind === "lineH" || kind === "lineV") ? "lineX" : kind;
+      appear[r][c] = 1;
+    }
     armedItem = null;
     dirty = true; renderItemShop(); updateHUD();
     return true;
@@ -4819,7 +4775,7 @@
   let selectedItem = null;
   function placeTestItem(r, c, item) {
     const color = pickColor();
-    if (item === "brick") { grid[r][c] = BRICK; special[r][c] = null; hp[r][c] = 1; }
+    if (item === "cracker") { grid[r][c] = CRACKER; special[r][c] = null; hp[r][c] = 1; }
     else if (item === "line") { grid[r][c] = color; special[r][c] = randInt(2) ? "lineH" : "lineV"; }
     else if (item.startsWith("fruit")) {                  // plain fruit of a chosen color slot
       grid[r][c] = parseInt(item.slice(5), 10); special[r][c] = null;
@@ -4914,19 +4870,19 @@
     let chainPopped = 0;     // only your own color-chain pops (for item generation)
     let pointsPopped = 0;    // sum of FRUIT_POINTS of every popped fruit (for scoring)
     let coined = 0;                // how many of the cleared fruit were carrying a coin
-    const hitBricks = new Map();   // brick key -> number of adjacent pops (1 HP each)
-    // A blast does not CHIP a brick, it consumes it whole: budsAround hands bricks straight
-    // to the frontier, which clears them without ever touching hitBricks. So a brick taken by
+    const hitCrackers = new Map();   // cracker key -> number of adjacent pops (1 HP each)
+    // A blast does not CHIP a cracker, it consumes it whole: budsAround hands crackers straight
+    // to the frontier, which clears them without ever touching hitCrackers. So a cracker taken by
     // a bomb or a line made no sound at all. One per ring, so a wide blast is debris, not mush.
-    const brickHeard = new Set();
+    const crackerHeard = new Set();
     let visualEnd = 0;             // timestamp the last staggered pop fires at
     function step() {
       if (!frontier.length) {
         let broke = 0, chipped = 0;
         const boom = [];
-        hitBricks.forEach((dmg, key) => {
+        hitCrackers.forEach((dmg, key) => {
           const br = (key / COLS) | 0, bc = key % COLS;
-          if (grid[br][bc] !== BRICK) return;   // already destroyed by a blast
+          if (grid[br][bc] !== CRACKER) return;   // already destroyed by a blast
           chipped++;
           hp[br][bc] -= dmg;                    // one HP per adjacent pop
           glow[br][bc] = { c: 0, t: 0.9 };
@@ -4942,8 +4898,8 @@
           }
         });
         // once, however many were hit -- but only if one really was. It used to fire on the
-        // intent to hit, so a brick a blast had already destroyed still made the sound.
-        if (chipped) SFX.play("brick");
+        // intent to hit, so a cracker a blast had already destroyed still made the sound.
+        if (chipped) SFX.play("cracker");
         if (broke) {
           addScore(broke * crackerValue());
           if (crackerCoin) addCoins(broke * crackerCoin, r0, c0);
@@ -4983,11 +4939,11 @@
         if (popAt > maxD) maxD = popAt;
         setTimeout(() => {
           ghost[r][c] = null;                    // this cell's turn: fruit goes, particles fly
-          // a brick bursts grey wherever it dies -- vis would paint it the blast's fruit colour
+          // a cracker bursts grey wherever it dies -- vis would paint it the blast's fruit colour
           // a cracker or a seed bursts grey wherever it dies -- vis would paint it the
           // blast's fruit colour
           burst(r, c, cellColor < 0 ? "#9aa0b5" : vis);
-          if (cellColor === BRICK && !brickHeard.has(popAt)) { brickHeard.add(popAt); SFX.play("brick"); }
+          if (cellColor === CRACKER && !crackerHeard.has(popAt)) { crackerHeard.add(popAt); SFX.play("cracker"); }
           popScoreText(r, c, cellColor, fruitScoreAt(r, c, cellColor));
           if (cellColor >= 0) SFX.play("pop", cellColor);
           if (cellColor >= 0) notify("onFruitPop", { r, c, color: cellColor });
@@ -4998,13 +4954,13 @@
         }, popAt);
 
         fruitSignature(r, c, cellColor, visited, next);
-        // neighbors: chip bricks, and trigger any adjacent item (any color) via this pop
+        // neighbors: chip crackers, and trigger any adjacent item (any color) via this pop
         for (let dr = -1; dr <= 1; dr++)
           for (let dc = -1; dc <= 1; dc++) {
             if (dr === 0 && dc === 0) continue;
             const nr = r + dr, nc = c + dc;
             if (nr < 0 || nr >= ROWS || nc < 0 || nc >= COLS) continue;
-            if (grid[nr][nc] === BRICK) { const k = nr * COLS + nc; hitBricks.set(k, (hitBricks.get(k) || 0) + 1); }
+            if (grid[nr][nc] === CRACKER) { const k = nr * COLS + nc; hitCrackers.set(k, (hitCrackers.get(k) || 0) + 1); }
             else if (special[nr][nc] && !visited[nr][nc]) {   // adjacent item -> detonate it
               visited[nr][nc] = true;
               next.push({ r: nr, c: nc, d: Math.hypot(dr, dc), mode: "blast", color: grid[nr][nc] });
@@ -5056,12 +5012,12 @@
                   const cCoin = takeCoin(rr, cc);
                   if (cCoin) coined++;
                   tCells.push([rr, cc, cCoin, col]);
-                  // chip bricks adjacent to each star-cleared cell (was missing)
+                  // chip crackers adjacent to each star-cleared cell (was missing)
                   for (let dr = -1; dr <= 1; dr++)
                     for (let dc = -1; dc <= 1; dc++) {
                       const br = rr + dr, bc = cc + dc;
-                      if (br >= 0 && br < ROWS && bc >= 0 && bc < COLS && grid[br][bc] === BRICK)
-                        { const k = br * COLS + bc; hitBricks.set(k, (hitBricks.get(k) || 0) + 1); }
+                      if (br >= 0 && br < ROWS && bc >= 0 && bc < COLS && grid[br][bc] === CRACKER)
+                        { const k = br * COLS + bc; hitCrackers.set(k, (hitCrackers.get(k) || 0) + 1); }
                     }
                 }
           // order nearest-neighbor from the star origin = a one-stroke path
@@ -5183,17 +5139,17 @@
     return n;
   }
 
-  // target priority: bricks first, then the most isolated junk fruit, else any fruit
+  // target priority: crackers first, then the most isolated junk fruit, else any fruit
   function chooseBirdTarget(exclude) {
-    // priority: bricks -> plain fruits (junk first) -> items (last resort)
-    const bricks = [], fruits = [], items = [];
+    // priority: crackers -> plain fruits (junk first) -> items (last resort)
+    const crackers = [], fruits = [], items = [];
     for (let r = 0; r < ROWS; r++) for (let c = 0; c < COLS; c++) {
       if (grid[r][c] === -1 || (exclude && exclude[r * COLS + c])) continue;
-      if (grid[r][c] === BRICK) bricks.push([r, c]);
+      if (grid[r][c] === CRACKER) crackers.push([r, c]);
       else if (special[r][c]) items.push([r, c]);   // item bud
       else fruits.push([r, c]);                       // plain fruit
     }
-    if (bricks.length) return bricks[randInt(bricks.length)];
+    if (crackers.length) return crackers[randInt(crackers.length)];
     if (fruits.length) {
       const junk = fruits.filter(([r, c]) => sameColorNeighbors(r, c) === 0);
       const pool = junk.length ? junk : fruits;
@@ -5278,15 +5234,15 @@
     updateHUD();                 // score and streak land straight away
     dirty = true;
 
-    // only a real PLACEMENT ends a turn (spawn + brick + game-over). A manual item tap is FREE.
+    // only a real PLACEMENT ends a turn (spawn + cracker + game-over). A manual item tap is FREE.
     const endTurn = () => {
       if (placement) {
         spawnBuds(spawnCount());
-        // staged gimmick: once bricks are unlocked, one spawns every few touches at current HP level
-        const bLvl = brickHpLevel();
+        // staged gimmick: once crackers are unlocked, one spawns every few touches
+        const bLvl = crackerLevel();
         // a relic can make it every touch instead of every fifth, with no unlock to wait for
-        if (crackerEvery) spawnBrick(1);
-        else if (bLvl >= 1 && touchCount % BRICK_EVERY === 0) spawnBrick(bLvl);
+        if (crackerEvery) spawnCracker(1);
+        else if (bLvl >= 1 && touchCount % CRACKER_EVERY === 0) spawnCracker(bLvl);
         pickNext();
         notify("onTurn", { touchCount, score });
         tickRelicLife("touches");
@@ -5417,7 +5373,7 @@
                       [cherryPile, grapeBulk, +lemonFree, coinFruitMult])],
     ["touch", () => [touchBonus]],
     ["spawn", () => [spawnBonus]],
-    ["risk",  () => [brickChance, crackerBonus, crackerCoin, +crackerBoom, +crackerDouble, +crackerEvery]],
+    ["risk",  () => [crackerChance, crackerBonus, crackerCoin, +crackerBoom, +crackerDouble, +crackerEvery]],
     ["slot",  () => [offerBonus]],
     ["combo", () => [chainStep, STREAK_STEP, STREAK_CAP]],
     ["coin",  () => [coinFruitBonus, starCoinMult, payoutMult, coinFlat, coinFlatPer, spendFlat,
@@ -5445,7 +5401,7 @@
           });
           // put everything back: this ran outside a recompute, so nothing else will
           oddsMult = [0,0,0,0,0,0,0]; fruitMult = [1,1,1,1,1,1,1]; fruitFlat = [0,0,0,0,0,0,0];
-          touchBonus = 0; spawnBonus = 0; brickChance = 0; offerBonus = 0;
+          touchBonus = 0; spawnBonus = 0; crackerChance = 0; offerBonus = 0;
           chainStep = 0; coinFruitBonus = 0; starCoinMult = 1; payoutMult = 1;
           coinFlat = 0; coinFlatPer = COIN_FLAT_PER; interestPer = 0; interestPct = 0; interestCap = INTEREST_CAP;
     crackerBonus = 0; crackerCoin = 0; crackerBoom = false; crackerDouble = false; crackerEvery = false;
@@ -5543,7 +5499,9 @@
     if (rules().touchBudget && stage > 1 && (stage - 1) % STAGES_PER_ROUND === 0) { openTraits(); return; }
     resumePlay();
   }
-  function resumePlay() {
+  // `fresh` false means "carry on with the stage you were in": the map stays where it was
+  // and nothing announces a new stage. A revive is the same stage, continued.
+  function resumePlay(fresh = true) {
     // belt to the braces above: whatever put a pause up, going back to the board takes it
     // down. A run cannot be both "playing" and "paused".
     if (paused) { paused = false; $sh("pause").classList.add("hidden"); }
@@ -5551,8 +5509,10 @@
     saveRun();                             // back on the board: shop and traits are settled
     $sh("hint").textContent =
       d("hintStage", stageLabel(stage), rules().quota(stage), touchesLeft);
-    rollZones();                 // a fresh map each stage
-    notify("onStageStart", { stage });
+    if (fresh) {
+      rollZones();               // a fresh map each stage -- but NOT on a revive
+      notify("onStageStart", { stage });
+    }
     updateHUD();
   }
   function renderShop() {
@@ -5871,7 +5831,7 @@
     const x = v => `×${gridMult(v)}`;
     const rows = [
       [d("statCoinFruit"), pct(COIN_FRUIT_CHANCE), pct(COIN_FRUIT_CHANCE + coinFruitBonus)],
-      [d("statBrick"),     pct(0),                 pct(brickChance)],
+      [d("statCracker"),     pct(0),                 pct(crackerChance)],
       [d("statSpawn"),     String(rules().spawns(milestone())), String(spawnCount())],
       [d("statTouch"),     String(rules().touches || 0), String(stageTouches())],
       [d("statComboCap"),  x(2.0),                 x(STREAK_CAP)],
@@ -6029,6 +5989,7 @@
     return n;
   }
 
+  const REVIVE_CLEAR = 0.25;   // how much of the board a revive clears -- said on the button
   let revivedThisRun = false;
   // Revive puts the run back where it died: the board is cleared enough to move, the touch
   // budget is restored, everything else (score, relics, stage) is untouched. Once per run --
@@ -6037,18 +5998,21 @@
     revivedThisRun = true;
     $sh("overlay").classList.add("hidden");
     $sh("gameover").classList.add("hidden");
-    // clear a quarter of the board at random so there is somewhere to play
+    // Clears REVIVE_CLEAR of what is on the board, at random, so there is somewhere to play.
+    // Items are skipped: an ad that eats the star you were saving is a punishment, not a
+    // rescue. Crackers are fair game -- clearing those is the help.
     const filled = [];
     for (let r = 0; r < ROWS; r++) for (let c = 0; c < COLS; c++)
-      if (grid[r][c] !== -1) filled.push([r, c]);
-    for (let i = 0; i < Math.ceil(filled.length / 4) && filled.length; i++) {
+      if (grid[r][c] !== -1 && !special[r][c]) filled.push([r, c]);
+    const take = Math.ceil(filled.length * REVIVE_CLEAR);
+    for (let i = 0; i < take && filled.length; i++) {
       const [r, c] = filled.splice(randInt(filled.length), 1)[0];
-      grid[r][c] = -1; special[r][c] = null; hp[r][c] = 0; coinCell[r][c] = 0;
+      grid[r][c] = -1; hp[r][c] = 0; coinCell[r][c] = 0;
     }
     touchesLeft = Math.max(touchesLeft, stageTouches());
     running = true; busy = false; paused = false;
     pickNext(); dirty = true; updateHUD();
-    resumePlay();
+    resumePlay(false);           // same stage: the bonus zone stays where it was
   }
 
   function gameOver(reason) {
@@ -6381,15 +6345,17 @@
     bombImg = loadArtImg("bomb.png", BOMB_SVG, () => { dirty = true; });
     lineImg = loadArtImg("line.png", LINE_SVG, () => { dirty = true; });
     starImg = loadArtImg("star.png", STAR_SVG, () => { dirty = true; });
-    // cracker.png when it exists, the old full-health brick until then
-    crackerImg = loadArtImg("cracker.png", BRICK3_SVG, () => { dirty = true; }, "brick3.png");
+    // the cracker art, with a drawn one behind it
+    crackerImg = loadArtImg("cracker.png", CRACKER_SVG, () => { dirty = true; });
   }
   // Relic and trait art arrives a few pieces at a time. Listing what exists beats probing 84
   // ids and eating a 404 for each of them; tools/art-check.py keeps this list honest against
   // what is actually in assets_new/, in both directions.
-  const ART_IDS = new Set(["relic_crown", "relic_prism", "relic_big_reclaim",
-                           "relic_flock", "relic_banana_grove", "relic_star_king",
-                           "relic_grape_farm"]);
+  const ART_IDS = new Set(["relic_banana_crown", "relic_banana_grove", "relic_big_reclaim", 
+                           "relic_crown", "relic_flock", "relic_grape_crown", 
+                           "relic_grape_farm", "relic_midas", "relic_orange_crown", 
+                           "relic_peach_crown", "relic_peach_farm", "relic_prism", 
+                           "relic_star_king", "relic_vault"]);
   const artImgs = {};
   // An icon that shows the emoji until its art is PROVEN to load. Anything else -- swapping
   // on the strength of the list alone -- leaves a blank square when a file is missing.
@@ -6575,7 +6541,7 @@
         if (grid[r][c] === -1 && ghost[r][c] !== null && ghost[r][c] >= 0)
           fruitVisual(ghost[r][c], x + cell/2, y + cell/2, cell * 0.88);
 
-        // pop-in animation for newly spawned buds/bricks (scale small -> full)
+        // pop-in animation for newly spawned buds/crackers (scale small -> full)
         let apScale = 1;
         if (appear[r][c] > 0) {
           const a = appear[r][c];
@@ -6599,7 +6565,7 @@
           continue;
         }
         // cracker (wall) — one hit, one look
-        if (grid[r][c] === BRICK) {
+        if (grid[r][c] === CRACKER) {
           const h = 1;
           const bim = crackerImg;
           const S = cell * apScale;
@@ -6894,16 +6860,16 @@
         if (occupied) {
           if (special[f.tr][f.tc]) {
             tapItem(f.tr, f.tc);
-          } else {                                // plain fruit / brick -> eat it
+          } else {                                // plain fruit / cracker -> eat it
             const col = grid[f.tr][f.tc];
-            const isBrick = col < 0;   // cracker or seed: grey, and no fruit score text
+            const isCracker = col < 0;   // cracker or seed: grey, and no fruit score text
             const beak = takeCoin(f.tr, f.tc);
             grid[f.tr][f.tc] = -1; special[f.tr][f.tc] = null; hp[f.tr][f.tc] = 0;
-            // a brick broken by a bird is still a brick breaking: this path never said so
-            if (isBrick) SFX.play("brick");
+            // a cracker broken by a bird is still a cracker breaking: this path never said so
+            if (isCracker) SFX.play("cracker");
             if (beak) addCoins(1, f.tr, f.tc);
-            burst(f.tr, f.tc, isBrick ? "#9aa0b5" : col);   // bricks burst grey, as they do elsewhere
-            if (!isBrick) popScoreText(f.tr, f.tc, col);
+            burst(f.tr, f.tc, isCracker ? "#9aa0b5" : col);   // crackers burst grey, as they do elsewhere
+            if (!isCracker) popScoreText(f.tr, f.tc, col);
             addScore(BIRD_SCORE); dirty = true;
             updateHUD();
           }
@@ -7526,7 +7492,7 @@
     window.__fs = {
       scorePop, fruitScore, chainBonus, streakMult, pickColor, addScore,
       resetRun, serializeRun, restoreRun, FRUIT_POINTS, COLS,
-      MODES, activeColors, spawnCount, brickHpLevel, computeMaxLevel,
+      MODES, activeColors, spawnCount, crackerLevel, computeMaxLevel,
       COLORS,
       RELICS, notify, modify, applyRelics, activeRelics, relicCap, stageTouches, RELIC_SLOTS,
       settleSlots, tickRelicLife, lifeUnitLabel, TIERS, TIER_KEYS, relicTier,
@@ -7553,7 +7519,7 @@
       get coinCell() { return coinCell; }, set coinCell(v) { coinCell = v; },
       get shopOffers() { return shopOffers; }, set shopOffers(v) { shopOffers = v; },
       get touchBonus() { return touchBonus; }, get spawnBonus() { return spawnBonus; },
-      get slotBonus()  { return slotBonus; }, get brickChance() { return brickChance; },
+      get slotBonus()  { return slotBonus; }, get crackerChance() { return crackerChance; },
       get chainStep() { return chainStep; }, get coinFruitBonus() { return coinFruitBonus; },
       get starCoinMult() { return starCoinMult; }, get payoutMult() { return payoutMult; },
       bombRadius, BOMB_RADIUS_MAX, itemNeed, ITEM_NEED_MIN,
@@ -7561,7 +7527,8 @@
       syncRows, ROWS_BASE, ROWS_MAX, layout, COLS, BOARD_MIN, BOARD_MAX,
       checkViewport, MIN_PLAY_H, insets, usableH, usableW,
       SFX, Ads, setLang, LANGS, PACKS, d, L, applyStaticText, nameOf,
-      reviveRun, syncBanner, get revivedThisRun() { return revivedThisRun; },
+      reviveRun, syncBanner, REVIVE_CLEAR, resumePlay,
+      get revivedThisRun() { return revivedThisRun; },
       resetEffects, get links() { return links; }, coinReady, drawCoin,
       updateStreakBadge,
       ART_IDS, iconEl, relicIcon, traitIcon,
@@ -7597,6 +7564,7 @@
       get zoneCells() { return zoneCells; }, get zoneMult() { return zoneMult; },
       get zoneCoin() { return zoneCoin; }, get zoneBonus() { return zoneBonus; },
       emptyCells, ITEM_PRICES, canBuyItem, armItem, placeBoughtItem, renderItemShop,
+      BASKET_FRUIT,
       filledCount, modalOpen, MODAL_IDS,
       CRACKER_SCORE, crackerValue, crackerBroken, SEED, SEED_TOUCHES,
       fruitSignature,
@@ -7614,7 +7582,7 @@
       get grid() { return grid; }, get special() { return special; },
       get hp() { return hp; }, get coinCell() { return coinCell; },
       BIRD_THRESHOLD, LINE_THRESHOLD, BOMB_THRESHOLD, STAR_THRESHOLD, BIRD_FLY_MS, STAR_NODE_MS,
-      BRICK,
+      CRACKER,
       get bombRadiusBonus() { return bombRadiusBonus; }, get itemEase() { return itemEase; },
       get STREAK_CAP() { return STREAK_CAP; }, get STREAK_STEP() { return STREAK_STEP; },
       get relics() { return relics; }, set relics(v) { relics = v; },

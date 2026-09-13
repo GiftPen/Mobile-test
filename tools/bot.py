@@ -80,7 +80,7 @@ window.addEventListener('load', () => setTimeout(async () => {
       : F.identity(id);
     return tags.some(t => cats.some(c => c === t
       || (t === 'coin' && /coin|payout|interest|discount/i.test(c))
-      || (t === 'risk' && /risk|cracker|brick/i.test(c))
+      || (t === 'risk' && /risk|cracker|cracker/i.test(c))
       || (t === 'combo' && /combo|streak|chain/i.test(c))));
   };
 
@@ -143,6 +143,7 @@ window.addEventListener('load', () => setTimeout(async () => {
       out.push({ strat, stage: F.stage, label: F.stageLabel(F.stage), score: F.score,
                  coins: F.coins, coinsPeak, coinsEarned, spent, bought, shops,
                  relics: F.relics.length, traits: F.traits.length,
+                 relicIds: F.relics.slice(), traitIds: F.traits.map(t => t.id),
                  perStage: perStage.slice(0, 12) });
       F.gameOver('bot');
       await sleep(60);

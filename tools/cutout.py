@@ -265,8 +265,7 @@ def batch(tol, holes_ok=True, size=None):
         'coin': 'coin', '동전': 'coin', 'bomb': 'bomb', '폭탄': 'bomb',
         'bird': 'bird', '참새': 'bird', 'star': 'star', '별': 'star',
         'line': 'line', '라인': 'line',
-        'brick1': 'brick1', 'brick2': 'brick2', 'brick3': 'brick3',
-        '벽돌1': 'brick1', '벽돌2': 'brick2', '벽돌3': 'brick3',
+        'cracker': 'cracker', '크래커': 'cracker', '비스킷': 'cracker', '과자': 'cracker',
     }
     for i, n in enumerate(['체리', '오렌지', '키위', '레몬', '포도', '복숭아', '바나나']):
         names[n] = f'fruit{i}'; names[f'fruit{i}'] = f'fruit{i}'
