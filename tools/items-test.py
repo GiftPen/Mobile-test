@@ -458,6 +458,54 @@ window.addEventListener('load', async () => {
   F.resetRun();
   chk('a new run starts it over', F.crackerValue(), F.CRACKER_SCORE);
 
+  // ---- a multiplier is LIVE, not a snapshot taken the moment you bought it ----
+  // The question: if you have already built a pile, does buying x2 double the pile, or only
+  // what comes after? Every multiplier is read at use time -- crackerValue() on each break,
+  // fruitScore() on each pop -- so it must be both retroactive and order-independent.
+  const freshRun = () => { F.mode = 'rush'; F.resetRun(); F.relics = []; F.traits = []; F.applyRelics(); };
+  const buy = id => { F.relics = F.relics.concat([id]); F.applyRelics(); };
+  const breakN = n => { for (let i = 0; i < n; i++) F.crackerBroken(); };
+  const ck20 = F.CRACKER_SCORE + 20 * F.CRACKER_KING_STEP;
+
+  freshRun(); buy('cracker_king'); buy('oven'); breakN(20);
+  chk('화덕: 먼저 사면 이후 부순 것에 배율', F.crackerValue(), ck20 * 2);
+  freshRun(); buy('cracker_king'); breakN(20); buy('oven');
+  chk('화덕: 나중에 사면 쌓아둔 더미에 소급', F.crackerValue(), ck20 * 2);
+  const held = F.crackerValue(); breakN(1);
+  chk('화덕 보유 중 1개 더 부순 증가분도 배율',
+      F.crackerValue() - held, 2 * F.CRACKER_KING_STEP);
+
+  // the same question on the fruit side, where the pile is fruitStack rather than crackerScore
+  const pile40 = () => { for (let i = 0; i < 40; i++) F.fruitStack[0] += 1; };
+  freshRun(); pile40(); const cherryBare = F.fruitScore(0);
+  freshRun(); buy('cherry_crown'); pile40(); const crownFirst = F.fruitScore(0);
+  freshRun(); pile40(); buy('cherry_crown');
+  chk('체리 왕관: 사는 순서가 결과를 바꾸지 않는다', F.fruitScore(0), crownFirst);
+  chk('...그리고 쌓아둔 더미까지 곱한다', crownFirst, Math.round(cherryBare * 2.5));
+  freshRun(); pile40(); buy('cherry_crown'); buy('cornucopia');
+  // x2.5 and x2 must land on x5 -- not x6.25 (squared) and not x2 (one overwriting the other)
+  chk('배율 둘은 곱해진다 (제곱도 덮어쓰기도 아님)', F.fruitScore(0), cherryBare * 5);
+
+  // and the sweep: EVERY relic, against every kind of pile, bought before vs after. This is
+  // the standing guard -- a relic that writes ACCUMULATED state from apply() instead of its
+  // own derived channel makes the two orders disagree, which is the trap that has now bitten
+  // three separate times (fruitBoost, crackerScore, stackOnPop).
+  const PILES = [
+    { name: '크래커더미', pre: 'cracker_king', build: () => breakN(20), read: () => F.crackerValue() },
+    { name: '체리더미',   build: pile40,                                read: () => F.fruitScore(0) },
+    // += rather than = so a relic that hands out coins on pickup is not scored as a flip
+    { name: '보유코인',   build: () => { F.coins += 200; },             read: () => F.fruitScore(0) },
+  ];
+  const flipped = [];
+  for (const P of PILES) {
+    for (const id of Object.keys(F.RELICS)) {
+      freshRun(); if (P.pre) buy(P.pre); buy(id); P.build(); const first = P.read();
+      freshRun(); if (P.pre) buy(P.pre); P.build(); buy(id); const last = P.read();
+      if (first !== last) flipped.push(`${P.name}/${id} ${first}!=${last}`);
+    }
+  }
+  chk('유물 구매 순서가 누적 더미의 값을 바꾸지 않는다', flipped.slice(0, 8), []);
+
   // 가루 폭발 takes the neighbours with it
   F.mode = 'rush'; F.resetRun(); F.relics = ['crumb_blast']; F.applyRelics();
   clearBoard();
