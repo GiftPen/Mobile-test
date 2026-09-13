@@ -606,15 +606,56 @@ window.addEventListener('load', () => setTimeout(() => {
       bombR: F.bombRadius(), ease: F.itemEase, birds: F.birdFlock, starC: F.starCoinMult,
     });
     const fresh = () => { F.resetRun(); F.mode = 'rush'; F.graftArmed = false; F.doubles = 0; };
-    const mismatched = [];
+    const isMult = id => F.TRAITS[id].effects.some(e => F.TRAIT_COMPOUND_STATS.includes(e.stat));
+
+    // The rule, for every trait: 2배 doubles the NUMBER the card shows.
+    const wrongAmount = [];
+    for (const id of Object.keys(F.TRAITS)) {
+      if (!F.TRAITS[id].scalable) continue;
+      const one = F.traitEffects(F.TRAITS[id], 1), two = F.traitEffects(F.TRAITS[id], 2);
+      if (two.some((e, i) => Math.abs(e.amount - one[i].amount * 2) > 1e-9)) wrongAmount.push(id);
+    }
+    schk('2배 doubles every declared amount', wrongAmount, []);
+
+    // For ADDITIVE traits that is the same thing as taking the trait twice, and that is a
+    // property worth holding: a trait added later must not break it.
+    const mismatched = [], charges = [];
     for (const id of Object.keys(F.TRAITS)) {
       if (!F.TRAITS[id].scalable) continue;             // the charge itself is not doublable
       fresh(); F.doubles = 1; F.graftArmed = true; F.pickTrait(id);
       const grafted = snap(), charge = F.doubles;
+      if (charge !== 0) charges.push(id);
       fresh(); F.pickTrait(id); F.pickTrait(id);
-      if (grafted !== snap() || charge !== 0) mismatched.push(id);
+      if (grafted !== snap() && !isMult(id)) mismatched.push(id);
     }
-    schk('grafted once == picked twice, every trait', mismatched, []);
+    schk('grafting always spends the charge', charges, []);
+    schk('for an additive trait, grafted == picked twice', mismatched, []);
+
+    // For a MULTIPLIED one it is deliberately better: ×1.5 doubled is ×3, where taking it
+    // twice only compounds to ×2.25. Pinned, so the choice cannot drift back by accident.
+    const multIds = Object.keys(F.TRAITS).filter(id => F.TRAITS[id].scalable && isMult(id));
+    schk('there are compounding traits to check', multIds.length > 0, true);
+    const beats = [];
+    for (const id of multIds) {
+      const eff = F.TRAITS[id].effects.find(e => F.TRAIT_COMPOUND_STATS.includes(e.stat));
+      // read whichever channel this trait actually moves
+      const read = () => eff.stat === 'fruitCrown' ? F.fruitCrown[eff.target] : F.shopDiscount;
+      const better = (a, b) => eff.stat === 'fruitCrown' ? a > b : a < b;   // cheaper is better
+      fresh(); F.doubles = 1; F.graftArmed = true; F.pickTrait(id); F.applyRelics();
+      const g = read();
+      fresh(); F.pickTrait(id); F.pickTrait(id); F.applyRelics();
+      const twice = read();
+      if (!better(g, twice)) beats.push(id + ': graft ' + g + ' vs twice ' + twice);
+    }
+    schk('grafting a compounding trait beats taking it twice', beats, []);
+    // and the headline case is pinned by its numbers: x1.5 grafted is x3, twice is x2.25
+    const pride = multIds.find(id => F.TRAITS[id].effects.some(e => e.stat === 'fruitCrown'));
+    const pe = F.TRAITS[pride].effects.find(e => e.stat === 'fruitCrown');
+    fresh(); F.doubles = 1; F.graftArmed = true; F.pickTrait(pride); F.applyRelics();
+    schk('x1.5 grafted is the amount doubled', +F.fruitCrown[pe.target].toFixed(4), pe.amount * 2);
+    fresh(); F.pickTrait(pride); F.pickTrait(pride); F.applyRelics();
+    schk('and taken twice it only compounds',
+         +F.fruitCrown[pe.target].toFixed(4), +(pe.amount * pe.amount).toFixed(4));
     // and the invariant is only worth anything if it covers every trait there is
     schk('every trait was actually compared',
          Object.keys(F.TRAITS).filter(id => F.TRAITS[id].scalable).length,
@@ -1105,6 +1146,9 @@ window.addEventListener('load', () => setTimeout(() => {
          F.TRAIT_ODDS.legend > F.TIERS.legend.odds, true);
     for (const t of F.TIER_KEYS)
       schk('grade ' + t + ' has traits', all.some(id => F.traitTier(F.TRAITS[id]) === t), true);
+    // the grades the design asked for by name, pinned like 손재주 is on the relic side
+    schk('폭심 is epic', F.traitTier(F.TRAITS.blast), 'epic');
+    schk('접붙이기 is unique', F.traitTier(F.TRAITS.graft), 'unique');
 
     // drawn grade-first, so the share is what is declared and does not drift with the pool
     const seen = Object.fromEntries(F.TIER_KEYS.map(t => [t, 0]));

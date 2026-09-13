@@ -3383,9 +3383,10 @@
     nest_egg:    { icon: "🏦", tier: "epic", scalable: true,
       effects: [{ stat: "coinFlat", amount: 1 }],
       desc: e => d("coinFlat", COIN_FLAT_PER, e[0].amount) },
+    // a PERCENTAGE off, not a multiplier: doubled, "×0.9" would become "×1.8" and raise prices
     haggler:     { icon: "🧾", tier: "uncommon", scalable: true,
-      effects: [{ stat: "discount", amount: 0.9 }],
-      desc: () => d("discount", 10) },
+      effects: [{ stat: "discountPct", amount: 0.1 }],
+      desc: e => d("discount", Math.round(e[0].amount * 100)) },
     // ---- 연쇄와 콤보 ----
     rhythm:      { icon: "📈", tier: "uncommon", scalable: true,
       effects: [{ stat: "streakStep", amount: 0.1 }],
@@ -3469,7 +3470,7 @@
       desc: e => d("fruitMult", 6, e[0].amount) },
 
     // items had no trait line at all -- the only way to push that axis was the shop
-    blast: { icon: "💣", tier: "uncommon", scalable: true,
+    blast: { icon: "💣", tier: "epic", scalable: true,
       effects: [{ stat: "bombRadius", amount: 1 }],
       desc: e => d("bombRadius", e[0].amount) },
     knack: { icon: "🔧", tier: "epic", scalable: true,
@@ -3979,7 +3980,7 @@
         else if (e.stat === "grapeBulk")    grapeBulk += e.amount;
         else if (e.stat === "brickChance")  brickChance += e.amount;
         else if (e.stat === "resonance")    resonance += e.amount;
-        else if (e.stat === "discount")     shopDiscount *= e.amount;
+        else if (e.stat === "discountPct")  shopDiscount *= (1 - e.amount);
         else if (!TRAIT_META_STATS.includes(e.stat)) unknownTraitStats.add(e.stat);
       }
     }
@@ -4011,13 +4012,15 @@
   // applied where they land rather than in the generic loop: slots settle first, and the
   // rest act once on accumulated state at pick time (see pickTrait)
   const TRAIT_META_STATS = ["slotBonus", "doubles", "stackAll", "boostBest", "rows"];
-  // Stats that MULTIPLY rather than add. "Doubled" has to mean "as if taken twice", and for
-  // these that is the amount squared, not the amount doubled: ×1.5 taken twice is ×2.25.
-  const TRAIT_MULT_STATS = ["fruitCrown", "discount"];
+  // Stats whose APPLICATION compounds: taking the trait twice multiplies twice. 2배 doubles
+  // the number the card shows instead (×1.5 becomes ×3, where twice would only reach ×2.25),
+  // so grafting one of these beats taking it twice. That is deliberate -- the charge is meant
+  // to be worth saving for the big multipliers.
+  const TRAIT_COMPOUND_STATS = ["fruitCrown", "discountPct"];
   const unknownTraitStats = new Set();
   function traitEffects(T, mult = 1) {
     const m = T.scalable ? mult : 1;
-    return T.effects.map(e => ({ ...e, amount: TRAIT_MULT_STATS.includes(e.stat) ? Math.pow(e.amount, m) : e.amount * m }));
+    return T.effects.map(e => ({ ...e, amount: e.amount * m }));
   }
 
   function emptyCells() {
@@ -7393,6 +7396,7 @@
       stageClear,
       TRAITS, STAGES_PER_ROUND, stageLabel, traitEffects, rollTraits, openTraits, pickTrait, renderTraits,
       TRAIT_ODDS, traitTier, get unknownTraitStats() { return [...unknownTraitStats]; },
+      TRAIT_COMPOUND_STATS,
       SHOP_OFFERS, SHOP_OFFERS_MAX, shelfSize,
       get shopSold() { return shopSold; },
       get traitRerolls() { return traitRerolls; }, set traitRerolls(v) { traitRerolls = v; },
