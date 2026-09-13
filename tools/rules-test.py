@@ -130,6 +130,22 @@ window.addEventListener('load', () => setTimeout(() => {
     if (R.spawns(m)  !== F.RUSH_SPAWNS) modeFails.push({m, knob:'rush.spawns', got:R.spawns(m), want:F.RUSH_SPAWNS});
     if (R.brickHp(m) !== 0) modeFails.push({m, knob:'rush.brickHp', got:R.brickHp(m), want:0});
   }
+  // Rush's per-turn count is a flat base with no ceiling of its own: what a build reaches is
+  // base + relics + traits, and SPAWN_MAX is an ARCADE knob that does not apply to it. Raising
+  // SPAWN_MAX adds arcade difficulty levels, which is why MAX_LEVEL is checked right here.
+  if (F.RUSH_SPAWNS !== 3) modeFails.push({knob:'rush base spawn', got:F.RUSH_SPAWNS, want:3});
+  (() => {
+    F.mode = 'rush'; F.resetRun();
+    const flat = F.spawnCount(0);
+    F.relics = ['storm']; F.applyRelics();          // 폭풍 스폰 +1
+    const withRelic = F.spawnCount(0);
+    if (flat !== F.RUSH_SPAWNS) modeFails.push({knob:'rush spawn base', got:flat, want:F.RUSH_SPAWNS});
+    if (withRelic !== flat + 1) modeFails.push({knob:'rush spawn +relic', got:withRelic, want:flat+1});
+    F.traits = [{ id: 'leisure', amount: 1 }];      // a trait that does NOT touch spawn
+    F.applyRelics();
+    if (F.spawnCount(0) !== withRelic) modeFails.push({knob:'rush spawn unrelated trait', got:F.spawnCount(0), want:withRelic});
+    F.relics = []; F.traits = []; F.applyRelics(); F.resetRun();
+  })();
   if (F.computeMaxLevel() !== 10) modeFails.push({knob:'MAX_LEVEL', got:F.computeMaxLevel(), want:10});
   // Verify the SHAPE of the quota curve, not the tuning: these numbers are meant to be
   // changed by feel, and a test that pins them just has to be edited every time.

@@ -842,10 +842,7 @@
   const MAX_COLORS = 7;        // cap
   const START_BUDS = 10;
   const SPAWN_BASE = 1;        // buds spawned per move at score 0
-  // Arcade's curve stops here. Rush does NOT read it: rush spawns a flat base plus whatever
-  // relics and traits add, so this number is an arcade knob only -- raising it adds arcade
-  // difficulty levels (MAX_LEVEL is computed from where the knobs cap) and nothing else.
-  const SPAWN_MAX = 4;
+  const SPAWN_MAX = 4;         // cap
   // one staged difficulty step per MILESTONE_STEP points, cycling:
   //   brick(+HP) -> +1 color -> +1 spawn -> brick(+HP) -> ...
   const MILESTONE_STEP = 1000; // TEST value (now); SHIP = 5000 points per difficulty step
@@ -901,7 +898,7 @@
   // ---- Star Rush stage curve (DRAFT numbers, meant to be tuned by feel) ----
   const STAGES_PER_ROUND = 3;  // a round is 1-1, 1-2, 1-3; traits land when a round ends
   const RUSH_TOUCHES   = 15;   // touches granted per stage
-  const RUSH_SPAWNS    = 3;    // per turn. base 3 -> relic +1 -> trait +1 reaches 5
+  const RUSH_SPAWNS    = 2;    // per turn. base 2 -> relic +1 -> trait +1 tops out at 4
   const RUSH_BUDS      = 18;   // opening board. a one-off injection, NOT a substitute for
                                // spawns/turn: it gets consumed and the board drains again
   // Quota climbs in two tiers so the profile can be shaped: gentle steps inside a round,
@@ -7642,5 +7639,143 @@
   requestAnimationFrame(draw);
 })();
 </script>
-</body>
+<script>window.__RUNS=8;window.__STRATS=["none", "greedy", "coin", "fruit", "cracker", "combo"];</script><script>
+const sleep = ms => new Promise(r => setTimeout(r, ms));
+window.addEventListener('load', () => setTimeout(async () => {
+ try {
+  const F = window.__fs, $ = id => document.getElementById(id), cv = $('game');
+  const RUNS = window.__RUNS, STRATS = window.__STRATS, MAX_STAGE = 30;
+  const shown = id => !$(id).classList.contains('hidden');
+
+  // rAF never fires here, so the board is advanced by hand and then waited on
+  // draw() only when something needs frames. The chain itself advances on timers, and a
+  // canvas render per poll is what made a three-run sweep miss a thirty-minute deadline.
+  const settle = async (max = 150) => {
+    for (let i = 0; i < max; i++) {
+      if (F.links.length || F.birds.length) F.draw();
+      if (!F.busy && !F.links.length && !F.birds.length) return true;
+      await sleep(8);
+    }
+    return false;
+  };
+  const tap = async (r, c) => {
+    const b = cv.getBoundingClientRect();
+    const x = b.left + (c + 0.5) * b.width / F.COLS, y = b.top + (r + 0.5) * b.height / F.ROWS;
+    cv.dispatchEvent(new PointerEvent('pointerdown', {clientX:x, clientY:y, bubbles:true}));
+    cv.dispatchEvent(new PointerEvent('pointerup',   {clientX:x, clientY:y, bubbles:true}));
+    await settle();
+  };
+
+  // where to put the next fruit: as many same-colour neighbours as possible, and away from
+  // the edges of a filling board so the run does not choke itself
+  const bestCell = () => {
+    const want = F.nextColor, R = 2;
+    let best = null, bestScore = -1e9;
+    for (let r = 0; r < F.ROWS; r++) for (let c = 0; c < F.COLS; c++) {
+      if (F.grid[r][c] !== -1) continue;
+      let same = 0, near = 0;
+      for (let dr = -R; dr <= R; dr++) for (let dc = -R; dc <= R; dc++) {
+        const nr = r + dr, nc = c + dc;
+        if ((!dr && !dc) || nr < 0 || nr >= F.ROWS || nc < 0 || nc >= F.COLS) continue;
+        if (F.grid[nr][nc] !== want) continue;
+        if (Math.max(Math.abs(dr), Math.abs(dc)) <= 1) same += 2; else near++;
+      }
+      const s = same * 3 + near;
+      if (s > bestScore) { bestScore = s; best = [r, c]; }
+    }
+    return best;
+  };
+
+  // what a strategy wants out of the shop and the trait screen
+  const WANT = {
+    none:    () => [],
+    greedy:  () => null,                       // anything, dearest first
+    coin:    () => ['coin'],
+    fruit:   () => ['fruit0', 'fruit3'],       // cherry/lemon: the cheap ones you can farm
+    cracker: () => ['risk'],
+    combo:   () => ['combo'],
+  };
+  const wants = (id, tags, isTrait) => {
+    if (!tags) return true;
+    if (!tags.length) return false;
+    const cats = isTrait
+      ? (F.TRAITS[id].effects || []).map(e => e.stat === 'oddsMult' || e.stat === 'fruitMult'
+          || e.stat === 'fruitCrown' || e.stat === 'stackOnPop' ? 'fruit' + e.target : e.stat)
+      : F.identity(id);
+    return tags.some(t => cats.some(c => c === t
+      || (t === 'coin' && /coin|payout|interest|discount/i.test(c))
+      || (t === 'risk' && /risk|cracker|brick/i.test(c))
+      || (t === 'combo' && /combo|streak|chain/i.test(c))));
+  };
+
+  const out = [];
+  for (const strat of STRATS) {
+    const tags = WANT[strat]();
+    for (let run = 0; run < RUNS; run++) {
+      F.start('rush');
+      await sleep(60);
+      await settle();
+      let coinsPeak = 0, coinsEarned = 0, lastCoins = 0, spent = 0, bought = 0, shops = 0;
+      const perStage = [];
+      let guard = 0;
+      while (F.running && F.stage <= MAX_STAGE && guard++ < 900) {
+        if (F.coins > lastCoins) coinsEarned += F.coins - lastCoins;
+        else spent += lastCoins - F.coins;
+        lastCoins = F.coins;
+        coinsPeak = Math.max(coinsPeak, F.coins);
+
+        if (shown('traits')) {
+          const offer = F.traitOffers.slice();
+          const pick = offer.find(id => wants(id, tags, true)) || offer[0];
+          F.pickTrait(pick);
+          await sleep(20);
+          continue;
+        }
+        if (shown('shop')) {
+          shops++;
+          for (let k = 0; k < 6; k++) {
+            const buyable = F.shopOffers.filter(id => !F.shopSold.has(id)
+              && F.coins >= F.priceOf(F.RELICS[id]) && F.relics.length < F.relicCap());
+            if (!buyable.length) break;
+            const pref = buyable.filter(id => wants(id, tags, false));
+            // null = "anything, dearest first"; an empty list = "buy nothing at all".
+            // Treating both as falsy made the buy-nothing control buy everything.
+            const list = pref.length ? pref : (tags === null ? buyable : []);
+            if (!list.length) break;
+            list.sort((a, b) => F.RELICS[b].price - F.RELICS[a].price);
+            F.buyRelic(list[0]); bought++;
+            await sleep(10);
+          }
+          F.closeShop();
+          await sleep(40);
+          await settle();
+          continue;
+        }
+        // stage cleared? bank it and move on
+        const rn = $('rush-next');
+        if (!rn.classList.contains('hidden') && !rn.disabled) {
+          perStage.push({ st: F.stageLabel(F.stage), score: F.score, coins: F.coins });
+          rn.click();
+          await sleep(700);
+          await settle();
+          continue;
+        }
+        const cell = bestCell();
+        if (!cell) break;
+        await tap(cell[0], cell[1]);
+      }
+      out.push({ strat, stage: F.stage, label: F.stageLabel(F.stage), score: F.score,
+                 coins: F.coins, coinsPeak, coinsEarned, spent, bought, shops,
+                 relics: F.relics.length, traits: F.traits.length,
+                 perStage: perStage.slice(0, 12) });
+      F.gameOver('bot');
+      await sleep(60);
+      F.showMenu();
+      await sleep(40);
+    }
+  }
+  document.title = 'RESULT ' + JSON.stringify(out);
+ } catch (e) { document.title = 'THREW ' + e.message + ' | ' + (e.stack || '').slice(0, 200); }
+}, 700));
+</script></body>
 </html>
