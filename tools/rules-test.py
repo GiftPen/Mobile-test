@@ -594,6 +594,7 @@ window.addEventListener('load', () => setTimeout(() => {
       prob: F.colorOdds().map(v => +v.toFixed(4)), stack: F.fruitStack.slice(),
       boost: F.fruitBoost.map(v => +v.toFixed(4)),
       crown: F.fruitCrown.map(v => +v.toFixed(4)), flat: F.fruitFlat.slice(),
+      onPop: F.stackOnPop.slice(),
       payout: F.payoutMult, coinOdds: +F.coinFruitBonus.toFixed(4), coinFlat: F.coinFlat,
       chain: +F.chainBonus(5).toFixed(4), step: +F.streakMult(0).toFixed(4), cap: F.STREAK_CAP,
       ckBonus: F.crackerBonus, ckCoin: F.crackerCoin, bulk: F.grapeBulk,
@@ -1187,6 +1188,7 @@ window.addEventListener('load', () => setTimeout(() => {
     const tsnap = () => JSON.stringify([
       F.fruitMult.map(v => +v.toFixed(4)), F.fruitFlat.slice(), F.fruitCrown.map(v => +v.toFixed(4)),
       F.oddsMult.slice(), F.fruitStack.slice(), F.fruitBoost.map(v => +v.toFixed(4)),
+      F.stackOnPop.slice(),
       F.FRUIT_POINTS.map((_, i) => F.fruitScore(i)),
       F.touchBonus, F.spawnBonus, F.offerBonus, F.relicCap(), F.stageTouches(),
       F.bombRadius(), F.itemEase, F.birdFlock, F.starCoinMult, F.payoutMult,

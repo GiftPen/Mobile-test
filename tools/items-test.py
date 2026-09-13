@@ -271,6 +271,24 @@ window.addEventListener('load', async () => {
 
   F.relics = []; F.applyRelics(); F.resetEffects();
 
+  // ---- 적립: popping a fruit has to actually raise that fruit, for good ----
+  // Relics do this with a hook; traits are data and go through a channel instead, so the
+  // channel has to be wired to the same pop.
+  // place() resets the run, which clears traits, so the trait goes on inside the build step
+  const withLedger = () => { F.traits = [{ id: 'cherry_ledger', amount: 1 }]; F.applyRelics(); trio(0)(); };
+  F.mode = 'rush'; F.resetRun(); F.traits = [{ id: 'cherry_ledger', amount: 1 }]; F.applyRelics();
+  const cherryBefore = F.fruitScore(0);
+  await place([], withLedger);
+  chk('체리 적립 raises cherry as cherries pop', F.fruitScore(0) > cherryBefore, true);
+  chk('and it is banked, not derived', F.fruitStack[0] > 0, true);
+  const ledgerBanked = F.fruitStack[0];
+  F.applyRelics(); F.applyRelics();
+  chk('so a recompute does not wipe it', F.fruitStack[0], ledgerBanked);
+  chk('but the rule itself is rebuilt', F.stackOnPop[0], 1);
+  // the other fruits are untouched by a cherry ledger
+  chk('and only that fruit', F.fruitStack.filter((v, i) => i !== 0 && v !== 0), []);
+  F.traits = []; F.applyRelics(); F.resetRun(); F.resetEffects();
+
   // ---- crackers: one hit, 100 points, and a whole economy on top ----
   const breakOne = async relics => {
     F.mode = 'rush'; F.resetRun(); F.relics = relics.slice(); F.applyRelics();

@@ -1763,6 +1763,10 @@
   let bananaSpread = 0;       // a popped banana converts this many neighbours
   let cherryPile = 0;         // +N per cherry popped, this stage
   let stageStack = [0, 0, 0, 0, 0, 0, 0];   // cherry's running total, reset every stage
+  // "popping it makes it worth more, for good". Relics do this with an onFruitPop hook; a
+  // trait is data, so it needs a channel instead. Derived, while what it feeds (fruitStack)
+  // is accumulated -- the rule is rebuilt each recompute, the pile it makes is not.
+  let stackOnPop = [0, 0, 0, 0, 0, 0, 0];
   let coinFruitMult = 1;      // a coin-carrying fruit is worth this much more
   let crackerScore = CRACKER_SCORE;   // ACCUMULATED: the legendary doubles it as you break
   let crackerBonus = 0;        // DERIVED: flat relic bonus, rebuilt by applyRelics
@@ -2073,6 +2077,23 @@
         banana_cellar: "바나나 저장고",
         banana_grove: "바나나 농장",
         banana_hunter: "바나나 사냥꾼",
+        cherry_seed: "체리 모종",
+        orange_seed: "오렌지 모종",
+        kiwi_seedling: "키위 모종",
+        lemon_seed: "레몬 모종",
+        grape_seed: "포도 모종",
+        peach_seed: "복숭아 모종",
+        cherry_ledger: "체리 적립",
+        orange_ledger: "오렌지 적립",
+        kiwi_ledger: "키위 적립",
+        lemon_ledger: "레몬 적립",
+        grape_ledger: "포도 적립",
+        peach_ledger: "복숭아 적립",
+        banana_ledger: "바나나 적립",
+        all_ledger: "모두의 적립",
+        orange_pride: "오렌지 자부심",
+        kiwi_pride: "키위 자부심",
+        peach_pride: "복숭아 자부심",
         crumbs: "부스러기",
         crumb_purse: "부스러기 지갑",
         baker: "제빵사",
@@ -2275,6 +2296,7 @@
       tutSkip: "건너뛰기",
       tutReplay: "튜토리얼 다시 보기",
       tabHelp: "❔ 도움말",
+      stackAllPop: n => `과일을 터뜨릴 때마다 그 과일 점수 +${n}`,
       bakerTrait: (pct, n) => `새 과일의 ${pct}%가 크래커 · 크래커 점수 +${n}`,
       sharpEye: (f, n) => `참새 ${f}마리 · 아이템이 ${n}개 적게 터뜨려도 생깁니다`,
       cherryPile: n => `체리를 터뜨릴 때마다 이 스테이지 동안 체리 점수 +${n}`,
@@ -2394,6 +2416,23 @@
         banana_cellar: "Banana Cellar",
         banana_grove: "Banana Plantation",
         banana_hunter: "Banana Hunter",
+        cherry_seed: "Cherry Seedling",
+        orange_seed: "Orange Seedling",
+        kiwi_seedling: "Kiwi Seedling",
+        lemon_seed: "Lemon Seedling",
+        grape_seed: "Grape Seedling",
+        peach_seed: "Peach Seedling",
+        cherry_ledger: "Cherry Ledger",
+        orange_ledger: "Orange Ledger",
+        kiwi_ledger: "Kiwi Ledger",
+        lemon_ledger: "Lemon Ledger",
+        grape_ledger: "Grape Ledger",
+        peach_ledger: "Peach Ledger",
+        banana_ledger: "Banana Ledger",
+        all_ledger: "Full Ledger",
+        orange_pride: "Orange Pride",
+        kiwi_pride: "Kiwi Pride",
+        peach_pride: "Peach Pride",
         crumbs: "Crumbs",
         crumb_purse: "Crumb Purse",
         baker: "Baker",
@@ -2596,6 +2635,7 @@
       tutSkip: "Skip",
       tutReplay: "Replay tutorial",
       tabHelp: "❔ Help",
+      stackAllPop: n => `Every fruit popped raises that fruit by +${n}`,
       bakerTrait: (pct, n) => `${pct}% of new fruit are crackers · cracker score +${n}`,
       sharpEye: (f, n) => `${f} sparrows · items need ${n} fewer pops`,
       cherryPile: n => `Each cherry popped adds +${n} to cherries for this stage`,
@@ -2715,6 +2755,23 @@
         banana_cellar: "バナナ貯蔵庫",
         banana_grove: "バナナ農園",
         banana_hunter: "バナナ狩人",
+        cherry_seed: "さくらんぼの苗",
+        orange_seed: "オレンジの苗",
+        kiwi_seedling: "キウイの苗",
+        lemon_seed: "レモンの苗",
+        grape_seed: "ぶどうの苗",
+        peach_seed: "ももの苗",
+        cherry_ledger: "さくらんぼ積み立て",
+        orange_ledger: "オレンジ積み立て",
+        kiwi_ledger: "キウイ積み立て",
+        lemon_ledger: "レモン積み立て",
+        grape_ledger: "ぶどう積み立て",
+        peach_ledger: "もも積み立て",
+        banana_ledger: "バナナ積み立て",
+        all_ledger: "全部積み立て",
+        orange_pride: "オレンジの誇り",
+        kiwi_pride: "キウイの誇り",
+        peach_pride: "ももの誇り",
         crumbs: "くず",
         crumb_purse: "くず財布",
         baker: "パン職人",
@@ -2916,6 +2973,7 @@
       tutSkip: "スキップ",
       tutReplay: "チュートリアルをもう一度",
       tabHelp: "❔ ヘルプ",
+      stackAllPop: n => `フルーツを割るたびに そのフルーツのスコア +${n}`,
       bakerTrait: (pct, n) => `新しいフルーツの${pct}%がクラッカー · クラッカーのスコア +${n}`,
       sharpEye: (f, n) => `スズメ ${f} 羽 · アイテムが ${n} 個 少なく割っても出る`,
       cherryPile: n => `さくらんぼを割るたび、このステージ中 さくらんぼのスコア +${n}`,
@@ -3035,6 +3093,23 @@
         banana_cellar: "香蕉仓库",
         banana_grove: "香蕉农场",
         banana_hunter: "香蕉猎人",
+        cherry_seed: "樱桃苗",
+        orange_seed: "橙子苗",
+        kiwi_seedling: "猕猴桃苗",
+        lemon_seed: "柠檬苗",
+        grape_seed: "葡萄苗",
+        peach_seed: "桃子苗",
+        cherry_ledger: "樱桃累积",
+        orange_ledger: "橙子累积",
+        kiwi_ledger: "猕猴桃累积",
+        lemon_ledger: "柠檬累积",
+        grape_ledger: "葡萄累积",
+        peach_ledger: "桃子累积",
+        banana_ledger: "香蕉累积",
+        all_ledger: "全员累积",
+        orange_pride: "橙子之傲",
+        kiwi_pride: "猕猴桃之傲",
+        peach_pride: "桃子之傲",
         crumbs: "碎屑",
         crumb_purse: "碎屑钱包",
         baker: "烘焙师",
@@ -3236,6 +3311,7 @@
       tutSkip: "跳过",
       tutReplay: "重看教程",
       tabHelp: "❔ 帮助",
+      stackAllPop: n => `每消除一个水果，该水果分数 +${n}`,
       bakerTrait: (pct, n) => `新水果中 ${pct}% 变饼干 · 饼干分数 +${n}`,
       sharpEye: (f, n) => `麻雀 ${f} 只 · 道具少消除 ${n} 个也能出现`,
       cherryPile: n => `每消除一个樱桃，本关樱桃分数 +${n}`,
@@ -3363,6 +3439,48 @@
   const TRAIT_ODDS = { common: 40, uncommon: 32, epic: 20, unique: 6, legend: 2 };
   const traitTier = T => T.tier || "common";
   const TRAITS = {
+    // ---- 일반: +1 등장, one per fruit. 바나나 sits a grade up: it is the dear one.
+    cherry_seed: { icon: "🍒", tier: "common", scalable: true,
+      effects: [{ stat: "oddsMult", target: 0, amount: 1 }], desc: e => d("odds", [0], e[0].amount) },
+    orange_seed: { icon: "🍊", tier: "common", scalable: true,
+      effects: [{ stat: "oddsMult", target: 1, amount: 1 }], desc: e => d("odds", [1], e[0].amount) },
+    kiwi_seedling: { icon: "🥝", tier: "common", scalable: true,
+      effects: [{ stat: "oddsMult", target: 2, amount: 1 }], desc: e => d("odds", [2], e[0].amount) },
+    lemon_seed:  { icon: "🍋", tier: "common", scalable: true,
+      effects: [{ stat: "oddsMult", target: 3, amount: 1 }], desc: e => d("odds", [3], e[0].amount) },
+    grape_seed:  { icon: "🍇", tier: "common", scalable: true,
+      effects: [{ stat: "oddsMult", target: 4, amount: 1 }], desc: e => d("odds", [4], e[0].amount) },
+    peach_seed:  { icon: "🍑", tier: "common", scalable: true,
+      effects: [{ stat: "oddsMult", target: 5, amount: 1 }], desc: e => d("odds", [5], e[0].amount) },
+
+    // ---- 에픽: popping it makes it worth more, for good -- one per fruit
+    cherry_ledger: { icon: "🍒", tier: "epic", scalable: true,
+      effects: [{ stat: "stackOnPop", target: 0, amount: 1 }], desc: e => d("stackOnPop", 0, e[0].amount) },
+    orange_ledger: { icon: "🍊", tier: "epic", scalable: true,
+      effects: [{ stat: "stackOnPop", target: 1, amount: 1 }], desc: e => d("stackOnPop", 1, e[0].amount) },
+    kiwi_ledger:   { icon: "🥝", tier: "epic", scalable: true,
+      effects: [{ stat: "stackOnPop", target: 2, amount: 1 }], desc: e => d("stackOnPop", 2, e[0].amount) },
+    lemon_ledger:  { icon: "🍋", tier: "epic", scalable: true,
+      effects: [{ stat: "stackOnPop", target: 3, amount: 1 }], desc: e => d("stackOnPop", 3, e[0].amount) },
+    grape_ledger:  { icon: "🍇", tier: "epic", scalable: true,
+      effects: [{ stat: "stackOnPop", target: 4, amount: 1 }], desc: e => d("stackOnPop", 4, e[0].amount) },
+    peach_ledger:  { icon: "🍑", tier: "epic", scalable: true,
+      effects: [{ stat: "stackOnPop", target: 5, amount: 1 }], desc: e => d("stackOnPop", 5, e[0].amount) },
+    banana_ledger: { icon: "🍌", tier: "epic", scalable: true,
+      effects: [{ stat: "stackOnPop", target: 6, amount: 1 }], desc: e => d("stackOnPop", 6, e[0].amount) },
+
+    // ---- 유니크: the same, for every fruit at once
+    all_ledger:  { icon: "📒", tier: "unique", scalable: true,
+      effects: [{ stat: "stackOnPopAll", amount: 1 }], desc: e => d("stackAllPop", e[0].amount) },
+
+    // ---- 유니크: the crown channel, now for every fruit rather than four of them
+    orange_pride: { icon: "🍊", tier: "unique", scalable: true,
+      effects: [{ stat: "fruitCrown", target: 1, amount: 1.5 }], desc: e => d("fruitBoost", 1, e[0].amount) },
+    kiwi_pride:   { icon: "🥝", tier: "unique", scalable: true,
+      effects: [{ stat: "fruitCrown", target: 2, amount: 1.5 }], desc: e => d("fruitBoost", 2, e[0].amount) },
+    peach_pride:  { icon: "🍑", tier: "unique", scalable: true,
+      effects: [{ stat: "fruitCrown", target: 5, amount: 1.5 }], desc: e => d("fruitBoost", 5, e[0].amount) },
+
     // ---- 크래커 ----
     crumbs:      { icon: "🥠", tier: "common", scalable: true,
       effects: [{ stat: "crackerBonus", amount: 150 }],
@@ -3417,9 +3535,6 @@
     peach_syrup: { icon: "🍑", tier: "common", scalable: true,
       effects: [{ stat: "fruitFlat", target: 5, amount: 10 }],
       desc: e => d("fruitFlat", 5, e[0].amount) },
-    kiwi_crate:  { icon: "🥝", tier: "uncommon", scalable: true,
-      effects: [{ stat: "oddsMult", target: 2, amount: 1 }],
-      desc: e => d("odds", [2], e[0].amount) },
     grape_row:   { icon: "🍇", tier: "uncommon", scalable: true,
       effects: [{ stat: "oddsMult", target: 4, amount: 1 }, { stat: "oddsMult", target: 5, amount: 1 }],
       desc: e => d("odds", [4, 5], e[0].amount) },
@@ -3441,7 +3556,7 @@
     cherry_taste: { icon: "🍒", tier: "common", scalable: true,
       effects: [{ stat: "fruitMult", target: 0, amount: 0.4 }],
       desc: e => d("fruitMult", 0, e[0].amount) },
-    banana_taste: { icon: "🍌", tier: "common", scalable: true,
+    banana_taste: { icon: "🍌", tier: "uncommon", scalable: true,
       effects: [{ stat: "oddsMult", target: 6, amount: 1 }],
       desc: e => d("odds", [6], e[0].amount) },
     citrus: { icon: "🍊", tier: "uncommon", scalable: true,
@@ -3883,6 +3998,9 @@
   }
 
   function notify(event, payload) {
+    // the data-driven half of onFruitPop, so a trait can do what 레몬 단지 does
+    if (event === "onFruitPop" && payload.color >= 0 && stackOnPop[payload.color])
+      fruitStack[payload.color] += stackOnPop[payload.color];
     for (const id of activeRelics()) {
       const h = RELICS[id] && RELICS[id][event];
       if (h) h(payload);
@@ -3933,6 +4051,7 @@
     fruitMult = [1, 1, 1, 1, 1, 1, 1];
     fruitFlat = [0, 0, 0, 0, 0, 0, 0];
     fruitCrown = [1, 1, 1, 1, 1, 1, 1];
+    stackOnPop = [0, 0, 0, 0, 0, 0, 0];
     touchBonus = 0; spawnBonus = 0; brickChance = 0; offerBonus = 0;
     chainStep = 0; coinFruitBonus = 0; starCoinMult = 1; payoutMult = 1;
     coinFlat = 0; coinFlatPer = COIN_FLAT_PER; interestPer = 0; interestPct = 0; interestCap = INTEREST_CAP;
@@ -3969,6 +4088,9 @@
         else if (e.stat === "starCoin")   starCoinMult += e.amount;
         else if (e.stat === "fruitFlat")  fruitFlat[e.target] += e.amount;
         else if (e.stat === "fruitCrown") fruitCrown[e.target] *= e.amount;
+        else if (e.stat === "stackOnPop") stackOnPop[e.target] += e.amount;
+        else if (e.stat === "stackOnPopAll")
+          for (let i = 0; i < stackOnPop.length; i++) stackOnPop[i] += e.amount;
         else if (e.stat === "payoutMult") payoutMult += e.amount;
         else if (e.stat === "coinOdds")   coinFruitBonus += e.amount;
         else if (e.stat === "coinFlat")   coinFlat += e.amount;
@@ -5282,7 +5404,7 @@
   // and growing the board is monotonic: probing 개간 that way would enlarge it for real.
   const CAT_FIELDS = [
     ["odds",  () => oddsMult.slice()],
-    ["score", () => fruitMult.concat(fruitFlat, fruitCrown,
+    ["score", () => fruitMult.concat(fruitFlat, fruitCrown, stackOnPop,
                       [cherryPile, grapeBulk, +lemonFree, coinFruitMult])],
     ["touch", () => [touchBonus]],
     ["spawn", () => [spawnBonus]],
@@ -5323,6 +5445,7 @@
           starEverything = false; spendFlat = 0; shopDiscount = 1;
           fruitCrown = [1,1,1,1,1,1,1];
           crackerBonus = 0; crackerCoin = 0; crackerBoom = false; crackerDouble = false; crackerEvery = false;
+          stackOnPop = [0,0,0,0,0,0,0];
           peachBurst = false; citrusFuse = false; kiwiSeed = false; lemonFree = false;
           grapeBulk = 0; bananaSpread = 0; cherryPile = 0; coinFruitMult = 1;
     peachBurst = false; citrusFuse = false; kiwiSeed = false; lemonFree = false;
@@ -7456,6 +7579,7 @@
       CRACKER_SCORE, crackerValue, crackerBroken, SEED, SEED_TOUCHES,
       fruitSignature,
       get stageStack() { return stageStack; }, get cherryPile() { return cherryPile; },
+      get stackOnPop() { return stackOnPop; },
       get grapeBulk() { return grapeBulk; }, get lemonFree() { return lemonFree; },
       get bananaSpread() { return bananaSpread; }, get coinFruitMult() { return coinFruitMult; },
       get peachBurst() { return peachBurst; }, get citrusFuse() { return citrusFuse; },
