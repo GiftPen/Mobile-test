@@ -69,7 +69,7 @@ window.addEventListener('load', () => setTimeout(async () => {
 
   // ---- 3. 금맥 pays on the mark, and that is separate from what the cell SCORES ----
   setup(['gold_vein', 'golden_reap']);
-  chk('금맥 is a coin effect, not a score one', F.zoneCoin, true);
+  chk('금맥 is a coin effect, not a score one', F.zoneCoins > 0, true);
   chk('and it does not change the score',
       F.fruitScoreAt(2, 2, 0), Math.round(F.fruitScore(0) * F.coinFruitMult));
 

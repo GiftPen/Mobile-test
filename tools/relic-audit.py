@@ -35,7 +35,7 @@ window.addEventListener('load', () => setTimeout(() => {
     F.spendFlat, F.priceOf(F.RELICS.crown), F.itemPrice('bomb'),
     F.resonance, F.offerWeight('one_cherry'),
     F.crackerValue(), F.crackerCoin, +F.crackerBoom, +F.crackerDouble, +F.crackerEvery,
-    F.cherryPile, F.grapeBulk, +F.lemonFree, F.bananaSpread, F.coinFruitMult,
+    F.cherryPile, F.grapeBulk, +F.lemonFree, F.bananaSpread, F.coinFruitMult, F.coinToScore,
     +F.peachBurst, +F.citrusFuse, +F.kiwiSeed,
   ]);
   // A coin-scaled relic is invisible at zero coins, so the audit would call it dead. Hold
@@ -61,8 +61,21 @@ window.addEventListener('load', () => setTimeout(() => {
     F.relics.push(id); F.applyRelics();
     const after = snap();
     if (before === after && !hasHook) {
-      if (R.requires) report.gated.push(id);          // intentional: needs a prerequisite
-      else report.dead.push(id);
+      // A gated relic is not excused: it has to DO something once its gate is open, or it is
+      // a dead card you can only buy after working for the right to buy it. Open the gate
+      // with whatever relic opens it, then look again.
+      if (R.requires) {
+        let alive = false;
+        for (const other of Object.keys(F.RELICS)) {
+          if (other === id) continue;
+          fresh(); F.relics = [other]; F.applyRelics(); F.rollZones();
+          if (!R.requires()) continue;
+          const gatedBefore = snap();
+          F.relics = [other, id]; F.applyRelics();
+          if (snap() !== gatedBefore) { alive = true; break; }
+        }
+        (alive ? report.gated : report.dead).push(id);
+      } else report.dead.push(id);
     }
   }
 

@@ -284,6 +284,76 @@ window.addEventListener('load', async () => {
 
   F.relics = []; F.applyRelics(); F.resetEffects();
 
+  // ---- the bonus zone pays what it says, and two zone-coin relics pay twice ----
+  const zoneCoinsPaid = async relics => {
+    F.mode = 'rush'; F.resetRun(); F.relics = relics.slice(); F.applyRelics();
+    clearBoard();
+    for (let r = 0; r < F.ROWS; r++) for (let c = 0; c < F.COLS; c++) F.coinCell[r][c] = 0;
+    F.zoneCells.clear();
+    // both payout sites: the cell we place into, and a cell the chain pops
+    F.zoneCells.add(3 * F.COLS + 4);
+    F.zoneCells.add(3 * F.COLS + 5);
+    for (const [r, c] of [[3,5],[4,4],[4,5]]) F.grid[r][c] = 1;
+    F.nextColor = 1; F.nextColor2 = 1;
+    F.coins = 0; F.score = 0; F.streak = 0; F.busy = false;
+    const rz = cv.getBoundingClientRect();
+    const zx = rz.left + 4.5 * rz.width / F.COLS, zy = rz.top + 3.5 * rz.height / F.ROWS;
+    cv.dispatchEvent(new PointerEvent('pointerdown', {clientX:zx, clientY:zy, bubbles:true}));
+    cv.dispatchEvent(new PointerEvent('pointerup',   {clientX:zx, clientY:zy, bubbles:true}));
+    await pump(90, 12);
+    return { coins: F.coins, score: F.score };
+  };
+  const zNone = await zoneCoinsPaid([]);
+  const zOne  = await zoneCoinsPaid(['gold_vein']);
+  const zTwo  = await zoneCoinsPaid(['gold_vein', 'gold_mine']);
+  chk('no zone relic, no zone coin', zNone.coins, 0);
+  chk('금맥 pays inside the zone', zOne.coins > zNone.coins, true);
+  chk('금맥 + 금광 pays more than 금맥 alone', zTwo.coins > zOne.coins, true);
+  chk('and it pays for BOTH cells, not just one', zOne.coins >= 2, true);
+  // the two payout sites are separate code: check the POPPED one on its own, or a correct
+  // placed-cell payout hides a broken one
+  const poppedOnly = async relics => {
+    F.mode = 'rush'; F.resetRun(); F.relics = relics.slice(); F.applyRelics();
+    clearBoard();
+    for (let r = 0; r < F.ROWS; r++) for (let c = 0; c < F.COLS; c++) F.coinCell[r][c] = 0;
+    F.zoneCells.clear(); F.zoneCells.add(3 * F.COLS + 5);   // a cell the chain pops
+    for (const [r, c] of [[3,5],[4,4],[4,5]]) F.grid[r][c] = 1;
+    F.nextColor = 1; F.nextColor2 = 1;
+    F.coins = 0; F.busy = false;
+    const rp = cv.getBoundingClientRect();
+    const pxx = rp.left + 4.5 * rp.width / F.COLS, pyy = rp.top + 3.5 * rp.height / F.ROWS;
+    cv.dispatchEvent(new PointerEvent('pointerdown', {clientX:pxx, clientY:pyy, bubbles:true}));
+    cv.dispatchEvent(new PointerEvent('pointerup',   {clientX:pxx, clientY:pyy, bubbles:true}));
+    await pump(90, 12);
+    return F.coins;
+  };
+  const pOne = await poppedOnly(['gold_vein']);
+  const pTwo = await poppedOnly(['gold_vein', 'gold_mine']);
+  chk('a popped zone cell pays', pOne > 0, true);
+  chk('and it stacks there too', pTwo > pOne, true);
+
+  // 명당 scores the zone, and the ball you PLACE into it counts like anything else
+  const zoneScore = async (relics, marked) => {
+    F.mode = 'rush'; F.resetRun(); F.relics = relics.slice(); F.applyRelics();
+    clearBoard();
+    for (let r = 0; r < F.ROWS; r++) for (let c = 0; c < F.COLS; c++) F.coinCell[r][c] = 0;
+    F.zoneCells.clear();
+    if (marked) F.zoneCells.add(3 * F.COLS + 4);       // only the placed cell
+    for (const [r, c] of [[3,5],[4,4],[4,5]]) F.grid[r][c] = 1;
+    F.nextColor = 1; F.nextColor2 = 1;
+    F.score = 0; F.streak = 0; F.busy = false;
+    const rs = cv.getBoundingClientRect();
+    const sx = rs.left + 4.5 * rs.width / F.COLS, sy = rs.top + 3.5 * rs.height / F.ROWS;
+    cv.dispatchEvent(new PointerEvent('pointerdown', {clientX:sx, clientY:sy, bubbles:true}));
+    cv.dispatchEvent(new PointerEvent('pointerup',   {clientX:sx, clientY:sy, bubbles:true}));
+    await pump(90, 12);
+    return F.score;
+  };
+  const sOff = await zoneScore(['hotspot'], false);
+  const sOn  = await zoneScore(['hotspot'], true);
+  chk('placing into the bonus zone scores more than placing outside it', sOn > sOff, true);
+  F.relics = []; F.applyRelics(); F.resetEffects();
+
   // ---- 적립: popping a fruit has to actually raise that fruit, for good ----
   // Relics do this with a hook; traits are data and go through a channel instead, so the
   // channel has to be wired to the same pop.

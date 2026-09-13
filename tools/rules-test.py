@@ -1397,6 +1397,45 @@ window.addEventListener('load', () => setTimeout(() => {
     schk('and interest scales with what was kept', clearAt(3, 5), payoutAt(3) + 1);
     F.closeShop(); F.mode = 'rush'; F.resetRun(); F.relics = []; F.applyRelics();
 
+    // 5b. 환전: coins you are HOLDING become score at a stage clear. The measured gap was
+    //     that a coin build had almost nothing to spend coins on -- four of six bot runs
+    //     ended holding 100+ with no converter in the shop at all.
+    F.mode = 'rush'; F.resetRun();
+    F.relics = ['exchange']; F.applyRelics();
+    F.stage = 1; F.coins = 20; F.score = 0; F.stageScore = 99999;
+    const per = F.coinToScore;
+    F.stageClear();
+    schk('환전소 turns held coins into score', F.score, 20 * per);
+    schk('and it is a real rate', per > 0, true);
+    F.closeShop();
+    // ...on what you KEPT, so the stage payout does not inflate it
+    F.mode = 'rush'; F.resetRun();
+    F.relics = ['exchange']; F.applyRelics();
+    F.stage = 1; F.coins = 0; F.score = 0; F.stageScore = 99999;
+    F.stageClear();
+    schk('broke, it converts nothing', F.score, 0);
+    F.closeShop();
+    // the two rungs differ, and the cheaper one is the weaker one
+    F.resetRun(); F.relics = ['change_count']; F.applyRelics();
+    const low = F.coinToScore;
+    F.relics = ['exchange']; F.applyRelics();
+    schk('the cheaper converter converts less', low < F.coinToScore, true);
+    schk('and the cheaper one costs less',
+         F.RELICS.change_count.price < F.RELICS.exchange.price, true);
+    F.relics = []; F.applyRelics(); F.resetRun();
+
+    // 5c. the bonus zone as a coin engine: two cards that both say "coin +1 inside it" have
+    //     to add up to +2, or one of them was a wasted purchase
+    F.mode = 'rush'; F.resetRun();
+    F.relics = ['gold_vein']; F.applyRelics();
+    const oneCoin = F.zoneCoins;
+    F.relics = ['gold_vein', 'gold_mine']; F.applyRelics();
+    schk('금맥 and 금광 stack their zone coin', F.zoneCoins > oneCoin, true);
+    F.relics = ['gold_vein', 'gold_mine', 'golden_city']; F.applyRelics();
+    schk('and 황금 도시 stacks on top', F.zoneCoins > 2, true);
+    schk('it widens the zone too', F.zoneBonus >= 9, true);
+    F.relics = []; F.applyRelics(); F.resetRun();
+
     // 6. 탕진: the other pole. Hoarding and spending must both be worth something, or the
     //    coin build has one strategy and no decision.
     F.mode = 'rush'; F.resetRun();

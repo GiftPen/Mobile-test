@@ -33,6 +33,7 @@ window.addEventListener('load', () => setTimeout(() => {
     streakCap: () => F.STREAK_CAP, ckBonus: () => F.crackerBonus, ckCoin: () => F.crackerCoin,
     bulk: () => F.grapeBulk, cracker: () => F.crackerChance, res: () => F.resonance,
     ckValue: () => F.crackerValue(), interest: () => F.interestDue(),
+    coinScore: () => F.coinToScore,
     disc: () => F.shopDiscount, rows: () => F.ROWS, ease: () => F.itemEase,
     zoneMult: () => F.zoneMult, zones: () => F.zoneCount(),
   };

@@ -1517,14 +1517,14 @@
     stage = 1; stageScore = 0; touchesLeft = RUSH_TOUCHES;
     touchBonus = 0; spawnBonus = 0; slotBonus = 0; crackerChance = 0; offerBonus = 0;
     chainStep = 0; coinFruitBonus = 0; starCoinMult = 1; payoutMult = 1;
-    coinFlat = 0; coinFlatPer = COIN_FLAT_PER; interestPer = 0; interestPct = 0; interestCap = INTEREST_CAP;
+    coinFlat = 0; coinToScore = 0; coinFlatPer = COIN_FLAT_PER; interestPer = 0; interestPct = 0; interestCap = INTEREST_CAP;
     crackerBonus = 0; crackerCoin = 0; crackerBoom = false; crackerDouble = false; crackerEvery = false;
     peachBurst = false; citrusFuse = false; kiwiSeed = false; lemonFree = false;
     grapeBulk = 0; bananaSpread = 0; cherryPile = 0; coinFruitMult = 1;
     starEverything = false;
     spendFlat = 0; shopDiscount = 1; resonance = RESONANCE_BASE;
     bombRadiusBonus = 0; itemEase = 0; birdFlock = 1; crossLine = false;
-    zoneMult = 1; zoneCoin = false; zoneBonus = 0; zoneCells = new Set();
+    zoneMult = 1; zoneCoins = 0; zoneBonus = 0; zoneCells = new Set();
     STREAK_STEP = STREAK_STEP_BASE; STREAK_CAP = 2.0;
     traits = []; doubles = 0; armedItem = null;
     coins = 0; coinsShown = 0; coinsSpent = 0; crackerScore = CRACKER_SCORE; clearCoinFly();
@@ -1730,6 +1730,7 @@
   let coinsSpent = 0;           // ACCUMULATED, not derived: applyRelics must not wipe it
   let spendFlat = 0;            // +1 to every fruit per SPEND_PER spent, while 탕진 is held
   let shopDiscount = 1;         // multiplier on every shop price
+  let coinToScore = 0;          // score per coin HELD when a stage is cleared
   let coinFlat = 0;             // +N to every fruit per COIN_FLAT_PER coins held
   let interestPer = 0;          // +1 coin per this many held (0 = no flat interest)
   let interestPct = 0;          // + this fraction of coins held
@@ -1742,8 +1743,8 @@
   // without one plays exactly as before. Stored as flat r*COLS+c indices, which stay valid
   // when 개간 appends a row (COLS is fixed).
   const ZONE_BASE = 3;
-  let zoneCells = new Set(), zoneMult = 1, zoneCoin = false, zoneBonus = 0;
-  const zoneOn = () => zoneMult > 1 || zoneCoin;
+  let zoneCells = new Set(), zoneMult = 1, zoneCoins = 0, zoneBonus = 0;
+  const zoneOn = () => zoneMult > 1 || zoneCoins;
   const zoneCount = () => zoneOn() ? Math.min(ROWS * COLS, ZONE_BASE + zoneBonus) : 0;
   const zoneAt = (r, c) => zoneCells.has(r * COLS + c);
   // a fruit is worth more on a marked cell
@@ -2014,7 +2015,7 @@
       starCoinUp: n => `별이 과일당 코인 +${n}`,
       crossLine:  () => "라인이 항상 가로세로 동시에 생깁니다",
       zoneMult:   n => `보너스 영역 안에서 터뜨린 과일 점수 ×${n1(n)}`,
-      zoneCoin:   n => `보너스 영역 안에서 터뜨리면 코인 +${n}`,
+      zoneCoins:   n => `보너스 영역 안에서 터뜨리면 코인 +${n}`,
       zoneMore:   n => `보너스 영역 +${n}칸`,
       boostBest:  n => `지금 가장 비싼 과일의 값어치를 ${n1(n)}배로`,
       nextDouble: () => "다음 특성 선택을 2배로",
@@ -2026,6 +2027,10 @@
         banana_cellar: "바나나 저장고",
         banana_grove: "바나나 농장",
         banana_hunter: "바나나 사냥꾼",
+        change_count: "잔돈 계산",
+        exchange: "환전소",
+        gold_mine: "금광",
+        golden_city: "황금 도시",
         cherry_seed: "체리 모종",
         orange_seed: "오렌지 모종",
         kiwi_seedling: "키위 모종",
@@ -2245,6 +2250,9 @@
       tutSkip: "건너뛰기",
       tutReplay: "튜토리얼 다시 보기",
       tabHelp: "❔ 도움말",
+      coinToScore: n => `스테이지를 클리어할 때 보유 코인 1개당 점수 +${n}`,
+      goldMine: (z, c) => `보너스 영역 +${z}칸 · 영역 안에서 터뜨리면 코인 +${c} · 코인 과일 확률 +5%p`,
+      goldenCity: (z, c) => `보너스 영역 +${z}칸 · 영역 안에서 터뜨리면 코인 +${c} · 영역 점수 ×2 · 코인 과일 확률 +10%p`,
       itemBasket: n => `🧺 과일 바구니 — 판에 과일 ${n}개를 채웁니다`,
       sellSure: "정말 팔기?",
       stackAllPop: n => `과일을 터뜨릴 때마다 그 과일 점수 +${n}`,
@@ -2357,7 +2365,7 @@
       starCoinUp: n => `Stars pay +${n} coin per fruit`,
       crossLine:  () => "Lines always clear a row and a column",
       zoneMult:   n => `Fruit popped inside a bonus zone scores ×${n1(n)}`,
-      zoneCoin:   n => `Popping inside a bonus zone pays +${n} coin`,
+      zoneCoins:   n => `Popping inside a bonus zone pays +${n} coin`,
       zoneMore:   n => `+${n} bonus-zone cells`,
       boostBest:  n => `Multiply your priciest fruit's value by ${n1(n)}`,
       nextDouble: () => "Double your next trait pick",
@@ -2367,6 +2375,10 @@
         banana_cellar: "Banana Cellar",
         banana_grove: "Banana Plantation",
         banana_hunter: "Banana Hunter",
+        change_count: "Counting Change",
+        exchange: "Exchange",
+        gold_mine: "Gold Mine",
+        golden_city: "Golden City",
         cherry_seed: "Cherry Seedling",
         orange_seed: "Orange Seedling",
         kiwi_seedling: "Kiwi Seedling",
@@ -2586,6 +2598,9 @@
       tutSkip: "Skip",
       tutReplay: "Replay tutorial",
       tabHelp: "❔ Help",
+      coinToScore: n => `Clearing a stage scores +${n} per coin held`,
+      goldMine: (z, c) => `+${z} bonus-zone cells · +${c} coin inside it · coin fruit +5%p`,
+      goldenCity: (z, c) => `+${z} bonus-zone cells · +${c} coin inside it · zone score ×2 · coin fruit +10%p`,
       itemBasket: n => `🧺 Fruit Basket — drops ${n} fruit onto the board`,
       sellSure: "Sell it?",
       stackAllPop: n => `Every fruit popped raises that fruit by +${n}`,
@@ -2698,7 +2713,7 @@
       starCoinUp: n => `星のコインが フルーツごとに +${n}`,
       crossLine:  () => "ラインが常に縦横同時に出る",
       zoneMult:   n => `ボーナス領域で割ったフルーツのスコア ×${n1(n)}`,
-      zoneCoin:   n => `ボーナス領域で割ると コイン +${n}`,
+      zoneCoins:   n => `ボーナス領域で割ると コイン +${n}`,
       zoneMore:   n => `ボーナス領域 +${n}マス`,
       boostBest:  n => `いま最も高いフルーツの価値を ${n1(n)} 倍に`,
       nextDouble: () => "次の特性選択を2倍に",
@@ -2708,6 +2723,10 @@
         banana_cellar: "バナナ貯蔵庫",
         banana_grove: "バナナ農園",
         banana_hunter: "バナナ狩人",
+        change_count: "小銭勘定",
+        exchange: "両替所",
+        gold_mine: "金鉱",
+        golden_city: "黄金都市",
         cherry_seed: "さくらんぼの苗",
         orange_seed: "オレンジの苗",
         kiwi_seedling: "キウイの苗",
@@ -2926,6 +2945,9 @@
       tutSkip: "スキップ",
       tutReplay: "チュートリアルをもう一度",
       tabHelp: "❔ ヘルプ",
+      coinToScore: n => `ステージクリア時、所持コイン1枚につきスコア +${n}`,
+      goldMine: (z, c) => `ボーナス領域 +${z}マス · 領域内で割ると コイン +${c} · コイン付き +5%p`,
+      goldenCity: (z, c) => `ボーナス領域 +${z}マス · 領域内で割ると コイン +${c} · 領域スコア ×2 · コイン付き +10%p`,
       itemBasket: n => `🧺 フルーツかご — 盤面にフルーツを ${n} 個 補充します`,
       sellSure: "本当に売る?",
       stackAllPop: n => `フルーツを割るたびに そのフルーツのスコア +${n}`,
@@ -3038,7 +3060,7 @@
       starCoinUp: n => `星星每个水果多给 ${n} 金币`,
       crossLine:  () => "线道总是横竖同时出现",
       zoneMult:   n => `在奖励区域内消除的水果分数 ×${n1(n)}`,
-      zoneCoin:   n => `在奖励区域内消除，金币 +${n}`,
+      zoneCoins:   n => `在奖励区域内消除，金币 +${n}`,
       zoneMore:   n => `奖励区域 +${n} 格`,
       boostBest:  n => `将当前最贵水果的价值提高到 ${n1(n)} 倍`,
       nextDouble: () => "下次特性选择翻倍",
@@ -3048,6 +3070,10 @@
         banana_cellar: "香蕉仓库",
         banana_grove: "香蕉农场",
         banana_hunter: "香蕉猎人",
+        change_count: "数零钱",
+        exchange: "兑换所",
+        gold_mine: "金矿",
+        golden_city: "黄金之城",
         cherry_seed: "樱桃苗",
         orange_seed: "橙子苗",
         kiwi_seedling: "猕猴桃苗",
@@ -3266,6 +3292,9 @@
       tutSkip: "跳过",
       tutReplay: "重看教程",
       tabHelp: "❔ 帮助",
+      coinToScore: n => `通关时，每持有 1 金币得分 +${n}`,
+      goldMine: (z, c) => `奖励区域 +${z} 格 · 区域内消除金币 +${c} · 带金币水果 +5%p`,
+      goldenCity: (z, c) => `奖励区域 +${z} 格 · 区域内消除金币 +${c} · 区域分数 ×2 · 带金币水果 +10%p`,
       itemBasket: n => `🧺 水果篮 — 在盘面补充 ${n} 个水果`,
       sellSure: "确定卖出?",
       stackAllPop: n => `每消除一个水果，该水果分数 +${n}`,
@@ -3717,6 +3746,20 @@
     vault: { icon: "🔐", price: 26,
       requires: () => relics.some(id => RELICS[id] && RELICS[id].lifts === "interest"),
       desc: () => d("interestCap", 10), apply() { interestCap += 10; } },
+    // Turning coins back into score was the coin build's missing half: measured over six
+    // bot runs, four ended holding 100+ coins with nothing that converts them. Two rungs, so
+    // the conversion is reachable before the late shops.
+    change_count: { icon: "🧮", price: 12,
+      desc: () => d("coinToScore", 10), apply() { coinToScore += 10; } },
+    exchange:     { icon: "🏛️", price: 19,
+      desc: () => d("coinToScore", 30), apply() { coinToScore += 30; } },
+    // the bonus zone as a coin engine: 금맥 pays inside it, these make it bigger and richer
+    gold_mine:  { icon: "⛏️", price: 26, requires: () => zoneOn(),
+      desc: () => d("goldMine", 3, 1),
+      apply() { zoneBonus += 3; zoneCoins += 1; coinFruitBonus += 0.05; } },
+    golden_city: { icon: "🏙️", price: 42,
+      desc: () => d("goldenCity", 6, 2),
+      apply() { zoneBonus += 6; zoneCoins += 2; zoneMult += 1; coinFruitBonus += 0.1; } },
     silver_clover: { icon: "🍀", price: 17,
       desc: () => d("coinOdds", 15), apply() { coinFruitBonus += 0.15; } },
     golden_clover: { icon: "🍀", price: 24,
@@ -3904,8 +3947,8 @@
       desc: () => d("zoneMult", 2),
       apply() { zoneMult += 1; } },
     gold_vein: { icon: "🪙", price: 14,
-      desc: () => d("zoneCoin", 1),
-      apply() { zoneCoin = true; } },
+      desc: () => d("zoneCoins", 1),
+      apply() { zoneCoins += 1; } },
     // 측량 widens something that has to exist first: with no 명당 or 금맥 there are no marked
     // cells to add to, and it is a 12-coin card that does literally nothing. `requires` keeps
     // the shop from offering a relic that cannot work yet.
@@ -4011,14 +4054,14 @@
     stackOnPop = [0, 0, 0, 0, 0, 0, 0];
     touchBonus = 0; spawnBonus = 0; crackerChance = 0; offerBonus = 0;
     chainStep = 0; coinFruitBonus = 0; starCoinMult = 1; payoutMult = 1;
-    coinFlat = 0; coinFlatPer = COIN_FLAT_PER; interestPer = 0; interestPct = 0; interestCap = INTEREST_CAP;
+    coinFlat = 0; coinToScore = 0; coinFlatPer = COIN_FLAT_PER; interestPer = 0; interestPct = 0; interestCap = INTEREST_CAP;
     crackerBonus = 0; crackerCoin = 0; crackerBoom = false; crackerDouble = false; crackerEvery = false;
     peachBurst = false; citrusFuse = false; kiwiSeed = false; lemonFree = false;
     grapeBulk = 0; bananaSpread = 0; cherryPile = 0; coinFruitMult = 1;
     starEverything = false;
     spendFlat = 0; shopDiscount = 1; resonance = RESONANCE_BASE;
     bombRadiusBonus = 0; itemEase = 0; birdFlock = 1; crossLine = false;
-    zoneMult = 1; zoneCoin = false; zoneBonus = 0;
+    zoneMult = 1; zoneCoins = 0; zoneBonus = 0;
     STREAK_STEP = STREAK_STEP_BASE; STREAK_CAP = 2.0;      // relics may raise these; reset first
     slotBonus = settleSlots();                // must be known before activeRelics() is read
     syncRows();                               // grows the board if a 개간 relic is active
@@ -4927,7 +4970,7 @@
         popped++;
         if (cellColor >= 0) {
           pointsPopped += fruitScoreAt(r, c, cellColor);
-          if (zoneCoin && zoneAt(r, c)) addCoins(1, r, c);   // 금맥: the cell itself pays
+          if (zoneCoins && zoneAt(r, c)) addCoins(zoneCoins, r, c);   // 금맥: the cell itself pays
         }
         // item reward = size of YOUR placed color group. Count color-flood pops AND any
         // same-color cell a bomb/line blast consumed mid-chain (incl. a same-color bomb itself),
@@ -5193,7 +5236,11 @@
         // 포도 송이 counts toward items as well: a bulkier cluster earns them sooner
         const chainCount = chainPopped + 1 + (color === 4 ? grapeBulk : 0);
         // per-fruit points (placed ball + all popped) × chain-size bonus × streak
-        const groupPts = (pointsPopped || 0) + fruitScore(color);
+        // The ball you placed pops in the zone like anything else: it was scoring the plain
+        // fruit value and paying no zone coin, so placing INTO the bonus area -- the obvious
+        // way to use it -- was the one case the area did not apply to.
+        const groupPts = (pointsPopped || 0) + fruitScoreAt(r0, c0, color);
+        if (zoneCoins && zoneAt(r0, c0)) addCoins(zoneCoins, r0, c0);
         const gained = scorePop(groupPts, cleared, coined, color);
         notify("onPop", { r: r0, c: c0, color, cleared, chainCount, gained, placement: true });
         const sub = multLabel(chainBonus(color === 4 ? cleared + grapeBulk : cleared), streakMult(color));
@@ -5376,11 +5423,11 @@
     ["risk",  () => [crackerChance, crackerBonus, crackerCoin, +crackerBoom, +crackerDouble, +crackerEvery]],
     ["slot",  () => [offerBonus]],
     ["combo", () => [chainStep, STREAK_STEP, STREAK_CAP]],
-    ["coin",  () => [coinFruitBonus, starCoinMult, payoutMult, coinFlat, coinFlatPer, spendFlat,
+    ["coin",  () => [coinFruitBonus, starCoinMult, payoutMult, coinFlat, coinToScore, coinFlatPer, spendFlat,
                      interestPer, interestPct, interestCap, shopDiscount]],
     ["item",  () => [bombRadiusBonus, itemEase, birdFlock, +crossLine, +starEverything,
                      +peachBurst, +citrusFuse, +kiwiSeed, bananaSpread]],
-    ["board", () => [zoneMult, +zoneCoin, zoneBonus]],
+    ["board", () => [zoneMult, zoneCoins, zoneBonus]],
   ];
   let relicCatCache = null;
   function relicCats(id) {
@@ -5403,7 +5450,7 @@
           oddsMult = [0,0,0,0,0,0,0]; fruitMult = [1,1,1,1,1,1,1]; fruitFlat = [0,0,0,0,0,0,0];
           touchBonus = 0; spawnBonus = 0; crackerChance = 0; offerBonus = 0;
           chainStep = 0; coinFruitBonus = 0; starCoinMult = 1; payoutMult = 1;
-          coinFlat = 0; coinFlatPer = COIN_FLAT_PER; interestPer = 0; interestPct = 0; interestCap = INTEREST_CAP;
+          coinFlat = 0; coinToScore = 0; coinFlatPer = COIN_FLAT_PER; interestPer = 0; interestPct = 0; interestCap = INTEREST_CAP;
     crackerBonus = 0; crackerCoin = 0; crackerBoom = false; crackerDouble = false; crackerEvery = false;
     peachBurst = false; citrusFuse = false; kiwiSeed = false; lemonFree = false;
     grapeBulk = 0; bananaSpread = 0; cherryPile = 0; coinFruitMult = 1;
@@ -5416,7 +5463,7 @@
     peachBurst = false; citrusFuse = false; kiwiSeed = false; lemonFree = false;
     grapeBulk = 0; bananaSpread = 0; cherryPile = 0; coinFruitMult = 1;
           bombRadiusBonus = 0; itemEase = 0; birdFlock = 1; crossLine = false;
-          zoneMult = 1; zoneCoin = false; zoneBonus = 0;
+          zoneMult = 1; zoneCoins = 0; zoneBonus = 0;
           STREAK_STEP = STREAK_STEP_BASE; STREAK_CAP = 2.0;
         }
         // a fruit-specific relic resonates with that fruit, not merely with "score"
@@ -5958,6 +6005,9 @@
     // Interest first, on the balance you CHOSE to keep. After the payout it would partly be
     // interest on money everyone gets, which blunts the only decision it exists to create.
     // Paid on the round, not the stage, so saving up has to survive a whole round to matter.
+    // 환전: the coins you are holding become score. Read before the payout, like interest,
+    // so it pays for keeping money rather than for money everyone gets.
+    if (coinToScore) addScore(coins * coinToScore);
     const interest = stage % STAGES_PER_ROUND === 0 ? payInterest() : 0;
     addCoins(Math.round(COIN_PAYOUT(stage) * payoutMult), (ROWS - 1) / 2, (COLS - 1) / 2);
     stage++;
@@ -6515,11 +6565,11 @@
         if (zoneCells.size && zoneAt(r, c)) {
           ctx.save();
           const pulse = 0.5 + 0.5 * Math.sin(frame * 0.05 + (r * 3 + c * 5));
-          ctx.fillStyle = zoneCoin ? "#c9a227" : "#3fae6a";
+          ctx.fillStyle = zoneCoins ? "#c9a227" : "#3fae6a";
           ctx.globalAlpha = 0.20 + 0.10 * pulse;
           roundRect(x + g, y + g, cell - g*2, cell - g*2, cell*0.22); ctx.fill();
           ctx.globalAlpha = 0.55 + 0.25 * pulse;
-          ctx.strokeStyle = zoneCoin ? "#ffd23e" : "#6ee7a0";
+          ctx.strokeStyle = zoneCoins ? "#ffd23e" : "#6ee7a0";
           ctx.lineWidth = Math.max(1, cell * 0.045);
           roundRect(x + g*1.6, y + g*1.6, cell - g*3.2, cell - g*3.2, cell*0.20); ctx.stroke();
           ctx.restore();
@@ -7551,6 +7601,7 @@
       get LANG() { return LANG; },
       rollZones, zoneAt, zoneCount, fruitScoreAt, ZONE_BASE,
       payInterest, interestDue, coinFlatBonus, COIN_FLAT_PER, INTEREST_CAP,
+      get coinToScore() { return coinToScore; },
       priceOf, itemPrice, spendFlatBonus, SPEND_PER,
       relicCats, offerWeight, RESONANCE_MAX, RESONANCE_BASE, identity,
       get resonance() { return resonance; },
@@ -7562,7 +7613,7 @@
       MIN_ODDS,
       announceOffers,
       get zoneCells() { return zoneCells; }, get zoneMult() { return zoneMult; },
-      get zoneCoin() { return zoneCoin; }, get zoneBonus() { return zoneBonus; },
+      get zoneCoins() { return zoneCoins; }, get zoneBonus() { return zoneBonus; },
       emptyCells, ITEM_PRICES, canBuyItem, armItem, placeBoughtItem, renderItemShop,
       BASKET_FRUIT,
       filledCount, modalOpen, MODAL_IDS,

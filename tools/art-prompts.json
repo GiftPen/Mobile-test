@@ -129,7 +129,11 @@
     "grape_bunch2": "an oversized dense bunch of grapes, far more than a normal bunch",
     "peach_soft": "an overripe peach split open, juice bursting outward in a ring",
     "banana_grove2": "a dense cluster of banana hands growing from one thick stem",
-    "golden_reap": "a sickle cutting through a sheaf of wheat that is raining gold coins"
+    "golden_reap": "a sickle cutting through a sheaf of wheat that is raining gold coins",
+    "change_count": "an abacus with a small stack of coins beside it",
+    "exchange": "a small neoclassical exchange building with columns, a coin above its pediment",
+    "gold_mine": "a mine entrance in a hillside with rail tracks and a cart of gold ore",
+    "golden_city": "a skyline of golden towers on a hill, light streaming off their roofs"
   },
   "traits": {
     "cherry_taste": "a cherry inside a laurel wreath badge",
