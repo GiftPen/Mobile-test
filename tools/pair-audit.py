@@ -13,8 +13,10 @@ per later purchase. So:
      difference has to be a declared cap and not a silent loss.
   3. caps -- pairs where the second one adds literally nothing are reported, because a relic
      that cannot do anything next to a trait you already hold is a dead purchase.
-  4. wording -- a relic and a trait that say exactly the same thing are confusing even when
-     they are both correct.
+  4. wording -- a relic and its trait counterpart SHOULD read the same ("바나나 1만큼 더
+     등장"): same effect, same words, and the ladder is easier to follow for it. Two cards in
+     the SAME system saying the same thing is different -- that is two ways to buy one thing,
+     and nothing tells them apart on the shelf.
 """
 import subprocess, os, re, json, sys
 
@@ -117,19 +119,23 @@ window.addEventListener('load', () => setTimeout(() => {
 
   // ---- 4) two cards that say the same thing ----
   F.mode='rush'; F.resetRun(); F.relics = []; F.traits = []; F.applyRelics();
-  const said = {}, dupes = [];
-  for (const id of Object.keys(F.RELICS)) (said[F.RELICS[id].desc] = said[F.RELICS[id].desc] || []).push('유물 ' + id);
+  const rSaid = {}, tSaid = {}, dupes = [], sameSystem = [];
+  for (const id of Object.keys(F.RELICS)) (rSaid[F.RELICS[id].desc] = rSaid[F.RELICS[id].desc] || []).push(id);
   for (const id of Object.keys(F.TRAITS)) {
     const t = F.TRAITS[id].desc(F.traitEffects(F.TRAITS[id], 1));
-    (said[t] = said[t] || []).push('특성 ' + id);
+    (tSaid[t] = tSaid[t] || []).push(id);
   }
-  for (const k in said) if (said[k].length > 1) dupes.push(k + ' -> ' + said[k].join(', '));
+  // two cards in the same system reading alike is a real problem; a relic and its trait
+  // counterpart reading alike is the point
+  for (const k in rSaid) if (rSaid[k].length > 1) sameSystem.push('유물 ' + rSaid[k].join(', ') + ': ' + k);
+  for (const k in tSaid) if (tSaid[k].length > 1) sameSystem.push('특성 ' + tSaid[k].join(', ') + ': ' + k);
+  for (const k in rSaid) if (tSaid[k]) dupes.push(k + ' -> 유물 ' + rSaid[k][0] + ' / 특성 ' + tSaid[k][0]);
 
   F.relics = []; F.traits = []; F.applyRelics(); F.resetRun();
   document.title = 'RESULT ' + JSON.stringify({
     pairs, unstable, drift,
     swallowed: swallowed.slice(0, 40), swallowedN: swallowed.length,
-    dupes, relics: Object.keys(F.RELICS).length, traits: Object.keys(F.TRAITS).length });
+    dupes, sameSystem, relics: Object.keys(F.RELICS).length, traits: Object.keys(F.TRAITS).length });
  } catch (e) { document.title = 'THREW ' + e.message + ' | ' + (e.stack || '').slice(0, 200); }
 }, 800));
 </script>"""
@@ -159,7 +165,8 @@ show('재계산 불안정', r['unstable'])
 show('효과 중복 계산', r['drift'])
 print(f"  {'상한에 먹힘 (참고)':<26}{r['swallowedN']:>4}건  참고")
 for x in r['swallowed'][:8]: print('      ', x)
-show('설명이 같은 카드', r['dupes'], fatal=False)
-bad = r['unstable'] or r['drift']
+print(f"  {'유물↔특성 같은 문구 (의도됨)':<24}{len(r['dupes']):>4}건  참고")
+show('한쪽 안에서 문구 중복', r['sameSystem'])
+bad = r['unstable'] or r['drift'] or r['sameSystem']
 print('PASS' if not bad else 'FAIL')
 sys.exit(1 if bad else 0)
