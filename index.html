@@ -4102,11 +4102,20 @@
     window.addEventListener(ev, () => SFX.unlock(), { passive: true });
   // Coming back from the background leaves the context suspended. A tap would wake it, but
   // that first tap would be silent -- so wake it as soon as the page is visible again.
+  // A screen that is already holding the run: pausing behind one is meaningless -- the board
+  // is not live, nothing is mid-thought -- and the pause overlay (z 11) ends up BEHIND the
+  // shop (z 12), invisible, only to surface when the shop closes. That is how backgrounding
+  // from the shop left the game frozen on return.
+  const MODAL_IDS = ["shop", "traits", "info", "settings", "book", "adstub"];
+  const modalOpen = () => MODAL_IDS.some(id => {
+    const el = document.getElementById(id);
+    return el && !el.classList.contains("hidden");
+  });
   document.addEventListener("visibilitychange", () => {
     if (document.hidden) {
       saveRun();                               // the tab may not come back at all
       // pause a live run so returning never lands on a board mid-thought
-      if (running && !paused && !tut) {
+      if (running && !paused && !tut && !modalOpen()) {
         paused = true;
         renderSettings();
         $sh("pause").classList.remove("hidden");
@@ -4829,6 +4838,9 @@
     resumePlay();
   }
   function resumePlay() {
+    // belt to the braces above: whatever put a pause up, going back to the board takes it
+    // down. A run cannot be both "playing" and "paused".
+    if (paused) { paused = false; $sh("pause").classList.add("hidden"); }
     busy = false; dirty = true;
     saveRun();                             // back on the board: shop and traits are settled
     $sh("hint").textContent =
@@ -6818,7 +6830,7 @@
       get zoneCells() { return zoneCells; }, get zoneMult() { return zoneMult; },
       get zoneCoin() { return zoneCoin; }, get zoneBonus() { return zoneBonus; },
       emptyCells, ITEM_PRICES, canBuyItem, armItem, placeBoughtItem, renderItemShop,
-      filledCount, get paused() { return paused; }, set paused(v) { paused = v; },
+      filledCount, modalOpen, MODAL_IDS, get paused() { return paused; }, set paused(v) { paused = v; },
       get armedItem() { return armedItem; }, set armedItem(v) { armedItem = v; },
       get grid() { return grid; }, get special() { return special; },
       get hp() { return hp; }, get coinCell() { return coinCell; },

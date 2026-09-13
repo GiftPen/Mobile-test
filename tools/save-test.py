@@ -87,6 +87,52 @@ window.addEventListener('load', () => setTimeout(async () => {
   chk('and resuming from it just declines', F.resumeSavedRun(), false);
 
   F.clearSave();
+    // ---- backgrounding from a screen that is already holding the run ----
+  // The pause overlay is z 11 and the shop is z 12, so a pause raised behind the shop is
+  // invisible -- and still there when the shop closes, which froze the board on 닫기.
+  F.mode = 'rush'; F.start('rush');
+  await sleep(120);
+  F.coins = 999; F.openShop();
+  await sleep(80);
+  chk('the shop is up', shown('shop'), true);
+  hidden(true); document.dispatchEvent(new Event('visibilitychange'));
+  await sleep(60);
+  chk('backgrounding from the shop does not pause', F.paused, false);
+  chk('and raises no pause screen', shown('pause'), false);
+  hidden(false); document.dispatchEvent(new Event('visibilitychange'));
+  await sleep(60);
+  chk('the shop is still there on return', shown('shop'), true);
+  F.closeShop();
+  await sleep(120);
+  chk('closing it goes back to the board', F.paused, false);
+  chk('with no pause screen left over', shown('pause'), false);
+  chk('and the run is playable', F.busy, false);
+
+  // the belt, tested on its own: however a pause got raised, going back to the board takes
+  // it down. A run cannot be both playing and paused.
+  F.mode = 'rush'; F.start('rush');
+  await sleep(120);
+  F.coins = 999; F.openShop();
+  await sleep(60);
+  F.paused = true;
+  document.getElementById('pause').classList.remove('hidden');
+  F.closeShop();
+  await sleep(120);
+  chk('a stale pause does not survive going back to the board', F.paused, false);
+  chk('and neither does its screen', shown('pause'), false);
+
+  // the control: with the board in front, backgrounding still pauses. That is the whole
+  // reason the handler exists, and it must not have been thrown out with the fix.
+  F.mode = 'rush'; F.start('rush');
+  await sleep(120);
+  chk('nothing is holding the run', F.modalOpen(), false);
+  hidden(true); document.dispatchEvent(new Event('visibilitychange'));
+  await sleep(60);
+  chk('backgrounding a live board does pause', F.paused, true);
+  chk('and says so', shown('pause'), true);
+  hidden(false); document.dispatchEvent(new Event('visibilitychange'));
+  await sleep(40);
+
   document.title = 'RESULT ' + JSON.stringify({ fails });
  } catch (e) { document.title = 'THREW ' + e.message; }
 }, 800));
