@@ -5890,13 +5890,18 @@
   }
   // persistent streak badge near the score; pulses on gain, hides at ×1
   function updateStreakBadge() {
-    const mult = streakMult();
+    // The multiplier depends on WHAT you pop now that lemon can run past the cap, so the
+    // badge shows the number for the fruit in your hand -- the one you are about to spend.
+    // Showing the capped figure while a lemon was really scoring ×5 was the HUD lying.
+    const mult = streakMult(nextColor);
     // one badge per top-bar variant; whichever box is visible shows it
     for (const id of ["streak-badge", "streak-badge2"]) {
       const b = document.getElementById(id);
       if (!b) continue;
       if (mult > 1) {
-        b.textContent = `🔥 ×${mult.toFixed(1)}`;
+        // over the cap only lemon gets there, so say which fruit the number belongs to
+        const over = lemonFree && mult > STREAK_CAP;
+        b.textContent = (over ? "🍋 ×" : "🔥 ×") + mult.toFixed(1);
         b.classList.add("on");
         b.animate([{transform:"scale(1.35)"},{transform:"scale(1)"}], {duration:180, easing:"ease-out"});
       } else {
@@ -7179,6 +7184,7 @@
       SFX, Ads, setLang, LANGS, PACKS, d, L, applyStaticText, nameOf,
       reviveRun, syncBanner, get revivedThisRun() { return revivedThisRun; },
       resetEffects, get links() { return links; }, coinReady, drawCoin,
+      updateStreakBadge,
       ART_IDS, iconEl, relicIcon, traitIcon,
       COIN_FLY_MS, COIN_STAGGER_MS, flyCoins, clearCoinFly,
       get coinFlyPending() { return coinFlyPending; },

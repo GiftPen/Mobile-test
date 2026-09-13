@@ -119,6 +119,35 @@ window.addEventListener('load', () => setTimeout(async () => {
       F.chainBonus(5 + F.grapeBulk) > F.chainBonus(5), true);
   chk('and stays a number at size zero', finite(F.chainBonus(0)), true);
 
+  // ---- the HUD must show the multiplier that will actually apply ----
+  // With lemon uncapped the badge showed the capped figure while a lemon scored far above
+  // it: the player could not see their own multiplier.
+  const badge = () => {
+    F.updateStreakBadge();
+    for (const id of ['streak-badge', 'streak-badge2']) {
+      const t = document.getElementById(id).textContent;
+      if (t) return +(t.match(/[\d.]+/) || [0])[0];
+    }
+    return 0;
+  };
+  fresh(['lemon_spoon']); F.streak = 40;
+  F.nextColor = 3;
+  chk('holding a lemon, the badge shows the uncapped number', badge(), F.streakMult(3));
+  chk('which is above the cap', badge() > F.STREAK_CAP, true);
+  F.nextColor = 0;
+  chk('holding a cherry, it shows the capped one', badge(), F.streakMult(0));
+  fresh([]); F.streak = 40; F.nextColor = 3;
+  chk('without the relic a lemon is capped like anything else', badge(), F.STREAK_CAP);
+
+  // ---- and the counter itself is never knocked down by popping another fruit ----
+  fresh(['lemon_spoon']);
+  F.streak = 30;
+  const lemonHigh = F.streakMult(3);
+  const otherNow = F.streakMult(0);
+  F.streak = 31;                         // a cherry pop still advances the run
+  chk('another fruit is capped, not the counter', otherNow, F.STREAK_CAP);
+  chk('and the lemon multiplier survives it', F.streakMult(3) > lemonHigh, true);
+
   F.relics = []; F.applyRelics(); F.resetRun();
   document.title = 'RESULT ' + JSON.stringify({ fails, full, rows });
  } catch (e) { document.title = 'THREW ' + e.message + ' | ' + (e.stack || '').slice(0, 160); }
