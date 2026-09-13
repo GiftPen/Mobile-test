@@ -165,6 +165,69 @@ window.addEventListener('load', async () => {
       Math.abs(placedCoin / placedPlain - 1.5) < 0.02, true);
   F.relics = []; F.applyRelics(); F.resetEffects();
 
+  // ---- crackers: one hit, 100 points, and a whole economy on top ----
+  const breakOne = async relics => {
+    F.mode = 'rush'; F.resetRun(); F.relics = relics.slice(); F.applyRelics();
+    clearBoard();
+    for (let r = 0; r < F.ROWS; r++) for (let c = 0; c < F.COLS; c++) F.coinCell[r][c] = 0;
+    F.grid[2][4] = F.BRICK; F.hp[2][4] = 1;
+    for (const [r, c] of [[3,5],[4,4],[4,5]]) F.grid[r][c] = 5;
+    F.nextColor = 5; F.nextColor2 = 5;
+    F.score = 0; F.streak = 0; F.coins = 0; F.busy = false;
+    const rr = cv.getBoundingClientRect();
+    const x = rr.left + 4.5 * rr.width / F.COLS, y = rr.top + 3.5 * rr.height / F.ROWS;
+    cv.dispatchEvent(new PointerEvent('pointerdown', {clientX:x, clientY:y, bubbles:true}));
+    cv.dispatchEvent(new PointerEvent('pointerup',   {clientX:x, clientY:y, bubbles:true}));
+    await pump(100, 12);
+    return { gone: F.grid[2][4] === -1, score: F.score, coins: F.coins };
+  };
+  const plainBreak = await breakOne([]);
+  chk('one adjacent pop breaks a cracker', plainBreak.gone, true);
+  chk('a cracker is worth its base score',
+      plainBreak.score >= F.CRACKER_SCORE, true);
+
+  const scored = await breakOne(['cracker_score']);
+  chk('바삭한 한 입 adds its bonus', scored.score - plainBreak.score, 1000);
+  const paid = await breakOne(['cracker_coin']);
+  chk('과자 부스러기 pays coins', paid.coins, 2);
+  chk('and does not pay without it', plainBreak.coins, 0);
+
+  // the flat bonus is DERIVED: applyRelics runs again on every later purchase, and a bonus
+  // that added to the accumulated score would add again each time
+  F.mode = 'rush'; F.resetRun(); F.relics = ['cracker_score']; F.applyRelics();
+  const v1 = F.crackerValue();
+  F.applyRelics(); F.applyRelics();
+  chk('the flat cracker bonus does not compound', F.crackerValue(), v1);
+
+  // the legendary's doubling IS accumulated, and must survive a recompute
+  F.mode = 'rush'; F.resetRun(); F.relics = ['cracker_king']; F.applyRelics();
+  const ckBase = F.crackerValue();
+  F.crackerBroken(); F.crackerBroken();
+  const doubled = F.crackerValue();
+  chk('크래커 왕 doubles per break', doubled, ckBase * 4);
+  F.applyRelics();
+  chk('and a recompute does not undo it', F.crackerValue(), doubled);
+  chk('while it does rebuild the flat side', F.crackerBonus, 0);
+  F.resetRun();
+  chk('a new run starts it over', F.crackerValue(), F.CRACKER_SCORE);
+
+  // 가루 폭발 takes the neighbours with it
+  F.mode = 'rush'; F.resetRun(); F.relics = ['crumb_blast']; F.applyRelics();
+  clearBoard();
+  F.grid[2][4] = F.BRICK; F.hp[2][4] = 1;
+  for (const [r, c] of [[3,5],[4,4],[4,5]]) F.grid[r][c] = 5;
+  const bystanders = [[1,3],[1,4],[1,5],[2,3],[2,5]];
+  for (const [r, c] of bystanders) F.grid[r][c] = 6;     // a colour nothing else touches
+  F.nextColor = 5; F.nextColor2 = 5; F.busy = false;
+  const r4 = cv.getBoundingClientRect();
+  const x4 = r4.left + 4.5 * r4.width / F.COLS, y4 = r4.top + 3.5 * r4.height / F.ROWS;
+  cv.dispatchEvent(new PointerEvent('pointerdown', {clientX:x4, clientY:y4, bubbles:true}));
+  cv.dispatchEvent(new PointerEvent('pointerup',   {clientX:x4, clientY:y4, bubbles:true}));
+  await pump(140, 12);
+  chk('가루 폭발 clears the 3x3 around the cracker',
+      bystanders.filter(([r, c]) => F.grid[r][c] !== -1), []);
+  F.relics = []; F.applyRelics(); F.resetEffects();
+
   // ---- every way a brick can break has to make the brick sound ----
   // A bird eating one was silent: that path mutates the grid directly instead of going
   // through the chain, so it never reached SFX.play('brick').
@@ -420,7 +483,9 @@ out = subprocess.run(['/Applications/Google Chrome.app/Contents/MacOS/Google Chr
 os.remove('_it.html')
 m = re.search(r'RESULT (\{.*?\})</title>', out, re.S)
 if not m:
-    print('NO RESULT'); sys.exit(1)
+    t = re.search(r'<title>(.*?)</title>', out, re.S)
+    print('NO RESULT', (t.group(1)[:260] if t else ''))
+    sys.exit(1)
 res = json.loads(m.group(1))
 print(f"items: {len(res['fails'])} fail")
 if res.get('err'): print('  JS errors:', res['err'])

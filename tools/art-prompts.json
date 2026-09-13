@@ -116,7 +116,12 @@
     "peach_crown": "a small jewelled crown resting on a peach",
     "banana_crown": "a small jewelled crown resting on a banana",
     "midas": "a hand with gilded fingertips, everything it has touched turned to gold, coins beneath",
-    "cornucopia": "a woven horn of plenty tipped on its side, fruit and light pouring out of its mouth"
+    "cornucopia": "a woven horn of plenty tipped on its side, fruit and light pouring out of its mouth",
+    "crumb_tin": "a small round tin of crackers with the lid tipped off, crumbs spilling",
+    "cracker_score": "a square cracker with one bite taken out, crumbs flying, sparkles around it",
+    "cracker_coin": "a broken cracker with gold coins tumbling out of the break",
+    "crumb_blast": "a cracker shattering outward in a burst of crumbs and shards",
+    "cracker_king": "a tall stack of crackers wearing a small gold crown on top"
   },
   "traits": {
     "cherry_taste": "a cherry inside a laurel wreath badge",

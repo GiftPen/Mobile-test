@@ -116,7 +116,8 @@ window.addEventListener('load', () => setTimeout(() => {
   const modeFails = [];
   const refColors  = m => Math.min(7, 4 + Math.floor((m + 1) / 3));
   const refSpawns  = m => Math.min(4, 1 + Math.floor(m / 3));
-  const refBrickHp = m => Math.min(3, Math.floor((m + 2) / 3));
+  // one hit, always: the obstacle is a cracker now, not a wall to grind down
+  const refBrickHp = m => (m >= 1 ? 1 : 0);
   const A = F.MODES.arcade, R = F.MODES.rush;
   for (let m = 0; m <= 40; m++) {
     if (A.colors(m)  !== refColors(m))  modeFails.push({m, knob:'colors',  got:A.colors(m),  want:refColors(m)});

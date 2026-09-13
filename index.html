@@ -510,8 +510,11 @@
   .of-price { font-size: 13px; font-weight: 800; color: #ffd23e; white-space: nowrap; }
   /* A discount you cannot see is a discount you do not feel. Smaller and greyed so the
      price you will actually pay is still the thing the eye lands on. */
-  .of-was { font-size: 11px; font-weight: 700; color: #6b7189;
-    text-decoration: line-through; margin-right: 3px; }
+  .of-was { font-size: 10px; font-weight: 700; color: #6b7189;
+    text-decoration: line-through; margin-right: 2px; }
+  /* the longest lines are a discount plus a duration ("50 11 · 7터치"); on a 320px card that
+     was one pixel over, and a price that spills is a price you cannot trust */
+  .of-price { font-size: clamp(11px, 3.4vw, 13px); }
   .of-price.nofit { color: #ff8fa3; }
   .shop-empty { padding: 14px; text-align: center; color: var(--muted); font-size: 13px; }
 
@@ -878,7 +881,8 @@
   // 120Hz phone, which read as a dart rather than a swoop. Wall clock, and slower.
   const BIRD_FLY_MS = 1050;
   const BRICK = -2;            // grid value for a brick (wall; only items can clear it)
-  const BRICK_EVERY = 5;       // one brick spawns every N touches once unlocked
+  const BRICK_EVERY = 5;       // one cracker spawns every N touches once unlocked
+  const CRACKER_SCORE = 100;   // what breaking one is worth, before relics
   // ---- Star Rush stage curve (DRAFT numbers, meant to be tuned by feel) ----
   const STAGES_PER_ROUND = 3;  // a round is 1-1, 1-2, 1-3; traits land when a round ends
   const RUSH_TOUCHES   = 15;   // touches granted per stage
@@ -1449,7 +1453,7 @@
   let bombImg = null;         // loaded bomb SVG image for the bomb item
   let lineImg = null;         // loaded line (double-arrow) SVG image
   let starImg = null;         // loaded star SVG image
-  const brickImg = [];        // brickImg[hp] = SVG image (1..3)
+  let crackerImg = null;      // the obstacle's art -- one piece, one hit
   let glow;                    // glow[r][c] = {c: colorIdx, t: 0..1}
   let coinCell;                // coinCell[r][c] = 1 when this fruit spawned carrying a coin
   let ghost;                   // ghost[r][c] = colorIdx of a cell already cleared in logic
@@ -1553,13 +1557,14 @@
     touchBonus = 0; spawnBonus = 0; slotBonus = 0; brickChance = 0; offerBonus = 0;
     chainStep = 0; coinFruitBonus = 0; starCoinMult = 1; payoutMult = 1;
     coinFlat = 0; coinFlatPer = COIN_FLAT_PER; interestPer = 0; interestPct = 0; interestCap = INTEREST_CAP;
+    crackerBonus = 0; crackerCoin = 0; crackerBoom = false; crackerDouble = false; crackerEvery = false;
     starEverything = false;
     spendFlat = 0; shopDiscount = 1; resonance = RESONANCE_BASE;
     bombRadiusBonus = 0; itemEase = 0; birdFlock = 1; crossLine = false;
     zoneMult = 1; zoneCoin = false; zoneBonus = 0; zoneCells = new Set();
     STREAK_STEP = STREAK_STEP_BASE; STREAK_CAP = 2.0;
     traits = []; doubles = 0; armedItem = null;
-    coins = 0; coinsShown = 0; coinsSpent = 0; clearCoinFly();
+    coins = 0; coinsShown = 0; coinsSpent = 0; crackerScore = CRACKER_SCORE; clearCoinFly();
     oddsMult = [0, 0, 0, 0, 0, 0, 0];
     fruitMult = [1, 1, 1, 1, 1, 1, 1];
     fruitStack = [0, 0, 0, 0, 0, 0, 0];
@@ -1572,7 +1577,7 @@
     return { v: RUN_VERSION, mode, rows: ROWS, grid, special, hp, coinCell,
              nextColor, nextColor2, score, streak, touchCount,
              stage, stageScore, touchesLeft, coins, oddsMult, fruitMult,
-             fruitStack, fruitBoost, relics, relicLife, traits, doubles, coinsSpent };
+             fruitStack, fruitBoost, relics, relicLife, traits, doubles, coinsSpent, crackerScore };
   }
   function restoreRun(o) {
     if (!o || o.v !== RUN_VERSION) return false;   // unknown/older save -> caller starts fresh
@@ -1582,6 +1587,7 @@
        stage, stageScore, touchesLeft, coins, oddsMult, fruitMult,
        fruitStack, fruitBoost, relics, relicLife, traits, doubles } = o);
     coinsSpent = o.coinsSpent || 0;              // absent in an older save: start it at zero
+    crackerScore = o.crackerScore || CRACKER_SCORE;
     coinsShown = coins; clearCoinFly();
     glow = layer(null); appear = layer(0); ghost = layer(null);
     layout(); dirty = true;
@@ -1665,7 +1671,9 @@
       odds:    () => null,                                  // uniform, as arcade has always been
       colors:  m => Math.min(MAX_COLORS, BASE_COLORS + Math.floor((m + 1) / 3)),
       spawns:  m => Math.min(SPAWN_MAX, SPAWN_BASE + Math.floor(m / 3)),
-      brickHp: m => Math.min(3, Math.floor((m + 2) / 3)),   // 0 = none, else 1..3
+      // one hit, always. Three HP states made the obstacle a chore to grind down and the
+      // art carry three versions of itself; a cracker either survives the turn or it does not.
+      brickHp: m => (m >= 1 ? 1 : 0),
     },
     rush: {
       startBuds: RUSH_BUDS,
@@ -1692,7 +1700,7 @@
   function computeMaxLevel() {
     const a = MODES.arcade;
     for (let m = 0; m < 200; m++)
-      if (a.colors(m) === MAX_COLORS && a.spawns(m) === SPAWN_MAX && a.brickHp(m) === 3)
+      if (a.colors(m) === MAX_COLORS && a.spawns(m) === SPAWN_MAX && a.brickHp(m) >= 1)
         return m + 1;
     return 10;
   }
@@ -1727,6 +1735,17 @@
   // refusal to play. 금고 raises the cap, which is what turns hoarding into a real choice.
   const COIN_FLAT_PER   = 10;   // coins held per +1 fruit score, for 부자 감각
   let coinFlatPer = COIN_FLAT_PER;   // 미다스 tightens it to 3
+  // Cracker economy. crackerScore is ACCUMULATED -- the legendary doubles it as you break
+  // them, so it has to survive a recompute and ride along in the save, unlike the flat
+  // bonuses beside it which applyRelics rebuilds.
+  let crackerScore = CRACKER_SCORE;   // ACCUMULATED: the legendary doubles it as you break
+  let crackerBonus = 0;        // DERIVED: flat relic bonus, rebuilt by applyRelics
+  let crackerCoin = 0;         // coins per cracker broken
+  let crackerBoom = false;     // a broken cracker blows a 3x3
+  let crackerDouble = false;   // ...and each break doubles what the next one is worth
+  let crackerEvery = false;    // every touch drops one, no dice roll
+  const crackerValue = () => crackerScore + crackerBonus;
+  function crackerBroken() { if (crackerDouble) crackerScore *= 2; }
   const INTEREST_CAP    = 5;    // most coins interest can pay in one round, before 금고
   const SPEND_PER = 2;          // coins spent per +1 fruit score, for 탕진
   let coinsSpent = 0;           // ACCUMULATED, not derived: applyRelics must not wipe it
@@ -1982,7 +2001,7 @@
       popMult:    n => `터뜨린 점수 ×${n1(n)}`,
       popMultRun: n => `터뜨린 점수 ×${n1(n)} · 이번 게임 내내`,
       bigPop:     (k, m) => `${k}개 이상 터뜨리면 점수 ×${n1(m)}`,
-      brickDeal:  (pct, br) => `터뜨린 점수 +${pct}% · 새 과일의 ${br}%가 벽돌`,
+      brickDeal:  (pct, br) => `터뜨린 점수 +${pct}% · 새 과일의 ${br}%가 크래커`,
       clusterStep:(add, from, to) => `덩어리 보너스 +${n1(add)} (${n1(from)} → ${n1(to)})`,
       comboStep:  (add, from, to) => `콤보 증가폭 +${n1(add)} (${n1(from)} → ${n1(to)})`,
       comboCap:   (from, to) => `콤보 상한 ×${n1(from)} → ×${n1(to)}`,
@@ -2023,6 +2042,11 @@
         banana_cellar: "바나나 저장고",
         banana_grove: "바나나 농장",
         banana_hunter: "바나나 사냥꾼",
+        crumb_tin: "부스러기 통",
+        cracker_score: "바삭한 한 입",
+        cracker_coin: "과자 부스러기",
+        crumb_blast: "가루 폭발",
+        cracker_king: "크래커 왕",
         cherry_crown: "체리 왕관",
         lemon_crown: "레몬 왕관",
         orange_crown: "오렌지 왕관",
@@ -2067,7 +2091,7 @@
         bomb_mod: "폭탄 개조",
         bonanza: "노다지",
         breather: "한 숨",
-        brick_deal: "벽돌 계약",
+        brick_deal: "크래커 계약",
         chain_master: "덩치",
         change_purse: "잔돈주머니",
         cherry_pick: "체리 편애",
@@ -2120,7 +2144,7 @@
         piggy_cherry: "체리 저금통",
         pinch: "한 줌",
         prism: "프리즘",
-        quarry: "채석장",
+        quarry: "제과 공장",
         reclaim: "개간",
         satchel: "보따리",
         sprout: "떡잎",
@@ -2159,7 +2183,7 @@
       itemStar: "🌟 별 — 탭! 같은 색을 별자리로 잇습니다",
       itemBomb: "💣 폭탄 — 탭! 5×5 대폭발",
       itemLine: "↔️ 라인 — 탭! 한 줄 청소",
-      itemBird: "🐦 참새 — 탭! 벽돌과 걸리는 과일을 쪼아냅니다",
+      itemBird: "🐦 참새 — 탭! 크래커와 걸리는 과일을 쪼아냅니다",
       expired: (icon, name) => `${icon} ${name} 효과가 끝났습니다`,
       shopEmpty: "더 살 유물이 없습니다", soldOut: "품절",
       noRoom: price => `🪙 ${price} · 칸 없음`,
@@ -2190,12 +2214,17 @@
       tutSkip: "건너뛰기",
       tutReplay: "튜토리얼 다시 보기",
       tabHelp: "❔ 도움말",
+      crackerEvery: () => "터치마다 크래커가 1개 생깁니다",
+      crackerScore: n => `크래커를 부수면 점수 +${n}`,
+      crackerCoin: n => `크래커를 부수면 코인 +${n}`,
+      crackerBoom: () => "크래커가 부서지면 3×3이 함께 터집니다",
+      crackerKing: () => "터치마다 크래커가 1개 생기고, 부술 때마다 크래커 점수가 2배가 됩니다",
       fruitBoost: (f, n) => `${FRUIT_KO[f]} 점수 ×${n1(n)}`,
       allBoost: n => `모든 과일 점수 ×${n1(n)}`,
       resonance: () => "같은 계열 유물이 상점에 더 자주 등장합니다",
       statHead: "내 수치",
       statCoinFruit: "코인 달린 과일",
-      statBrick: "벽돌 등장",
+      statBrick: "크래커 등장",
       statSpawn: "매 턴 과일",
       statTouch: "스테이지 터치",
       statComboCap: "콤보 상한",
@@ -2257,7 +2286,7 @@
       popMult:    n => `Popped score ×${n1(n)}`,
       popMultRun: n => `Popped score ×${n1(n)} · whole run`,
       bigPop:     (k, m) => `Pop ${k} or more for ×${n1(m)} score`,
-      brickDeal:  (pct, br) => `Popped score +${pct}% · ${br}% of new fruit are bricks`,
+      brickDeal:  (pct, br) => `Popped score +${pct}% · ${br}% of new fruit are crackers`,
       clusterStep:(add, from, to) => `Cluster bonus +${n1(add)} (${n1(from)} → ${n1(to)})`,
       comboStep:  (add, from, to) => `Combo step +${n1(add)} (${n1(from)} → ${n1(to)})`,
       comboCap:   (from, to) => `Combo cap ×${n1(from)} → ×${n1(to)}`,
@@ -2294,6 +2323,11 @@
         banana_cellar: "Banana Cellar",
         banana_grove: "Banana Plantation",
         banana_hunter: "Banana Hunter",
+        crumb_tin: "Crumb Tin",
+        cracker_score: "Crisp Bite",
+        cracker_coin: "Crumb Coin",
+        crumb_blast: "Crumb Blast",
+        cracker_king: "Cracker King",
         cherry_crown: "Cherry Crown",
         lemon_crown: "Lemon Crown",
         orange_crown: "Orange Crown",
@@ -2338,7 +2372,7 @@
         bomb_mod: "Bomb Mod",
         bonanza: "Bonanza",
         breather: "Breather",
-        brick_deal: "Brick Pact",
+        brick_deal: "Cracker Pact",
         chain_master: "Bulk",
         change_purse: "Coin Purse",
         cherry_pick: "Cherry Bias",
@@ -2391,7 +2425,7 @@
         piggy_cherry: "Cherry Piggybank",
         pinch: "A Pinch",
         prism: "Prism",
-        quarry: "Quarry",
+        quarry: "Biscuit Works",
         reclaim: "Reclaim",
         satchel: "Satchel",
         sprout: "Sprout",
@@ -2430,7 +2464,7 @@
       itemStar: "🌟 Star — tap! Links one colour into a constellation",
       itemBomb: "💣 Bomb — tap! A 5×5 blast",
       itemLine: "↔️ Line — tap! Clears a whole line",
-      itemBird: "🐦 Sparrow — tap! Pecks bricks and fruit in the way",
+      itemBird: "🐦 Sparrow — tap! Pecks crackers and fruit in the way",
       expired: (icon, name) => `${icon} ${name} has worn off`,
       shopEmpty: "Nothing left to buy", soldOut: "Sold out",
       noRoom: price => `🪙 ${price} · no slot`,
@@ -2461,12 +2495,17 @@
       tutSkip: "Skip",
       tutReplay: "Replay tutorial",
       tabHelp: "❔ Help",
+      crackerEvery: () => "A cracker appears on every touch",
+      crackerScore: n => `Breaking a cracker scores +${n}`,
+      crackerCoin: n => `Breaking a cracker pays +${n} coins`,
+      crackerBoom: () => "A breaking cracker blows a 3×3",
+      crackerKing: () => "A cracker on every touch, and each one broken doubles what the next is worth",
       fruitBoost: (f, n) => `${FRUIT_EN[f]} score ×${n1(n)}`,
       allBoost: n => `Every fruit ×${n1(n)}`,
       resonance: () => "Relics like the ones you own show up more often",
       statHead: "Your numbers",
       statCoinFruit: "Coin-carrying fruit",
-      statBrick: "Brick spawn",
+      statBrick: "Cracker spawn",
       statSpawn: "Fruit per turn",
       statTouch: "Touches per stage",
       statComboCap: "Combo cap",
@@ -2528,7 +2567,7 @@
       popMult:    n => `割ったスコア ×${n1(n)}`,
       popMultRun: n => `割ったスコア ×${n1(n)} · ラン中ずっと`,
       bigPop:     (k, m) => `${k}個以上割ると スコア ×${n1(m)}`,
-      brickDeal:  (pct, br) => `割ったスコア +${pct}% · 新しいフルーツの${br}%がレンガ`,
+      brickDeal:  (pct, br) => `割ったスコア +${pct}% · 新しいフルーツの${br}%がクラッカー`,
       clusterStep:(add, from, to) => `かたまりボーナス +${n1(add)} (${n1(from)} → ${n1(to)})`,
       comboStep:  (add, from, to) => `コンボ増加幅 +${n1(add)} (${n1(from)} → ${n1(to)})`,
       comboCap:   (from, to) => `コンボ上限 ×${n1(from)} → ×${n1(to)}`,
@@ -2565,6 +2604,11 @@
         banana_cellar: "バナナ貯蔵庫",
         banana_grove: "バナナ農園",
         banana_hunter: "バナナ狩人",
+        crumb_tin: "くず入れ",
+        cracker_score: "サクッと一口",
+        cracker_coin: "お菓子のくず",
+        crumb_blast: "くず爆発",
+        cracker_king: "クラッカー王",
         cherry_crown: "さくらんぼの王冠",
         lemon_crown: "レモンの王冠",
         orange_crown: "オレンジの王冠",
@@ -2609,7 +2653,7 @@
         bomb_mod: "爆弾改造",
         bonanza: "大当たり",
         breather: "ひと息",
-        brick_deal: "レンガ契約",
+        brick_deal: "クラッカー契約",
         chain_master: "図体",
         change_purse: "小銭入れ",
         cherry_pick: "さくらんぼ偏愛",
@@ -2662,7 +2706,7 @@
         piggy_cherry: "さくらんぼ貯金箱",
         pinch: "ひとつまみ",
         prism: "プリズム",
-        quarry: "採石場",
+        quarry: "製菓工場",
         reclaim: "開墾",
         satchel: "風呂敷",
         sprout: "双葉",
@@ -2700,7 +2744,7 @@
       itemStar: "🌟 星 — タップ! 同じ色を星座でつなぐ",
       itemBomb: "💣 爆弾 — タップ! 5×5 の大爆発",
       itemLine: "↔️ ライン — タップ! 一列をまとめて消す",
-      itemBird: "🐦 スズメ — タップ! レンガや邪魔なフルーツをついばむ",
+      itemBird: "🐦 スズメ — タップ! クラッカーや邪魔なフルーツをついばむ",
       expired: (icon, name) => `${icon} ${name} の効果が切れました`,
       shopEmpty: "買えるレリックがありません", soldOut: "売り切れ",
       noRoom: price => `🪙 ${price} · 枠なし`,
@@ -2731,12 +2775,17 @@
       tutSkip: "スキップ",
       tutReplay: "チュートリアルをもう一度",
       tabHelp: "❔ ヘルプ",
+      crackerEvery: () => "タッチごとにクラッカーが1個出ます",
+      crackerScore: n => `クラッカーを割ると スコア +${n}`,
+      crackerCoin: n => `クラッカーを割ると コイン +${n}`,
+      crackerBoom: () => "クラッカーが割れると 3×3 が一緒に弾けます",
+      crackerKing: () => "タッチごとにクラッカーが出て、割るたびにクラッカーのスコアが2倍になります",
       fruitBoost: (f, n) => `${FRUIT_JA[f]} スコア ×${n1(n)}`,
       allBoost: n => `全フルーツのスコア ×${n1(n)}`,
       resonance: () => "手持ちと同じ系統のレリックが出やすくなります",
       statHead: "あなたの数値",
       statCoinFruit: "コイン付きフルーツ",
-      statBrick: "ブロック出現",
+      statBrick: "クラッカー出現",
       statSpawn: "毎ターンのフルーツ",
       statTouch: "ステージのタッチ",
       statComboCap: "コンボ上限",
@@ -2798,7 +2847,7 @@
       popMult:    n => `消除得分 ×${n1(n)}`,
       popMultRun: n => `消除得分 ×${n1(n)} · 整局有效`,
       bigPop:     (k, m) => `一次消除 ${k} 个以上，得分 ×${n1(m)}`,
-      brickDeal:  (pct, br) => `消除得分 +${pct}% · 新水果中 ${br}% 变砖块`,
+      brickDeal:  (pct, br) => `消除得分 +${pct}% · 新水果中 ${br}% 变饼干`,
       clusterStep:(add, from, to) => `成团奖励 +${n1(add)} (${n1(from)} → ${n1(to)})`,
       comboStep:  (add, from, to) => `连击增幅 +${n1(add)} (${n1(from)} → ${n1(to)})`,
       comboCap:   (from, to) => `连击上限 ×${n1(from)} → ×${n1(to)}`,
@@ -2835,6 +2884,11 @@
         banana_cellar: "香蕉仓库",
         banana_grove: "香蕉农场",
         banana_hunter: "香蕉猎人",
+        crumb_tin: "碎屑罐",
+        cracker_score: "酥脆一口",
+        cracker_coin: "饼干碎币",
+        crumb_blast: "碎屑爆炸",
+        cracker_king: "饼干之王",
         cherry_crown: "樱桃王冠",
         lemon_crown: "柠檬王冠",
         orange_crown: "橙子王冠",
@@ -2879,7 +2933,7 @@
         bomb_mod: "炸弹改造",
         bonanza: "富矿",
         breather: "喘口气",
-        brick_deal: "砖块契约",
+        brick_deal: "饼干契约",
         chain_master: "块头",
         change_purse: "零钱包",
         cherry_pick: "偏爱樱桃",
@@ -2932,7 +2986,7 @@
         piggy_cherry: "樱桃存钱罐",
         pinch: "一撮",
         prism: "棱镜",
-        quarry: "采石场",
+        quarry: "点心工厂",
         reclaim: "开垦",
         satchel: "包袱",
         sprout: "嫩芽",
@@ -2970,7 +3024,7 @@
       itemStar: "🌟 星星 — 点击! 把同色连成星座",
       itemBomb: "💣 炸弹 — 点击! 5×5 大爆炸",
       itemLine: "↔️ 线道 — 点击! 清除一整行",
-      itemBird: "🐦 麻雀 — 点击! 啄掉砖块和挡路的水果",
+      itemBird: "🐦 麻雀 — 点击! 啄掉饼干和挡路的水果",
       expired: (icon, name) => `${icon} ${name} 效果已结束`,
       shopEmpty: "没有可买的遗物了", soldOut: "已售罄",
       noRoom: price => `🪙 ${price} · 没有格子`,
@@ -3001,12 +3055,17 @@
       tutSkip: "跳过",
       tutReplay: "重看教程",
       tabHelp: "❔ 帮助",
+      crackerEvery: () => "每次触碰出现 1 块饼干",
+      crackerScore: n => `打碎饼干得分 +${n}`,
+      crackerCoin: n => `打碎饼干获得金币 +${n}`,
+      crackerBoom: () => "饼干碎裂时引发 3×3 爆炸",
+      crackerKing: () => "每次触碰都出现饼干，每打碎一块，饼干分数翻倍",
       fruitBoost: (f, n) => `${FRUIT_ZH[f]} 分数 ×${n1(n)}`,
       allBoost: n => `所有水果分数 ×${n1(n)}`,
       resonance: () => "与持有遗物同类的遗物更常出现",
       statHead: "我的数值",
       statCoinFruit: "带金币水果",
-      statBrick: "砖块出现",
+      statBrick: "饼干出现",
       statSpawn: "每回合水果",
       statTouch: "每关触碰",
       statComboCap: "连击上限",
@@ -3264,6 +3323,21 @@
       desc: () => d("odds", [4], 1), apply() { oddsMult[4] += 1; } },
     peach_tree:   { icon: "🍑", price: 12,
       desc: () => d("odds", [5], 1), apply() { oddsMult[5] += 1; } },
+
+    // ---- F. crackers ----
+    // The obstacle was a pure tax: it cost you a cell and paid 30. These make it a resource,
+    // so "lay crackers on purpose and harvest them" becomes a build.
+    crumb_tin: { icon: "🥠", price: 5, life: { unit: "touches", amount: 7 },
+      desc: () => d("crackerEvery"), apply() { crackerEvery = true; } },
+    cracker_score: { icon: "🍪", price: 11,
+      desc: () => d("crackerScore", 1000), apply() { crackerBonus += 1000; } },
+    cracker_coin: { icon: "🪙", price: 17,
+      desc: () => d("crackerCoin", 2), apply() { crackerCoin += 2; } },
+    crumb_blast: { icon: "💥", price: 24,
+      desc: () => d("crackerBoom"), apply() { crackerBoom = true; } },
+    cracker_king: { icon: "👑", price: 44,
+      desc: () => d("crackerKing"),
+      apply() { crackerEvery = true; crackerDouble = true; } },
 
     // ---- 유니크: the score half of a fruit build ----
     // The farms raise a fruit's APPEARANCE by +3; without a matching lift on what it is
@@ -3570,6 +3644,7 @@
     touchBonus = 0; spawnBonus = 0; brickChance = 0; offerBonus = 0;
     chainStep = 0; coinFruitBonus = 0; starCoinMult = 1; payoutMult = 1;
     coinFlat = 0; coinFlatPer = COIN_FLAT_PER; interestPer = 0; interestPct = 0; interestCap = INTEREST_CAP;
+    crackerBonus = 0; crackerCoin = 0; crackerBoom = false; crackerDouble = false; crackerEvery = false;
     starEverything = false;
     spendFlat = 0; shopDiscount = 1; resonance = RESONANCE_BASE;
     bombRadiusBonus = 0; itemEase = 0; birdFlock = 1; crossLine = false;
@@ -4292,7 +4367,7 @@
   let selectedItem = null;
   function placeTestItem(r, c, item) {
     const color = pickColor();
-    if (item === "brick") { grid[r][c] = BRICK; special[r][c] = null; hp[r][c] = 3; }
+    if (item === "brick") { grid[r][c] = BRICK; special[r][c] = null; hp[r][c] = 1; }
     else if (item === "line") { grid[r][c] = color; special[r][c] = randInt(2) ? "lineH" : "lineV"; }
     else if (item.startsWith("fruit")) {                  // plain fruit of a chosen color slot
       grid[r][c] = parseInt(item.slice(5), 10); special[r][c] = null;
@@ -4359,18 +4434,33 @@
     function step() {
       if (!frontier.length) {
         let broke = 0, chipped = 0;
+        const boom = [];
         hitBricks.forEach((dmg, key) => {
           const br = (key / COLS) | 0, bc = key % COLS;
           if (grid[br][bc] !== BRICK) return;   // already destroyed by a blast
           chipped++;
           hp[br][bc] -= dmg;                    // one HP per adjacent pop
           glow[br][bc] = { c: 0, t: 0.9 };
-          if (hp[br][bc] <= 0) { grid[br][bc] = -1; special[br][bc] = null; burst(br, bc, "#9aa0b5"); broke++; }
+          if (hp[br][bc] <= 0) {
+            grid[br][bc] = -1; special[br][bc] = null; burst(br, bc, "#9aa0b5"); broke++;
+            // 가루 폭발: hand the neighbours to the chain rather than clearing them here, so
+            // they pop in order, score through the same path and can set off what they touch
+            if (crackerBoom) {
+              flashBox(br, bc, 1, "#c79a5b"); addShake(6);
+              for (const [nr, nc, dd] of budsAround(br, bc, 1, visited))
+                boom.push({ r: nr, c: nc, d: dd, mode: "blast", color: grid[nr][nc] });
+            }
+          }
         });
         // once, however many were hit -- but only if one really was. It used to fire on the
         // intent to hit, so a brick a blast had already destroyed still made the sound.
         if (chipped) SFX.play("brick");
-        if (broke) addScore(broke * 30);
+        if (broke) {
+          addScore(broke * crackerValue());
+          if (crackerCoin) addCoins(broke * crackerCoin, r0, c0);
+          for (let n = 0; n < broke; n++) crackerBroken();
+        }
+        if (boom.length) { frontier = boom; setTimeout(step, WAVE_STEP_MS); return; }
         finishBurst(r0, c0, color, popped, chainPopped, placement, pointsPopped, visualEnd, coined);
         return;
       }
@@ -4697,7 +4787,9 @@
         spawnBuds(spawnCount());
         // staged gimmick: once bricks are unlocked, one spawns every few touches at current HP level
         const bLvl = brickHpLevel();
-        if (bLvl >= 1 && touchCount % BRICK_EVERY === 0) spawnBrick(bLvl);
+        // a relic can make it every touch instead of every fifth, with no unlock to wait for
+        if (crackerEvery) spawnBrick(1);
+        else if (bLvl >= 1 && touchCount % BRICK_EVERY === 0) spawnBrick(bLvl);
         pickNext();
         notify("onTurn", { touchCount, score });
         tickRelicLife("touches");
@@ -4827,7 +4919,7 @@
     ["score", () => fruitMult.concat(fruitFlat, fruitCrown)],
     ["touch", () => [touchBonus]],
     ["spawn", () => [spawnBonus]],
-    ["risk",  () => [brickChance]],
+    ["risk",  () => [brickChance, crackerBonus, crackerCoin, +crackerBoom, +crackerDouble, +crackerEvery]],
     ["slot",  () => [offerBonus]],
     ["combo", () => [chainStep, STREAK_STEP, STREAK_CAP]],
     ["coin",  () => [coinFruitBonus, starCoinMult, payoutMult, coinFlat, coinFlatPer, spendFlat,
@@ -4857,8 +4949,10 @@
           touchBonus = 0; spawnBonus = 0; brickChance = 0; offerBonus = 0;
           chainStep = 0; coinFruitBonus = 0; starCoinMult = 1; payoutMult = 1;
           coinFlat = 0; coinFlatPer = COIN_FLAT_PER; interestPer = 0; interestPct = 0; interestCap = INTEREST_CAP;
+    crackerBonus = 0; crackerCoin = 0; crackerBoom = false; crackerDouble = false; crackerEvery = false;
           starEverything = false; spendFlat = 0; shopDiscount = 1;
           fruitCrown = [1,1,1,1,1,1,1];
+          crackerBonus = 0; crackerCoin = 0; crackerBoom = false; crackerDouble = false; crackerEvery = false;
           bombRadiusBonus = 0; itemEase = 0; birdFlock = 1; crossLine = false;
           zoneMult = 1; zoneCoin = false; zoneBonus = 0;
           STREAK_STEP = STREAK_STEP_BASE; STREAK_CAP = 2.0;
@@ -5693,13 +5787,15 @@
     return "data:image/svg+xml," + encodeURIComponent(svg.replace('width="100%" height="100%"', 'width="256" height="256"'));
   }
   // try assets_new/<file> first, then assets/<file>, then the inline SVG fallback
-  function loadArtImg(file, svg, onReady) {
+  function loadArtImg(file, svg, onReady, alt) {
     const img = new Image();
     let stage = 0;
     const tryNext = () => {
       stage++;
       if (stage === 1) img.src = "assets_new/" + file;
       else if (stage === 2) img.src = "assets/" + file;
+      else if (stage === 3 && alt) img.src = "assets_new/" + alt;
+      else if (stage === 4 && alt) img.src = "assets/" + alt;
       // no SVG to fall back to: stop here and leave the image broken, which every
       // *Ready() check reads as "use the drawn/emoji fallback". Calling svgDataURL(null)
       // threw inside an error handler, where nothing would have reported it.
@@ -5741,9 +5837,8 @@
     bombImg = loadArtImg("bomb.png", BOMB_SVG, () => { dirty = true; });
     lineImg = loadArtImg("line.png", LINE_SVG, () => { dirty = true; });
     starImg = loadArtImg("star.png", STAR_SVG, () => { dirty = true; });
-    [[1, BRICK1_SVG], [2, BRICK2_SVG], [3, BRICK3_SVG]].forEach(([hpv, svg]) => {
-      brickImg[hpv] = loadArtImg(`brick${hpv}.png`, svg, () => { dirty = true; });
-    });
+    // cracker.png when it exists, the old full-health brick until then
+    crackerImg = loadArtImg("cracker.png", BRICK3_SVG, () => { dirty = true; }, "brick3.png");
   }
   // Relic and trait art arrives a few pieces at a time. Listing what exists beats probing 84
   // ids and eating a 404 for each of them; tools/art-check.py keeps this list honest against
@@ -5944,17 +6039,17 @@
           appear[r][c] = Math.max(0, a - 0.071);
         }
 
-        // brick (wall) — art swaps by HP: 3 full, 2 damaged, 1 nearly broken
+        // cracker (wall) — one hit, one look
         if (grid[r][c] === BRICK) {
-          const h = Math.max(1, Math.min(3, hp[r][c]));
-          const bim = brickImg[h];
+          const h = 1;
+          const bim = crackerImg;
           const S = cell * apScale;
           const cxb = x + cell/2, cyb = y + cell/2;
           if (bim && bim.complete && bim.naturalWidth) {
             ctx.drawImage(bim, cxb - S/2, cyb - S/2, S, S);
           } else {                                       // fallback gray block
             ctx.save();
-            ctx.fillStyle = h >= 3 ? "#5b6178" : h === 2 ? "#6a5a52" : "#7a4a4a";
+            ctx.fillStyle = "#c79a5b";
             roundRect(x + g, y + g, cell - g*2, cell - g*2, cell*0.16); ctx.fill();
             ctx.restore();
           }
@@ -6936,7 +7031,12 @@
       get zoneCells() { return zoneCells; }, get zoneMult() { return zoneMult; },
       get zoneCoin() { return zoneCoin; }, get zoneBonus() { return zoneBonus; },
       emptyCells, ITEM_PRICES, canBuyItem, armItem, placeBoughtItem, renderItemShop,
-      filledCount, modalOpen, MODAL_IDS, get paused() { return paused; }, set paused(v) { paused = v; },
+      filledCount, modalOpen, MODAL_IDS,
+      CRACKER_SCORE, crackerValue, crackerBroken,
+      get crackerScore() { return crackerScore; }, set crackerScore(v) { crackerScore = v; },
+      get crackerBonus() { return crackerBonus; }, get crackerCoin() { return crackerCoin; },
+      get crackerBoom() { return crackerBoom; }, get crackerDouble() { return crackerDouble; },
+      get crackerEvery() { return crackerEvery; }, get paused() { return paused; }, set paused(v) { paused = v; },
       get armedItem() { return armedItem; }, set armedItem(v) { armedItem = v; },
       get grid() { return grid; }, get special() { return special; },
       get hp() { return hp; }, get coinCell() { return coinCell; },
