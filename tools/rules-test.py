@@ -966,6 +966,17 @@ window.addEventListener('load', () => setTimeout(() => {
          cs(uniq).boxShadow !== cs(leg).boxShadow && cs(uniq).backgroundImage !== cs(leg).backgroundImage, true);
     schk('legend breathes faster than unique',
          parseFloat(cs(leg).animationDuration) < parseFloat(cs(uniq).animationDuration), true);
+    // 1% against 3%: legendary has to be a different KIND of card, not unique in another
+    // colour. Three separable things, so losing any one of them shows.
+    schk('legend has a layer unique does not',
+         cs(leg, '::before').content !== 'none' && cs(uniq, '::before').content === 'none', true);
+    schk('and that layer moves',
+         cs(leg, '::before').animationName !== 'none', true);
+    schk('legend swells harder than unique',
+         cs(leg.querySelector('.of-ic')).animationName !==
+         cs(uniq.querySelector('.of-ic')).animationName, true);
+    schk('a sold legendary drops the extra layer too',
+         cs(soldLeg, '::before').animationName === 'none', true);
     schk('the three grade labels are three colours',
          new Set(['epic', 'unique', 'legend'].map(t => F.TIERS[t].color)).size, 3);
 
@@ -1019,6 +1030,47 @@ window.addEventListener('load', () => setTimeout(() => {
     schk('every fruit has a score-multiplier relic', missing.mult, []);
     schk('every solo multiplier is the same +1.2', wrongMult, []);
     schk('each rung sits in its own grade', wrongGrade, []);
+
+    // ---- the 유니크 score rung ----
+    // The farms raise a fruit's APPEARANCE by +3. Without a matching lift on what it is
+    // worth, specialising only means seeing more of a cheap fruit. The crowns multiply a
+    // channel of their own, so they stack ON TOP of the epic +1.2 instead of being folded in.
+    const crowns = {};
+    for (let f = 0; f < 7; f++) {
+      const found = Object.keys(F.RELICS).filter(id => {
+        F.relics = [id]; F.applyRelics();
+        const moved = F.fruitCrown.map((v, i) => [i, v]).filter(([, v]) => v !== 1);
+        return moved.length === 1 && moved[0][0] === f;
+      });
+      crowns[f] = found;
+    }
+    F.relics = []; F.applyRelics();
+    schk('every fruit has a 유니크 score relic',
+         [0,1,2,3,4,5,6].filter(f => !crowns[f].length), []);
+    schk('and they all sit in 유니크',
+         [0,1,2,3,4,5,6].filter(f => crowns[f].some(id => F.relicTier(F.RELICS[id]) !== 'unique')), []);
+
+    F.mode = 'rush'; F.resetRun();
+    const bare = F.fruitScore(0);
+    F.relics = [crowns[0][0]]; F.applyRelics();
+    const crowned = F.fruitScore(0);
+    schk('a crown multiplies the fruit', crowned > bare * 2, true);
+    // the two rungs must not swallow each other
+    F.relics = ['cherry_ruby']; F.applyRelics();
+    const epicOnly = F.fruitScore(0);
+    F.relics = ['cherry_ruby', crowns[0][0]]; F.applyRelics();
+    const both = F.fruitScore(0);
+    schk('the epic rung alone already helps', epicOnly > bare, true);
+    schk('and the crown multiplies THAT, not the base',
+         Math.abs(both / epicOnly - crowned / bare) < 0.05, true);
+    F.relics = []; F.applyRelics();
+    // and it must survive a recompute: applyRelics runs again on every later purchase, so a
+    // relic that multiplied ACCUMULATED state would multiply again each time
+    F.relics = [crowns[0][0]]; F.applyRelics();
+    const once = F.fruitScore(0);
+    F.applyRelics(); F.applyRelics(); F.applyRelics();
+    schk('a crown does not compound on every recompute', F.fruitScore(0), once);
+    F.relics = []; F.applyRelics();
 
     // the promotions the design asked for, pinned by name rather than by price band
     schk('손재주 is unique', F.relicTier(F.RELICS.tinkerer), 'unique');
@@ -1333,8 +1385,26 @@ window.addEventListener('load', () => setTimeout(() => {
       F.relicCats(id).length && !F.identity(id).length);
     schk('relics tagged only odds/score are the neutral ones',
          broadOnly.every(id => neutral.includes(id)), true);
+    // The base lean is always on -- it exists to cancel the pool shrinking as you buy, not
+    // to lay a rail. 공명 is what turns it into something you feel.
     F.relics = build.slice(); F.applyRelics();
-    schk('and without it the shop is flat again', F.resonance, 0);
+    schk('there is a gentle lean even without 공명', F.resonance, F.RESONANCE_BASE);
+    schk('and 공명 is a real step above it',
+         (F.relics = build.concat('resonator'), F.applyRelics(), F.resonance) > F.RESONANCE_BASE * 2, true);
+    // the base must actually undo the shrinking rather than merely existing: owning more of
+    // a theme must not make that theme rarer than owning none of it
+    const themeShare = owned => {
+      F.mode = 'rush'; F.resetRun(); F.relics = owned.slice(); F.applyRelics();
+      let slots = 0, hits = 0;
+      for (let i = 0; i < 1500; i++) for (const id of F.rollOffers(4)) {
+        slots++; if (F.identity(id).includes('coin')) hits++;
+      }
+      return hits / slots * 100;
+    };
+    const t0 = themeShare([]);
+    const t2 = themeShare(['clover', 'interest']);
+    schk('building a theme does not make it rarer', t2 >= t0 * 0.95, true);
+    F.relics = []; F.applyRelics();
 
     // the grade odds are shown to the player, so they must survive the lean untouched
     F.mode = 'rush'; F.resetRun();

@@ -457,8 +457,27 @@
     background: linear-gradient(90deg, rgb(var(--sh)) 0%, rgb(var(--sh2)) 45%, rgb(var(--sh)) 90%);
     background-size: 220% 100%; -webkit-background-clip: text; background-clip: text;
     -webkit-text-fill-color: transparent; animation: tierShimmer 2.4s linear infinite; }
-  /* legendary is the rarer of the two, so it breathes harder */
-  .offer.shine-legend { animation-duration: 1.7s; }
+  /* Legendary is a 1% draw against unique's 3%, so it cannot just be unique in another
+     colour. It gets a second, COUNTER-ROTATING layer the unique does not have, a harder
+     breath, and an icon that turns as it swells -- three things you can see at a glance
+     from across the card rather than a hue you have to compare. */
+  .offer.shine-legend { animation-duration: 1.5s; }
+  .offer.shine-legend::before {
+    content: ""; position: absolute; inset: -40%; pointer-events: none;
+    background: conic-gradient(from 0deg, transparent 0deg, rgba(var(--sh2), .30) 28deg,
+                transparent 60deg, transparent 180deg, rgba(var(--sh2), .30) 208deg,
+                transparent 240deg, transparent 360deg);
+    animation: legendRays 5.5s linear infinite;
+  }
+  .offer.shine-legend .of-ic { animation: legendIcon 1.5s ease-in-out infinite; }
+  .offer.shine-legend .of-tier { animation-duration: 1.4s; letter-spacing: 2px; }
+  .offer.sold.shine-legend::before { animation: none; opacity: 0; }
+  @keyframes legendRays { to { transform: rotate(-360deg); } }
+  @keyframes legendIcon {
+    0%, 100% { transform: scale(1) rotate(-4deg);
+               filter: drop-shadow(0 0 4px rgba(var(--sh), .55)); }
+    50%      { transform: scale(1.22) rotate(4deg);
+               filter: drop-shadow(0 0 16px rgba(var(--sh), 1)); } }
   .offer.sold.shine::after { animation: none; }
   .offer.sold.shine-epic, .offer.sold.shine-top { box-shadow: none; animation: none; }
   /* sold is sold: grayscale alone left the coloured body and the moving parts alive */
@@ -1533,9 +1552,9 @@
     stage = 1; stageScore = 0; touchesLeft = RUSH_TOUCHES;
     touchBonus = 0; spawnBonus = 0; slotBonus = 0; brickChance = 0; offerBonus = 0;
     chainStep = 0; coinFruitBonus = 0; starCoinMult = 1; payoutMult = 1;
-    coinFlat = 0; interestPer = 0; interestPct = 0; interestCap = INTEREST_CAP;
+    coinFlat = 0; coinFlatPer = COIN_FLAT_PER; interestPer = 0; interestPct = 0; interestCap = INTEREST_CAP;
     starEverything = false;
-    spendFlat = 0; shopDiscount = 1; resonance = 0;
+    spendFlat = 0; shopDiscount = 1; resonance = RESONANCE_BASE;
     bombRadiusBonus = 0; itemEase = 0; birdFlock = 1; crossLine = false;
     zoneMult = 1; zoneCoin = false; zoneBonus = 0; zoneCells = new Set();
     STREAK_STEP = STREAK_STEP_BASE; STREAK_CAP = 2.0;
@@ -1690,6 +1709,11 @@
   // fruitMult which applyRelics() rebuilds from the owned relics every time.
   let fruitStack = [0, 0, 0, 0, 0, 0, 0];  // base points earned by popping that fruit
   let fruitBoost = [1, 1, 1, 1, 1, 1, 1];  // "double its current value" effects, banked
+  // A DERIVED multiplicative channel, wiped and rebuilt by applyRelics like every other
+  // relic effect. fruitBoost cannot be used for this: it is accumulated (a trait banks a
+  // doubling into it) and applyRelics does not reset it, so a relic multiplying it would
+  // multiply again on every recompute -- once per later purchase.
+  let fruitCrown = [1, 1, 1, 1, 1, 1, 1];
   let fruitFlat  = [0, 0, 0, 0, 0, 0, 0];  // flat points from relics -- derived, so selling
                                            // one (or letting it expire) takes them back
   let relics = [];                         // ids of the relics owned this run
@@ -1702,6 +1726,7 @@
   // CAPPED: uncapped it compounds into "never buy anything", which is not a build, it is a
   // refusal to play. 금고 raises the cap, which is what turns hoarding into a real choice.
   const COIN_FLAT_PER   = 10;   // coins held per +1 fruit score, for 부자 감각
+  let coinFlatPer = COIN_FLAT_PER;   // 미다스 tightens it to 3
   const INTEREST_CAP    = 5;    // most coins interest can pay in one round, before 금고
   const SPEND_PER = 2;          // coins spent per +1 fruit score, for 탕진
   let coinsSpent = 0;           // ACCUMULATED, not derived: applyRelics must not wipe it
@@ -1819,14 +1844,15 @@
   // (base + what popping it has banked) x banked doublings x the relics you carry
   // read live rather than baked into fruitFlat by applyRelics: the coin count changes on
   // every pop, and applyRelics only runs when the relic list does
-  const coinFlatBonus = () => coinFlat ? Math.floor(coins / COIN_FLAT_PER) * coinFlat : 0;
+  const coinFlatBonus = () => coinFlat ? Math.floor(coins / coinFlatPer) * coinFlat : 0;
   // the mirror of coinFlatBonus: that one pays for hoarding, this one for spending
   const spendFlatBonus = () => spendFlat ? Math.floor(coinsSpent / SPEND_PER) * spendFlat : 0;
   function fruitScore(colorIdx) {          // one fruit's worth, before chain/streak
     const base = (FRUIT_POINTS[colorIdx] || 1) + (fruitStack[colorIdx] || 0)
                + (fruitFlat[colorIdx] || 0) + coinFlatBonus() + spendFlatBonus();
     // rounded here so multipliers can never leak a decimal onto the board
-    return Math.round(base * (fruitBoost[colorIdx] || 1) * (fruitMult[colorIdx] || 1));
+    return Math.round(base * (fruitBoost[colorIdx] || 1) * (fruitCrown[colorIdx] || 1)
+                           * (fruitMult[colorIdx] || 1));
   }
   function addScore(amount) {
     if (!(amount > 0)) return 0;
@@ -1997,6 +2023,15 @@
         banana_cellar: "바나나 저장고",
         banana_grove: "바나나 농장",
         banana_hunter: "바나나 사냥꾼",
+        cherry_crown: "체리 왕관",
+        lemon_crown: "레몬 왕관",
+        orange_crown: "오렌지 왕관",
+        kiwi_crown: "키위 왕관",
+        grape_crown: "포도 왕관",
+        peach_crown: "복숭아 왕관",
+        banana_crown: "바나나 왕관",
+        midas: "미다스",
+        cornucopia: "풍요의 뿔",
         resonator: "공명",
         spendthrift: "탕진",
         golden_harvest: "금빛 수확",
@@ -2155,6 +2190,8 @@
       tutSkip: "건너뛰기",
       tutReplay: "튜토리얼 다시 보기",
       tabHelp: "❔ 도움말",
+      fruitBoost: (f, n) => `${FRUIT_KO[f]} 점수 ×${n1(n)}`,
+      allBoost: n => `모든 과일 점수 ×${n1(n)}`,
       resonance: () => "같은 계열 유물이 상점에 더 자주 등장합니다",
       statHead: "내 수치",
       statCoinFruit: "코인 달린 과일",
@@ -2257,6 +2294,15 @@
         banana_cellar: "Banana Cellar",
         banana_grove: "Banana Plantation",
         banana_hunter: "Banana Hunter",
+        cherry_crown: "Cherry Crown",
+        lemon_crown: "Lemon Crown",
+        orange_crown: "Orange Crown",
+        kiwi_crown: "Kiwi Crown",
+        grape_crown: "Grape Crown",
+        peach_crown: "Peach Crown",
+        banana_crown: "Banana Crown",
+        midas: "Midas",
+        cornucopia: "Cornucopia",
         resonator: "Resonance",
         spendthrift: "Spendthrift",
         golden_harvest: "Golden Harvest",
@@ -2415,6 +2461,8 @@
       tutSkip: "Skip",
       tutReplay: "Replay tutorial",
       tabHelp: "❔ Help",
+      fruitBoost: (f, n) => `${FRUIT_EN[f]} score ×${n1(n)}`,
+      allBoost: n => `Every fruit ×${n1(n)}`,
       resonance: () => "Relics like the ones you own show up more often",
       statHead: "Your numbers",
       statCoinFruit: "Coin-carrying fruit",
@@ -2517,6 +2565,15 @@
         banana_cellar: "バナナ貯蔵庫",
         banana_grove: "バナナ農園",
         banana_hunter: "バナナ狩人",
+        cherry_crown: "さくらんぼの王冠",
+        lemon_crown: "レモンの王冠",
+        orange_crown: "オレンジの王冠",
+        kiwi_crown: "キウイの王冠",
+        grape_crown: "ぶどうの王冠",
+        peach_crown: "ももの王冠",
+        banana_crown: "バナナの王冠",
+        midas: "ミダス",
+        cornucopia: "豊穣の角",
         resonator: "共鳴",
         spendthrift: "浪費家",
         golden_harvest: "黄金の収穫",
@@ -2674,6 +2731,8 @@
       tutSkip: "スキップ",
       tutReplay: "チュートリアルをもう一度",
       tabHelp: "❔ ヘルプ",
+      fruitBoost: (f, n) => `${FRUIT_JA[f]} スコア ×${n1(n)}`,
+      allBoost: n => `全フルーツのスコア ×${n1(n)}`,
       resonance: () => "手持ちと同じ系統のレリックが出やすくなります",
       statHead: "あなたの数値",
       statCoinFruit: "コイン付きフルーツ",
@@ -2776,6 +2835,15 @@
         banana_cellar: "香蕉仓库",
         banana_grove: "香蕉农场",
         banana_hunter: "香蕉猎人",
+        cherry_crown: "樱桃王冠",
+        lemon_crown: "柠檬王冠",
+        orange_crown: "橙子王冠",
+        kiwi_crown: "猕猴桃王冠",
+        grape_crown: "葡萄王冠",
+        peach_crown: "桃子王冠",
+        banana_crown: "香蕉王冠",
+        midas: "点金者",
+        cornucopia: "丰饶之角",
         resonator: "共鸣",
         spendthrift: "挥霍",
         golden_harvest: "黄金收成",
@@ -2933,6 +3001,8 @@
       tutSkip: "跳过",
       tutReplay: "重看教程",
       tabHelp: "❔ 帮助",
+      fruitBoost: (f, n) => `${FRUIT_ZH[f]} 分数 ×${n1(n)}`,
+      allBoost: n => `所有水果分数 ×${n1(n)}`,
       resonance: () => "与持有遗物同类的遗物更常出现",
       statHead: "我的数值",
       statCoinFruit: "带金币水果",
@@ -3195,6 +3265,26 @@
     peach_tree:   { icon: "🍑", price: 12,
       desc: () => d("odds", [5], 1), apply() { oddsMult[5] += 1; } },
 
+    // ---- 유니크: the score half of a fruit build ----
+    // The farms raise a fruit's APPEARANCE by +3; without a matching lift on what it is
+    // worth, specialising just means seeing more of a cheap fruit. These multiply
+    // fruitBoost, a channel of its own, so they stack ON TOP of the epic +1.2 rather than
+    // being swallowed by it: 체리 10 -> (1+1.2) -> ×2.5 = 55.
+    cherry_crown: { icon: "🍒", price: 25,
+      desc: () => d("fruitBoost", 0, 2.5), apply() { fruitCrown[0] *= 2.5; } },
+    lemon_crown:  { icon: "🍋", price: 25,
+      desc: () => d("fruitBoost", 3, 2.5), apply() { fruitCrown[3] *= 2.5; } },
+    orange_crown: { icon: "🍊", price: 26,
+      desc: () => d("fruitBoost", 1, 2.5), apply() { fruitCrown[1] *= 2.5; } },
+    kiwi_crown:   { icon: "🥝", price: 26,
+      desc: () => d("fruitBoost", 2, 2.5), apply() { fruitCrown[2] *= 2.5; } },
+    grape_crown:  { icon: "🍇", price: 28,
+      desc: () => d("fruitBoost", 4, 2.5), apply() { fruitCrown[4] *= 2.5; } },
+    peach_crown:  { icon: "🍑", price: 28,
+      desc: () => d("fruitBoost", 5, 2.5), apply() { fruitCrown[5] *= 2.5; } },
+    banana_crown: { icon: "🍌", price: 29,
+      desc: () => d("fruitBoost", 6, 2.5), apply() { fruitCrown[6] *= 2.5; } },
+
     // ---- E. coin economy ----
     // The coin build: coins are worth score (부자 감각), coins make more coins (이자/복리,
     // capped, with 금고 to lift the cap), and coin fruit is the fuel (the clover ladder).
@@ -3224,6 +3314,9 @@
     // grade odds on the collection screen stay honest.
     resonator: { icon: "🎵", price: 25,
       desc: () => d("resonance"), apply() { resonance += 0.5; } },
+    // the coin build's own score ceiling: 부자 감각 is +1 per 10 held, this is +1 per 3
+    midas: { icon: "🫅", price: 27,
+      desc: () => d("coinFlat", 3, 1), apply() { coinFlat += 1; coinFlatPer = 3; } },
     star_king: { icon: "🌌", price: 36,
       desc: () => d("starAll"), apply() { starEverything = true; } },
 
@@ -3360,6 +3453,10 @@
       desc: () => d("allMult", 1),
       apply() { for (let i = 0; i < fruitMult.length; i++) fruitMult[i] += 1; } },
     // the only permanent x2 in the game, and it must not read like the 9-coin timed one
+    // 전설: every fruit at once, on the same channel the unique crowns use
+    cornucopia: { icon: "🧺", price: 40,
+      desc: () => d("allBoost", 2),
+      apply() { for (let i = 0; i < fruitCrown.length; i++) fruitCrown[i] *= 2; } },
     crown: { icon: "👑", price: 50,
       desc: () => d("popMultRun", 2),
       modify: { pop: v => v * 2 } },
@@ -3469,11 +3566,12 @@
     oddsMult = [0, 0, 0, 0, 0, 0, 0];
     fruitMult = [1, 1, 1, 1, 1, 1, 1];
     fruitFlat = [0, 0, 0, 0, 0, 0, 0];
+    fruitCrown = [1, 1, 1, 1, 1, 1, 1];
     touchBonus = 0; spawnBonus = 0; brickChance = 0; offerBonus = 0;
     chainStep = 0; coinFruitBonus = 0; starCoinMult = 1; payoutMult = 1;
-    coinFlat = 0; interestPer = 0; interestPct = 0; interestCap = INTEREST_CAP;
+    coinFlat = 0; coinFlatPer = COIN_FLAT_PER; interestPer = 0; interestPct = 0; interestCap = INTEREST_CAP;
     starEverything = false;
-    spendFlat = 0; shopDiscount = 1; resonance = 0;
+    spendFlat = 0; shopDiscount = 1; resonance = RESONANCE_BASE;
     bombRadiusBonus = 0; itemEase = 0; birdFlock = 1; crossLine = false;
     zoneMult = 1; zoneCoin = false; zoneBonus = 0;
     STREAK_STEP = STREAK_STEP_BASE; STREAK_CAP = 2.0;      // relics may raise these; reset first
@@ -4726,13 +4824,13 @@
   // and growing the board is monotonic: probing 개간 that way would enlarge it for real.
   const CAT_FIELDS = [
     ["odds",  () => oddsMult.slice()],
-    ["score", () => fruitMult.concat(fruitFlat)],
+    ["score", () => fruitMult.concat(fruitFlat, fruitCrown)],
     ["touch", () => [touchBonus]],
     ["spawn", () => [spawnBonus]],
     ["risk",  () => [brickChance]],
     ["slot",  () => [offerBonus]],
     ["combo", () => [chainStep, STREAK_STEP, STREAK_CAP]],
-    ["coin",  () => [coinFruitBonus, starCoinMult, payoutMult, coinFlat, spendFlat,
+    ["coin",  () => [coinFruitBonus, starCoinMult, payoutMult, coinFlat, coinFlatPer, spendFlat,
                      interestPer, interestPct, interestCap, shopDiscount]],
     ["item",  () => [bombRadiusBonus, itemEase, birdFlock, +crossLine, +starEverything]],
     ["board", () => [zoneMult, +zoneCoin, zoneBonus]],
@@ -4758,8 +4856,9 @@
           oddsMult = [0,0,0,0,0,0,0]; fruitMult = [1,1,1,1,1,1,1]; fruitFlat = [0,0,0,0,0,0,0];
           touchBonus = 0; spawnBonus = 0; brickChance = 0; offerBonus = 0;
           chainStep = 0; coinFruitBonus = 0; starCoinMult = 1; payoutMult = 1;
-          coinFlat = 0; interestPer = 0; interestPct = 0; interestCap = INTEREST_CAP;
+          coinFlat = 0; coinFlatPer = COIN_FLAT_PER; interestPer = 0; interestPct = 0; interestCap = INTEREST_CAP;
           starEverything = false; spendFlat = 0; shopDiscount = 1;
+          fruitCrown = [1,1,1,1,1,1,1];
           bombRadiusBonus = 0; itemEase = 0; birdFlock = 1; crossLine = false;
           zoneMult = 1; zoneCoin = false; zoneBonus = 0;
           STREAK_STEP = STREAK_STEP_BASE; STREAK_CAP = 2.0;
@@ -4767,11 +4866,12 @@
         // a fruit-specific relic resonates with that fruit, not merely with "score"
         const fr = new Set();
         if (R.apply) {
-          const o0 = oddsMult.slice(), m0 = fruitMult.slice(), f0 = fruitFlat.slice();
+          const o0 = oddsMult.slice(), m0 = fruitMult.slice(), f0 = fruitFlat.slice(), b0 = fruitCrown.slice();
           try { R.apply(); } catch (e) {}
           for (let i = 0; i < 7; i++)
-            if (oddsMult[i] !== o0[i] || fruitMult[i] !== m0[i] || fruitFlat[i] !== f0[i]) fr.add(i);
-          oddsMult = o0; fruitMult = m0; fruitFlat = f0;
+            if (oddsMult[i] !== o0[i] || fruitMult[i] !== m0[i] || fruitFlat[i] !== f0[i]
+                || fruitCrown[i] !== b0[i]) fr.add(i);
+          oddsMult = o0; fruitMult = m0; fruitFlat = f0; fruitCrown = b0;
         }
         for (const i of fr) cats.add("fruit" + i);
         relicCatCache[rid] = [...cats];
@@ -4783,7 +4883,12 @@
   }
   // How strongly the shop leans toward what you already have. Zero unless a relic says so,
   // and it only re-weights WITHIN a grade -- the grade odds the game displays stay true.
-  let resonance = 0;
+  // Always on, gently. Without it the pool works AGAINST a theme: every relic you buy leaves
+  // the pool, so the cherry cards get rarer the more cherry you own (12.4% -> 11.2% -> 11.3%
+  // measured). 0.15 roughly cancels that; it does not lay a rail. 공명 adds 0.5 on top for a
+  // lean you can actually feel.
+  const RESONANCE_BASE = 0.15;
+  let resonance = RESONANCE_BASE;
   // Reachable on purpose: the slot cap is 8, so a ceiling of 8 would never actually bind and
   // would be a rule that never runs. At 6 a focused build meets it before it fills the bag.
   const RESONANCE_MAX = 6;
@@ -6819,7 +6924,8 @@
       rollZones, zoneAt, zoneCount, fruitScoreAt, ZONE_BASE,
       payInterest, interestDue, coinFlatBonus, COIN_FLAT_PER, INTEREST_CAP,
       priceOf, itemPrice, spendFlatBonus, SPEND_PER,
-      relicCats, offerWeight, RESONANCE_MAX, identity, get resonance() { return resonance; },
+      relicCats, offerWeight, RESONANCE_MAX, RESONANCE_BASE, identity,
+      get resonance() { return resonance; },
       get coinsSpent() { return coinsSpent; }, set coinsSpent(v) { coinsSpent = v; },
       get spendFlat() { return spendFlat; }, get shopDiscount() { return shopDiscount; },
       get coinFlat() { return coinFlat; }, get interestPer() { return interestPer; },
@@ -6875,6 +6981,7 @@
       get fruitMult()   { return fruitMult; },   set fruitMult(v)   { fruitMult = v; },
       get fruitStack()  { return fruitStack; },  set fruitStack(v)  { fruitStack = v; },
       get fruitBoost()  { return fruitBoost; },  set fruitBoost(v)  { fruitBoost = v; },
+      get fruitCrown()  { return fruitCrown; },
       fruitScore,
     };
 

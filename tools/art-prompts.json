@@ -107,7 +107,16 @@
     "spendthrift": "a hand tossing a fan of gold coins into the air, coins scattering outward",
     "golden_harvest": "a woven basket overflowing with fruit, gold coins spilling out among them",
     "regular": "a long paper shop receipt curling down, a bold percent-off stamp across it",
-    "resonator": "a tuning fork struck and ringing, concentric sound rings spreading from its tines"
+    "resonator": "a tuning fork struck and ringing, concentric sound rings spreading from its tines",
+    "cherry_crown": "a small jewelled crown resting on a cherry",
+    "lemon_crown": "a small jewelled crown resting on a lemon",
+    "orange_crown": "a small jewelled crown resting on an orange",
+    "kiwi_crown": "a small jewelled crown resting on a kiwi",
+    "grape_crown": "a small jewelled crown resting on a bunch of grapes",
+    "peach_crown": "a small jewelled crown resting on a peach",
+    "banana_crown": "a small jewelled crown resting on a banana",
+    "midas": "a hand with gilded fingertips, everything it has touched turned to gold, coins beneath",
+    "cornucopia": "a woven horn of plenty tipped on its side, fruit and light pouring out of its mouth"
   },
   "traits": {
     "cherry_taste": "a cherry inside a laurel wreath badge",
