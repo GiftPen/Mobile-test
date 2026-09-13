@@ -2042,9 +2042,9 @@
       popMultRun: n => `터뜨린 점수 ×${n1(n)} · 이번 게임 내내`,
       bigPop:     (k, m) => `${k}개 이상 터뜨리면 점수 ×${n1(m)}`,
       brickDeal:  (pct, br) => `터뜨린 점수 +${pct}% · 새 과일의 ${br}%가 크래커`,
-      clusterStep:(add) => `덩어리 보너스 +${n1(add)}`,
-      comboStep:  (add) => `콤보 증가폭 +${n1(add)}`,
-      comboCap:   (add) => `콤보 상한 +${n1(add)}`,
+      clusterStep:(add, from, to) => `덩어리 보너스 +${n1(add)} (${n1(from)} → ${n1(to)})`,
+      comboStep:  (add, from, to) => `콤보 증가폭 +${n1(add)} (${n1(from)} → ${n1(to)})`,
+      comboCap:   (from, to) => `콤보 상한 ×${n1(from)} → ×${n1(to)}`,
       slots:      n => `유물 칸 +${n}`,
       offers:     n => `상점 진열 +${n}`,
       // 한 줄 / 두 줄, not 1줄 / 2줄 -- Korean counts small numbers of things with native
@@ -2069,9 +2069,9 @@
       starCoin:   (a, b) => `별이 과일당 코인 ${a}개 → ${b}개`,
       starCoinUp: n => `별이 과일당 코인 +${n}`,
       crossLine:  () => "라인이 항상 가로세로 동시에 생깁니다",
-      zoneMult:   n => `보너스 영역 안에서 터뜨린 과일 점수 ×${n1(n)}`,
-      zoneCoin:   n => `보너스 영역 안에서 터뜨리면 코인 +${n}`,
-      zoneMore:   n => `보너스 영역 +${n}칸`,
+      zoneMult:   n => `표시된 칸에서 터뜨리면 그 과일 점수 ×${n1(n)}`,
+      zoneCoin:   n => `표시된 칸에서 터뜨리면 코인 +${n}`,
+      zoneMore:   n => `표시된 칸 +${n}`,
       boostBest:  n => `지금 가장 비싼 과일의 값어치를 ${n1(n)}배로`,
       nextDouble: () => "다음 특성 선택을 2배로",
       // relic and trait names: one per id, no pattern to share. A name with no
@@ -2333,7 +2333,7 @@
       statBird: "참새 마리",
       statStarCoin: "별 코인/과일",
       statPayout: "정산 코인",
-      statZone: "보너스 영역",
+      statZone: "표시된 칸",
       statSlots: "유물 칸",
       statShelf: "상점 진열",
       statRows: "판 줄 수",
@@ -2386,9 +2386,9 @@
       popMultRun: n => `Popped score ×${n1(n)} · whole run`,
       bigPop:     (k, m) => `Pop ${k} or more for ×${n1(m)} score`,
       brickDeal:  (pct, br) => `Popped score +${pct}% · ${br}% of new fruit are crackers`,
-      clusterStep:(add) => `Cluster bonus +${n1(add)}`,
-      comboStep:  (add) => `Combo step +${n1(add)}`,
-      comboCap:   (add) => `Combo cap +${n1(add)}`,
+      clusterStep:(add, from, to) => `Cluster bonus +${n1(add)} (${n1(from)} → ${n1(to)})`,
+      comboStep:  (add, from, to) => `Combo step +${n1(add)} (${n1(from)} → ${n1(to)})`,
+      comboCap:   (from, to) => `Combo cap ×${n1(from)} → ×${n1(to)}`,
       slots:      n => `+${n} relic slot${n > 1 ? "s" : ""}`,
       offers:     n => `+${n} shop card${n > 1 ? "s" : ""}`,
       rows:       n => `Board grows ${n} row${n > 1 ? "s" : ""}`,
@@ -2411,9 +2411,9 @@
       starCoin:   (a, b) => `Stars pay ${a} → ${b} coins per fruit`,
       starCoinUp: n => `Stars pay +${n} coin per fruit`,
       crossLine:  () => "Lines always clear a row and a column",
-      zoneMult:   n => `Fruit popped inside a bonus zone scores ×${n1(n)}`,
-      zoneCoin:   n => `Popping inside a bonus zone pays +${n} coin`,
-      zoneMore:   n => `+${n} bonus-zone cells`,
+      zoneMult:   n => `Popping on a marked cell scores ×${n1(n)}`,
+      zoneCoin:   n => `Popping on a marked cell pays +${n} coin`,
+      zoneMore:   n => `+${n} marked cells`,
       boostBest:  n => `Multiply your priciest fruit's value by ${n1(n)}`,
       nextDouble: () => "Double your next trait pick",
       _names: {
@@ -2673,7 +2673,7 @@
       statBird: "Sparrows",
       statStarCoin: "Star coins/fruit",
       statPayout: "Stage payout",
-      statZone: "Bonus zone",
+      statZone: "Marked cells",
       statSlots: "Relic slots",
       statShelf: "Shop shelf",
       statRows: "Board rows",
@@ -2726,9 +2726,9 @@
       popMultRun: n => `割ったスコア ×${n1(n)} · ラン中ずっと`,
       bigPop:     (k, m) => `${k}個以上割ると スコア ×${n1(m)}`,
       brickDeal:  (pct, br) => `割ったスコア +${pct}% · 新しいフルーツの${br}%がクラッカー`,
-      clusterStep:(add) => `かたまりボーナス +${n1(add)}`,
-      comboStep:  (add) => `コンボ増加幅 +${n1(add)}`,
-      comboCap:   (add) => `コンボ上限 +${n1(add)}`,
+      clusterStep:(add, from, to) => `かたまりボーナス +${n1(add)} (${n1(from)} → ${n1(to)})`,
+      comboStep:  (add, from, to) => `コンボ増加幅 +${n1(add)} (${n1(from)} → ${n1(to)})`,
+      comboCap:   (from, to) => `コンボ上限 ×${n1(from)} → ×${n1(to)}`,
       slots:      n => `レリック枠 +${n}`,
       offers:     n => `ショップ表示 +${n}`,
       rows:       n => `盤面が ${n} 段 広がる`,
@@ -2751,9 +2751,9 @@
       starCoin:   (a, b) => `星のコインが フルーツごとに ${a} → ${b}`,
       starCoinUp: n => `星のコインが フルーツごとに +${n}`,
       crossLine:  () => "ラインが常に縦横同時に出る",
-      zoneMult:   n => `ボーナス領域で割ったフルーツのスコア ×${n1(n)}`,
-      zoneCoin:   n => `ボーナス領域で割ると コイン +${n}`,
-      zoneMore:   n => `ボーナス領域 +${n}マス`,
+      zoneMult:   n => `印のマスで割ると そのフルーツのスコア ×${n1(n)}`,
+      zoneCoin:   n => `印のマスで割ると コイン +${n}`,
+      zoneMore:   n => `印のマス +${n}`,
       boostBest:  n => `いま最も高いフルーツの価値を ${n1(n)} 倍に`,
       nextDouble: () => "次の特性選択を2倍に",
       _names: {
@@ -3012,7 +3012,7 @@
       statBird: "スズメの数",
       statStarCoin: "スターのコイン/個",
       statPayout: "ステージ精算",
-      statZone: "ボーナス領域",
+      statZone: "マスの印",
       statSlots: "レリック枠",
       statShelf: "ショップ陳列",
       statRows: "盤の行数",
@@ -3065,9 +3065,9 @@
       popMultRun: n => `消除得分 ×${n1(n)} · 整局有效`,
       bigPop:     (k, m) => `一次消除 ${k} 个以上，得分 ×${n1(m)}`,
       brickDeal:  (pct, br) => `消除得分 +${pct}% · 新水果中 ${br}% 变饼干`,
-      clusterStep:(add) => `成团奖励 +${n1(add)}`,
-      comboStep:  (add) => `连击增幅 +${n1(add)}`,
-      comboCap:   (add) => `连击上限 +${n1(add)}`,
+      clusterStep:(add, from, to) => `成团奖励 +${n1(add)} (${n1(from)} → ${n1(to)})`,
+      comboStep:  (add, from, to) => `连击增幅 +${n1(add)} (${n1(from)} → ${n1(to)})`,
+      comboCap:   (from, to) => `连击上限 ×${n1(from)} → ×${n1(to)}`,
       slots:      n => `遗物格 +${n}`,
       offers:     n => `商店展示 +${n}`,
       rows:       n => `棋盘增加 ${n} 行`,
@@ -3090,9 +3090,9 @@
       starCoin:   (a, b) => `星星每个水果给 ${a} → ${b} 金币`,
       starCoinUp: n => `星星每个水果多给 ${n} 金币`,
       crossLine:  () => "线道总是横竖同时出现",
-      zoneMult:   n => `在奖励区域内消除的水果分数 ×${n1(n)}`,
-      zoneCoin:   n => `在奖励区域内消除，金币 +${n}`,
-      zoneMore:   n => `奖励区域 +${n} 格`,
+      zoneMult:   n => `在标记格消除，该水果分数 ×${n1(n)}`,
+      zoneCoin:   n => `在标记格消除，金币 +${n}`,
+      zoneMore:   n => `标记格 +${n}`,
       boostBest:  n => `将当前最贵水果的价值提高到 ${n1(n)} 倍`,
       nextDouble: () => "下次特性选择翻倍",
       _names: {
@@ -3351,7 +3351,7 @@
       statBird: "麻雀数量",
       statStarCoin: "星星金币/个",
       statPayout: "关卡结算",
-      statZone: "奖励区域",
+      statZone: "标记格子",
       statSlots: "遗物格",
       statShelf: "商店陈列",
       statRows: "盘面行数",
@@ -3517,13 +3517,13 @@
     // ---- 연쇄와 콤보 ----
     rhythm:      { icon: "📈", tier: "uncommon", scalable: true,
       effects: [{ stat: "streakStep", amount: 0.1 }],
-      desc: e => d("comboStep", e[0].amount) },
+      desc: e => d("comboStep", e[0].amount, STREAK_STEP_BASE, gridMult(STREAK_STEP_BASE + e[0].amount)) },
     ceiling:     { icon: "🔔", tier: "epic", scalable: true,
       effects: [{ stat: "streakCap", amount: 0.5 }],
-      desc: e => d("comboCap", e[0].amount) },
+      desc: e => d("comboCap", 2.0, gridMult(2.0 + e[0].amount)) },
     clumping:    { icon: "🫧", tier: "uncommon", scalable: true,
       effects: [{ stat: "chainStep", amount: 0.1 }],
-      desc: e => d("clusterStep", e[0].amount) },
+      desc: e => d("clusterStep", e[0].amount, CHAIN_STEP, gridMult(CHAIN_STEP + e[0].amount)) },
     // ---- 과일: the crown channel, at trait scale ----
     cherry_pride: { icon: "🍒", tier: "unique", scalable: true,
       effects: [{ stat: "fruitCrown", target: 0, amount: 1.5 }],
@@ -3792,11 +3792,11 @@
 
     // ---- B. score ----
     chain_master: { icon: "🫧", price: 17,
-      desc: () => d("clusterStep", 0.2), apply() { chainStep += 0.2; } },
+      desc: () => d("clusterStep", 0.2, CHAIN_STEP, gridMult(CHAIN_STEP + 0.2)), apply() { chainStep += 0.2; } },
     streak_amp: { icon: "🔥", price: 16,
-      desc: () => d("comboCap", 1.0), apply() { STREAK_CAP += 1.0; } },
+      desc: () => d("comboCap", 2.0, 3.0), apply() { STREAK_CAP += 1.0; } },
     streak_step: { icon: "📈", price: 13,
-      desc: () => d("comboStep", 0.2), apply() { STREAK_STEP += 0.2; } },
+      desc: () => d("comboStep", 0.2, STREAK_STEP_BASE, gridMult(STREAK_STEP_BASE + 0.2)), apply() { STREAK_STEP += 0.2; } },
     // 에픽: the same +1.2 on every fruit, so the price is the only thing that differs --
     // and it tracks what the fruit is worth. 0.8/1.0/1.2 across the set meant the cheap
     // fruits were quietly the better buy.
@@ -3844,7 +3844,7 @@
     one_cherry: { icon: "🍒", price: 4,
       desc: () => d("fruitFlat", 0, 8), apply() { fruitFlat[0] += 8; } },
     whetstone: { icon: "🪨", price: 6,
-      desc: () => d("clusterStep", 0.1), apply() { chainStep += 0.1; } },
+      desc: () => d("clusterStep", 0.1, CHAIN_STEP, gridMult(CHAIN_STEP + 0.1)), apply() { chainStep += 0.1; } },
 
     // ---- temporary: strong, cheap, and on a clock ----
     focus: { icon: "⚡", price: 9, life: { unit: "stages", amount: 1 },
@@ -3854,7 +3854,7 @@
     bonanza: { icon: "💎", price: 7, life: { unit: "touches", amount: 15 },
       desc: () => d("coinFruit", 30), apply() { coinFruitBonus += 0.3; } },
     heat: { icon: "🔥", price: 8, life: { unit: "stages", amount: 2 },
-      desc: () => d("comboCap", 2.0), apply() { STREAK_CAP += 2; } },
+      desc: () => d("comboCap", 2.0, 4.0), apply() { STREAK_CAP += 2; } },
     sugar_rush: { icon: "🍬", price: 8, life: { unit: "touches", amount: 20 },
       desc: () => d("allFlat", 25), apply() { for (let i = 0; i < fruitFlat.length; i++) fruitFlat[i] += 25; } },
 
@@ -3879,7 +3879,7 @@
     kiwi_slice: { icon: "🥝", price: 5,
       desc: () => d("fruitFlat", 2, 10), apply() { fruitFlat[2] += 10; } },
     first_step: { icon: "📈", price: 5,
-      desc: () => d("comboStep", 0.1), apply() { STREAK_STEP += 0.1; } },
+      desc: () => d("comboStep", 0.1, STREAK_STEP_BASE, gridMult(STREAK_STEP_BASE + 0.1)), apply() { STREAK_STEP += 0.1; } },
     clover: { icon: "🍀", price: 5,
       desc: () => d("coinFruit", 2), apply() { coinFruitBonus += 0.02; } },
     sprout: { icon: "🌱", price: 5,
@@ -3887,7 +3887,7 @@
     grape_bunch: { icon: "🍇", price: 6,
       desc: () => d("fruitFlat", 4, 14), apply() { fruitFlat[4] += 14; } },
     bell: { icon: "🔔", price: 6,
-      desc: () => d("comboCap", 0.3), apply() { STREAK_CAP += 0.3; } },
+      desc: () => d("comboCap", 2.0, 2.3), apply() { STREAK_CAP += 0.3; } },
     basket: { icon: "🧺", price: 6,
       desc: () => d("startFruit", 3),
       onStageStart: () => spawnBuds(3) },
@@ -7661,5 +7661,143 @@
   requestAnimationFrame(draw);
 })();
 </script>
-</body>
+<script>window.__RUNS=1;window.__STRATS=["fruit"];</script><script>
+const sleep = ms => new Promise(r => setTimeout(r, ms));
+window.addEventListener('load', () => setTimeout(async () => {
+ try {
+  const F = window.__fs, $ = id => document.getElementById(id), cv = $('game');
+  const RUNS = window.__RUNS, STRATS = window.__STRATS, MAX_STAGE = 20;
+  const shown = id => !$(id).classList.contains('hidden');
+
+  // rAF never fires here, so the board is advanced by hand and then waited on
+  // draw() only when something needs frames. The chain itself advances on timers, and a
+  // canvas render per poll is what made a three-run sweep miss a thirty-minute deadline.
+  const settle = async (max = 150) => {
+    for (let i = 0; i < max; i++) {
+      if (F.links.length || F.birds.length) F.draw();
+      if (!F.busy && !F.links.length && !F.birds.length) return true;
+      await sleep(8);
+    }
+    return false;
+  };
+  const tap = async (r, c) => {
+    const b = cv.getBoundingClientRect();
+    const x = b.left + (c + 0.5) * b.width / F.COLS, y = b.top + (r + 0.5) * b.height / F.ROWS;
+    cv.dispatchEvent(new PointerEvent('pointerdown', {clientX:x, clientY:y, bubbles:true}));
+    cv.dispatchEvent(new PointerEvent('pointerup',   {clientX:x, clientY:y, bubbles:true}));
+    await settle();
+  };
+
+  // where to put the next fruit: as many same-colour neighbours as possible, and away from
+  // the edges of a filling board so the run does not choke itself
+  const bestCell = () => {
+    const want = F.nextColor, R = 2;
+    let best = null, bestScore = -1e9;
+    for (let r = 0; r < F.ROWS; r++) for (let c = 0; c < F.COLS; c++) {
+      if (F.grid[r][c] !== -1) continue;
+      let same = 0, near = 0;
+      for (let dr = -R; dr <= R; dr++) for (let dc = -R; dc <= R; dc++) {
+        const nr = r + dr, nc = c + dc;
+        if ((!dr && !dc) || nr < 0 || nr >= F.ROWS || nc < 0 || nc >= F.COLS) continue;
+        if (F.grid[nr][nc] !== want) continue;
+        if (Math.max(Math.abs(dr), Math.abs(dc)) <= 1) same += 2; else near++;
+      }
+      const s = same * 3 + near;
+      if (s > bestScore) { bestScore = s; best = [r, c]; }
+    }
+    return best;
+  };
+
+  // what a strategy wants out of the shop and the trait screen
+  const WANT = {
+    none:    () => [],
+    greedy:  () => null,                       // anything, dearest first
+    coin:    () => ['coin'],
+    fruit:   () => ['fruit0', 'fruit3'],       // cherry/lemon: the cheap ones you can farm
+    cracker: () => ['risk'],
+    combo:   () => ['combo'],
+  };
+  const wants = (id, tags, isTrait) => {
+    if (!tags) return true;
+    if (!tags.length) return false;
+    const cats = isTrait
+      ? (F.TRAITS[id].effects || []).map(e => e.stat === 'oddsMult' || e.stat === 'fruitMult'
+          || e.stat === 'fruitCrown' || e.stat === 'stackOnPop' ? 'fruit' + e.target : e.stat)
+      : F.identity(id);
+    return tags.some(t => cats.some(c => c === t
+      || (t === 'coin' && /coin|payout|interest|discount/i.test(c))
+      || (t === 'risk' && /risk|cracker|brick/i.test(c))
+      || (t === 'combo' && /combo|streak|chain/i.test(c))));
+  };
+
+  const out = [];
+  for (const strat of STRATS) {
+    const tags = WANT[strat]();
+    for (let run = 0; run < RUNS; run++) {
+      F.start('rush');
+      await sleep(60);
+      await settle();
+      let coinsPeak = 0, coinsEarned = 0, lastCoins = 0, spent = 0, bought = 0, shops = 0;
+      const perStage = [];
+      let guard = 0;
+      while (F.running && F.stage <= MAX_STAGE && guard++ < 700) {
+        if (F.coins > lastCoins) coinsEarned += F.coins - lastCoins;
+        else spent += lastCoins - F.coins;
+        lastCoins = F.coins;
+        coinsPeak = Math.max(coinsPeak, F.coins);
+
+        if (shown('traits')) {
+          const offer = F.traitOffers.slice();
+          const pick = offer.find(id => wants(id, tags, true)) || offer[0];
+          F.pickTrait(pick);
+          await sleep(20);
+          continue;
+        }
+        if (shown('shop')) {
+          shops++;
+          for (let k = 0; k < 6; k++) {
+            const buyable = F.shopOffers.filter(id => !F.shopSold.has(id)
+              && F.coins >= F.priceOf(F.RELICS[id]) && F.relics.length < F.relicCap());
+            if (!buyable.length) break;
+            const pref = buyable.filter(id => wants(id, tags, false));
+            // null = "anything, dearest first"; an empty list = "buy nothing at all".
+            // Treating both as falsy made the buy-nothing control buy everything.
+            const list = pref.length ? pref : (tags === null ? buyable : []);
+            if (!list.length) break;
+            list.sort((a, b) => F.RELICS[b].price - F.RELICS[a].price);
+            F.buyRelic(list[0]); bought++;
+            await sleep(10);
+          }
+          F.closeShop();
+          await sleep(40);
+          await settle();
+          continue;
+        }
+        // stage cleared? bank it and move on
+        const rn = $('rush-next');
+        if (!rn.classList.contains('hidden') && !rn.disabled) {
+          perStage.push({ st: F.stageLabel(F.stage), score: F.score, coins: F.coins });
+          rn.click();
+          await sleep(700);
+          await settle();
+          continue;
+        }
+        const cell = bestCell();
+        if (!cell) break;
+        await tap(cell[0], cell[1]);
+      }
+      out.push({ strat, stage: F.stage, label: F.stageLabel(F.stage), score: F.score,
+                 coins: F.coins, coinsPeak, coinsEarned, spent, bought, shops,
+                 relics: F.relics.length, traits: F.traits.length,
+                 perStage: perStage.slice(0, 12) });
+      F.gameOver('bot');
+      await sleep(60);
+      F.showMenu();
+      await sleep(40);
+    }
+  }
+  document.title = 'RESULT ' + JSON.stringify(out);
+ } catch (e) { document.title = 'THREW ' + e.message + ' | ' + (e.stack || '').slice(0, 200); }
+}, 700));
+</script></body>
 </html>

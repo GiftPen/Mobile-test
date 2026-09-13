@@ -1282,6 +1282,60 @@ window.addEventListener('load', () => setTimeout(() => {
     F.traits = []; F.doubles = 0; F.applyRelics(); F.resetRun();
   })();
 
+  // ---- a card that states an increment must apply that increment ----
+  // The descriptions used to read "+0.2 (0.2 → 0.4)". The pair is a lie as soon as anything
+  // else moves the same number, so only the increment is printed -- which only helps if the
+  // printed increment is the real one.
+  (() => {
+    F.setLang('ko');
+    const num = t => { const m2 = /\+\s*([\d.]+)/.exec(t); return m2 ? +m2[1] : null; };
+    const wrong = [], checked = [];
+    const CASES = [
+      ['덩어리 보너스', () => F.chainBonus(2) - 1, 'clusterStep'],
+      ['콤보 증가폭',   () => F.STREAK_STEP,       'comboStep'],
+      ['콤보 상한',     () => F.STREAK_CAP,        'comboCap'],
+    ];
+    for (const [label, read, key] of CASES) {
+      for (const id of Object.keys(F.RELICS)) {
+        const t = F.RELICS[id].desc;
+        if (typeof t !== 'string' || !t.startsWith(label)) continue;
+        const said = num(t);
+        F.mode = 'rush'; F.resetRun(); F.relics = []; F.applyRelics();
+        const before = read();
+        F.relics = [id]; F.applyRelics();
+        const moved = read() - before;
+        checked.push(id);
+        if (said == null || Math.abs(moved - said) > 0.011)
+          wrong.push(`${id} says +${said}, moves ${+moved.toFixed(3)}`);
+      }
+      for (const id of Object.keys(F.TRAITS)) {
+        const T = F.TRAITS[id];
+        const t = T.desc(F.traitEffects(T, 1));
+        if (typeof t !== 'string' || !t.startsWith(label)) continue;
+        const said = num(t);
+        F.mode = 'rush'; F.resetRun(); F.traits = []; F.applyRelics();
+        const before = read();
+        F.traits = [{ id, amount: 1 }]; F.applyRelics();
+        const moved = read() - before;
+        checked.push(id);
+        if (said == null || Math.abs(moved - said) > 0.011)
+          wrong.push(`${id} says +${said}, moves ${+moved.toFixed(3)}`);
+      }
+    }
+    F.relics = []; F.traits = []; F.applyRelics(); F.resetRun();
+    schk('there are increment cards to check', checked.length >= 6, true);
+    schk('every stated increment is the real one', wrong, []);
+    // and none of them still prints the old "(base → result)" pair
+    const stale = [];
+    for (const id of Object.keys(F.RELICS))
+      if (typeof F.RELICS[id].desc === 'string' && /\(.*→.*\)/.test(F.RELICS[id].desc)) stale.push(id);
+    for (const id of Object.keys(F.TRAITS)) {
+      const t = F.TRAITS[id].desc(F.traitEffects(F.TRAITS[id], 1));
+      if (typeof t === 'string' && /\(.*→.*\)/.test(t)) stale.push(id);
+    }
+    schk('no card quotes a base value that stops being true', stale, []);
+  })();
+
   // ---- the coin build ----
   (() => {
     F.mode = 'rush'; F.resetRun();
