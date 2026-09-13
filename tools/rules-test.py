@@ -1103,6 +1103,28 @@ window.addEventListener('load', () => setTimeout(() => {
     const bare = F.fruitScore(0);
     F.relics = [crowns[0][0]]; F.applyRelics();
     const crowned = F.fruitScore(0);
+    // The size is pinned against what the CARD SAYS, not against the channel it moves --
+    // reading the expected number out of the game is how an assertion checks nothing. A
+    // crown that added where it should multiply still comes out "bigger", and every
+    // structural check below would still pass.
+    F.setLang('ko');
+    const promised = id => {
+      const m2 = /×\s*([\d.]+)/.exec(F.RELICS[id].desc);
+      return m2 ? +m2[1] : null;
+    };
+    const crownSaid = [];
+    for (let f = 0; f < 7; f++) {
+      const id = crowns[f][0];
+      const want = promised(id);
+      if (want == null) { crownSaid.push(id + ': says no number'); continue; }
+      F.mode = 'rush'; F.resetRun(); F.relics = []; F.applyRelics();
+      const b0 = F.fruitScore(f);
+      F.relics = [id]; F.applyRelics();
+      const got = F.fruitScore(f) / b0;
+      if (Math.abs(got - want) > 0.02) crownSaid.push(id + ': says ×' + want + ', does ×' + got.toFixed(3));
+    }
+    schk('every crown multiplies by the number on the card', crownSaid, []);
+    F.mode = 'rush'; F.resetRun(); F.relics = [crowns[0][0]]; F.applyRelics();
     schk('a crown multiplies the fruit', crowned > bare * 2, true);
     // the two rungs must not swallow each other
     F.relics = ['cherry_ruby']; F.applyRelics();
