@@ -1478,7 +1478,7 @@
   }
   // foldables resize the viewport live, mid-run: unfolding a Fold goes 344x882 -> 673x841
   // without a reload, so this has to re-fit rather than assume the size it booted at
-  window.addEventListener("resize", () => { checkViewport(); layout(); if (mfxRAF) mfxResize(); });
+  window.addEventListener("resize", () => { checkViewport(); layout(); if (mfxOn) mfxResize(); });
   window.addEventListener("orientationchange", () => { checkViewport(); layout(); });
 
   // ---- helpers ----
@@ -5903,6 +5903,13 @@
   const mfx = document.getElementById("menufx");
   const mctx = mfx.getContext("2d");
   let mfxRAF = 0, mfxFruits = [], mfxParts = [], mfxW = 0, mfxH = 0, mfxDpr = 1;
+  // Frame-paced motion runs at whatever the display happens to be doing: double speed on a
+  // 120Hz panel, and it LURCHES whenever the refresh rate changes -- which is what coming
+  // back from a game looks like on a phone that drops to 60Hz once the screen goes quiet.
+  // Paced by the clock instead, with a ceiling so a long gap cannot teleport the screen.
+  const MFX_STEP_MS = 1000 / 60;   // the rate the motion constants were tuned at
+  const MFX_MAX_K = 3;             // at most three frames' worth of catch-up in one frame
+  let mfxLast = 0;
 
   function mfxResize() {
     mfxDpr = Math.min(2, window.devicePixelRatio || 1);
@@ -5938,10 +5945,13 @@
         life: 0.75 + Math.random() * 0.4, color: col, r: f.size * (0.05 + Math.random() * 0.10) });
     }
   }
-  function mfxFrame() {
+  function mfxFrame(now) {
+    const t = now || performance.now();
+    const k = Math.min(MFX_MAX_K, mfxLast ? (t - mfxLast) / MFX_STEP_MS : 1);
+    mfxLast = t;
     mctx.clearRect(0, 0, mfxW, mfxH);
     for (const f of mfxFruits) {
-      f.x += f.vx; f.y += f.vy; f.rot += f.vr; f.age++;
+      f.x += f.vx * k; f.y += f.vy * k; f.rot += f.vr * k; f.age += k;
       // wrap around edges so they keep using the whole screen
       const m = f.size;
       if (f.x < -m) f.x += mfxW + 2 * m; else if (f.x > mfxW + m) f.x -= mfxW + 2 * m;
@@ -5965,26 +5975,37 @@
     for (let i = mfxParts.length - 1; i >= 0; i--) {
       const p = mfxParts[i];
       if (p.type === "ring") {
-        p.rad += 2.2; p.life -= 0.05;
+        p.rad += 2.2 * k; p.life -= 0.05 * k;
         if (p.life <= 0) { mfxParts.splice(i, 1); continue; }
         mctx.save(); mctx.globalAlpha = Math.max(0, p.life) * 0.6; mctx.strokeStyle = p.color;
         mctx.lineWidth = 2; mctx.beginPath(); mctx.arc(p.x, p.y, p.rad, 0, PI2); mctx.stroke(); mctx.restore();
         continue;
       }
-      p.vy += 0.13; p.x += p.vx; p.y += p.vy; p.life -= 0.02;
+      p.vy += 0.13 * k; p.x += p.vx * k; p.y += p.vy * k; p.life -= 0.02 * k;
       if (p.life <= 0) { mfxParts.splice(i, 1); continue; }
       mctx.save(); mctx.globalAlpha = Math.max(0, Math.min(1, p.life)); mctx.fillStyle = p.color;
       mctx.beginPath(); mctx.arc(p.x, p.y, p.r, 0, PI2); mctx.fill(); mctx.restore();
     }
-    mfxRAF = requestAnimationFrame(mfxFrame);
+  }
+  // Stepping and looping are separate on purpose. mfxFrame used to re-schedule itself, so
+  // calling it once from anywhere spawned a second loop that nothing held the handle to --
+  // and two loops is exactly the shape of "the fruit suddenly moves twice as fast". Whether
+  // the loop runs is now a flag, so a missed cancel cannot leave one running either.
+  let mfxOn = false;
+  function mfxLoop(t) {
+    mfxFrame(t);
+    if (mfxOn) mfxRAF = requestAnimationFrame(mfxLoop);
   }
   function mfxStart() {
-    if (mfxRAF) return;
+    if (mfxOn) return;
+    mfxOn = true;
+    mfxLast = 0;              // resuming is not a three-second frame: start the clock fresh
     mfxResize();
     if (!mfxFruits.length) { mfxFruits = Array.from({ length: 9 }, () => { const f = {}; mfxInit(f); f.age = (Math.random() * f.life | 0); return f; }); }
-    mfxRAF = requestAnimationFrame(mfxFrame);
+    mfxRAF = requestAnimationFrame(mfxLoop);
   }
   function mfxStop() {
+    mfxOn = false;
     if (mfxRAF) { cancelAnimationFrame(mfxRAF); mfxRAF = 0; }
     mctx.clearRect(0, 0, mfxW, mfxH);
   }
@@ -6504,6 +6525,8 @@
       start, showMenu, gameOver,
       set revivedThisRun(v) { revivedThisRun = v; },
       renderSettings, openTraits, openInfo, openSettings, closeSettings, renderMenuSettings,
+      mfxStart, mfxStop, mfxFrame, MFX_STEP_MS, MFX_MAX_K, get mfxOn() { return mfxOn; },
+      get mfxFruits() { return mfxFruits; }, get mfxParts() { return mfxParts; },
       openBook, closeBook, renderBook, bookAll, bookEntries, markSeen, SEEN_KEY,
       get seen() { return seen; }, set seen(v) { seen = v; },
       get bookTab() { return bookTab; }, set bookTab(v) { bookTab = v; },
