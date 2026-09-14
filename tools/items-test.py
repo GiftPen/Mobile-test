@@ -16,6 +16,18 @@ const sleep = ms => new Promise(r => setTimeout(r, ms));
 // headless produces no frames, so rAF never fires -- pump draw() to advance animation
 const pump = async (frames, gap) => { for (let i = 0; i < frames; i++)
   { window.__fs.draw(); await sleep(gap || 8); } };
+// Fixed frame counts are a load-dependent bet: 'one adjacent pop breaks a cracker' failed
+// twice out of eight runs while a balance sweep was using the CPU, and passed alone. Wait for
+// the board to actually be idle instead, with a cap far past any real chain.
+const settle = async (max = 600) => {
+  for (let i = 0; i < max; i++) {
+    const F = window.__fs;
+    F.draw();
+    if (!F.busy && !F.links.length && !F.birds.length) return true;
+    await sleep(8);
+  }
+  return false;
+};
 window.addEventListener('load', async () => {
  try {
   await sleep(700);
@@ -415,7 +427,7 @@ window.addEventListener('load', async () => {
     const x = rr.left + 4.5 * rr.width / F.COLS, y = rr.top + 3.5 * rr.height / F.ROWS;
     cv.dispatchEvent(new PointerEvent('pointerdown', {clientX:x, clientY:y, bubbles:true}));
     cv.dispatchEvent(new PointerEvent('pointerup',   {clientX:x, clientY:y, bubbles:true}));
-    await pump(100, 12);
+    await settle();
     return { gone: F.grid[2][4] === -1, score: F.score, coins: F.coins };
   };
   const plainBreak = await breakOne([]);
@@ -457,6 +469,65 @@ window.addEventListener('load', async () => {
       F.CRACKER_KING_STEP !== F.CRACKER_SCORE, true);
   F.resetRun();
   chk('a new run starts it over', F.crackerValue(), F.CRACKER_SCORE);
+
+  // ---- consumables: marked as temporary, and available at every grade ----
+  const temp = Object.keys(F.RELICS).filter(id => F.RELICS[id].life);
+  const tiersWithTemp = [...new Set(temp.map(id => F.relicTier(F.RELICS[id])))].sort();
+  // the pool used to stop at 고급, so the "spend it now" decision vanished after round 2
+  chk('every grade has a consumable',
+      F.TIER_KEYS.filter(t => !tiersWithTemp.includes(t)), []);
+  chk('and there are enough of them to choose between', temp.length >= 12, true);
+
+  // it has to actually run out, and give its channel back when it does
+  F.mode = 'rush'; F.resetRun(); F.relics = []; F.traits = []; F.applyRelics();
+  const baseTouch = F.stageTouches();
+  F.relics = ['teapot']; F.relicLife = { teapot: 2 }; F.applyRelics();
+  chk('a consumable works while it lasts', F.stageTouches(), baseTouch + 5);
+  F.tickRelicLife('stages');
+  chk('and still works with one left', F.stageTouches(), baseTouch + 5);
+  F.tickRelicLife('stages');
+  chk('then expires and hands the channel back', F.stageTouches(), baseTouch);
+  chk('and leaves the shelf', F.relics.includes('teapot'), false);
+
+  // the shop card marks it where the GRADE is, not only in the price line
+  F.mode = 'rush'; F.resetRun(); F.relics = []; F.traits = []; F.applyRelics();
+  F.shopOffers = ['teapot', 'pinch']; F.shopSold = new Set(); F.coins = 99;
+  F.renderShop();
+  const cards = [...document.querySelectorAll('#sh-offers .offer')];
+  const marked = cards.map(c => !!c.querySelector('.of-temp'));
+  chk('the temporary one is marked on its grade, the permanent one is not', marked, [true, false]);
+
+  // ---- selling asks, and the question can be answered "no" ----
+  F.relics = ['pinch']; F.applyRelics();
+  $('shop').classList.remove('hidden');
+  F.dropArmed = null;
+  F.openInfo('relics');
+  const sellBtn = () => document.querySelector('#info-body .inf-drop:not(.inf-cancel)');
+  // a missing button is a FAILURE, not a throw: clicking null aborts the whole suite and the
+  // single 'threw' entry then hides every other check that was going to report
+  const press = (el, what) => { if (el) el.click();
+    else fails.push({ check: what, got: 'no such button', want: 'a button to press' }); };
+  press(sellBtn(), 'sell button exists');
+  chk('one tap arms the question', F.dropArmed, 'pinch');
+  chk('and does not sell yet', F.relics.slice(), ['pinch']);
+  const cancel = document.querySelector('#info-body .inf-cancel');
+  chk('an armed question offers a way out', !!cancel, true);
+  press(cancel, 'cancel button exists');
+  chk('cancel disarms it', F.dropArmed, null);
+  chk('and the relic is still there', F.relics.slice(), ['pinch']);
+  press(sellBtn(), 'sell button after cancel');
+  press(sellBtn(), 'sell button second tap');
+  chk('two taps still sell it', F.relics.slice(), []);
+  $('shop').classList.add('hidden');
+  F.closeInfo ? F.closeInfo() : $('info').classList.add('hidden');
+
+  // ---- the trait screen says what you can afford ----
+  F.mode = 'rush'; F.resetRun(); F.relics = []; F.traits = []; F.applyRelics();
+  F.coins = 47;
+  F.traitOffers = F.rollTraits();
+  F.renderTraits();
+  chk('the trait screen shows the balance, not just the reroll price',
+      $('tr-coin').textContent, '47');
 
   // ---- a multiplier is LIVE, not a snapshot taken the moment you bought it ----
   // The question: if you have already built a pile, does buying x2 double the pile, or only

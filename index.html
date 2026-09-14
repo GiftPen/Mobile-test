@@ -577,6 +577,10 @@
   /* green, and a plus sign: this hands coins back, it does not charge for them */
   /* armed to sell: the second tap is the one that does it, so it has to look different */
   .inf-drop.armed { background: #e5484d !important; color: #fff !important; }
+  .inf-acts { display: flex; align-items: center; gap: 4px; }
+  .inf-cancel { background: #2a2f45 !important; color: #cbd3e6 !important; margin-left: 0 !important; }
+  /* the hourglass sits ON the grade, so "일반 ⏳" reads as one label rather than two chips */
+  .of-temp { margin-left: 3px; font-size: 9px; letter-spacing: 0; -webkit-text-fill-color: initial; }
   .inf-drop { margin: 0 0 0 8px; padding: 6px 10px; font-size: 11px; font-weight: 800;
     border-radius: 999px; background: #1e3328; color: #7ee0a0; box-shadow: none;
     border: 1px solid rgba(126,224,160,.35); font-family: inherit; white-space: nowrap; }
@@ -641,6 +645,7 @@
     <div class="shop-card">
       <div class="shop-head">
         <span class="shop-title" data-i18n="traitPick">특성 선택</span>
+        <span class="chip coin"><i class="cn"></i> <b id="tr-coin">0</b></span>
         <span>
           <button id="tr-info" class="ghost-btn">📜</button>
           <button id="tr-reroll" class="ghost-btn">🔄 <i class="cn"></i><b id="tr-reroll-cost">3</b></button>
@@ -2177,6 +2182,13 @@
         first_step: "첫걸음",
         flock: "참새떼",
         focus: "단기 집중",
+        teapot: "찻주전자",
+        gold_dust: "금가루",
+        fruit_crate: "과일 상자",
+        golden_rain: "황금비",
+        storm_front: "폭풍 전야",
+        crescendo: "절정",
+        last_feast: "마지막 축제",
         frenzy: "폭주",
         gold_vein: "금맥",
         golden_banana: "황금 바나나",
@@ -2291,6 +2303,8 @@
       goldenCity: (z, c) => `보너스 영역 +${z}칸 · 영역 안에서 터뜨리면 코인 +${c} · 영역 점수 ×2 · 코인 과일 확률 +10%p`,
       itemBasket: n => `🧺 과일 바구니 — 판에 과일 ${n}개를 채웁니다`,
       sellSure: "정말 팔기?",
+      sellCancel: "취소",
+      tempRelic: "일시적 — 시간이 지나면 사라집니다",
       stackAllPop: n => `과일을 터뜨릴 때마다 그 과일 점수 +${n}`,
       bakerTrait: (pct, n) => `새 과일의 ${pct}%가 크래커 · 크래커 점수 +${n}`,
       sharpEye: (f, n) => `참새 ${f}마리 · 아이템이 ${n}개 적게 터뜨려도 생깁니다`,
@@ -2530,6 +2544,13 @@
         first_step: "First Step",
         flock: "Flock",
         focus: "Short Focus",
+        teapot: "Teapot",
+        gold_dust: "Gold Dust",
+        fruit_crate: "Fruit Crate",
+        golden_rain: "Golden Rain",
+        storm_front: "Storm Front",
+        crescendo: "Crescendo",
+        last_feast: "Last Feast",
         frenzy: "Frenzy",
         gold_vein: "Gold Vein",
         golden_banana: "Golden Banana",
@@ -2644,6 +2665,8 @@
       goldenCity: (z, c) => `+${z} bonus-zone cells · +${c} coin inside it · zone score ×2 · coin fruit +10%p`,
       itemBasket: n => `🧺 Fruit Basket — drops ${n} fruit onto the board`,
       sellSure: "Sell it?",
+      sellCancel: "Cancel",
+      tempRelic: "Temporary — it runs out",
       stackAllPop: n => `Every fruit popped raises that fruit by +${n}`,
       bakerTrait: (pct, n) => `${pct}% of new fruit are crackers · cracker score +${n}`,
       sharpEye: (f, n) => `${f} sparrows · items need ${n} fewer pops`,
@@ -2883,6 +2906,13 @@
         first_step: "第一歩",
         flock: "スズメの群れ",
         focus: "短期集中",
+        teapot: "ティーポット",
+        gold_dust: "金粉",
+        fruit_crate: "フルーツ箱",
+        golden_rain: "黄金の雨",
+        storm_front: "嵐の前",
+        crescendo: "クレッシェンド",
+        last_feast: "最後の祝祭",
         frenzy: "暴走",
         gold_vein: "金脈",
         golden_banana: "黄金のバナナ",
@@ -2996,6 +3026,8 @@
       goldenCity: (z, c) => `ボーナス領域 +${z}マス · 領域内で割ると コイン +${c} · 領域スコア ×2 · コイン付き +10%p`,
       itemBasket: n => `🧺 フルーツかご — 盤面にフルーツを ${n} 個 補充します`,
       sellSure: "本当に売る?",
+      sellCancel: "キャンセル",
+      tempRelic: "一時的 — 期限が切れると消えます",
       stackAllPop: n => `フルーツを割るたびに そのフルーツのスコア +${n}`,
       bakerTrait: (pct, n) => `新しいフルーツの${pct}%がクラッカー · クラッカーのスコア +${n}`,
       sharpEye: (f, n) => `スズメ ${f} 羽 · アイテムが ${n} 個 少なく割っても出る`,
@@ -3235,6 +3267,13 @@
         first_step: "第一步",
         flock: "雀群",
         focus: "短期专注",
+        teapot: "茶壶",
+        gold_dust: "金粉",
+        fruit_crate: "水果箱",
+        golden_rain: "黄金雨",
+        storm_front: "暴风前夕",
+        crescendo: "高潮",
+        last_feast: "最后的盛宴",
         frenzy: "暴走",
         gold_vein: "金脉",
         golden_banana: "黄金香蕉",
@@ -3348,6 +3387,8 @@
       goldenCity: (z, c) => `奖励区域 +${z} 格 · 区域内消除金币 +${c} · 区域分数 ×2 · 带金币水果 +10%p`,
       itemBasket: n => `🧺 水果篮 — 在盘面补充 ${n} 个水果`,
       sellSure: "确定卖出?",
+      sellCancel: "取消",
+      tempRelic: "临时 — 用完即消失",
       stackAllPop: n => `每消除一个水果，该水果分数 +${n}`,
       bakerTrait: (pct, n) => `新水果中 ${pct}% 变饼干 · 饼干分数 +${n}`,
       sharpEye: (f, n) => `麻雀 ${f} 只 · 道具少消除 ${n} 个也能出现`,
@@ -3905,6 +3946,29 @@
       desc: () => d("comboCap", 2.0), apply() { STREAK_CAP += 2; } },
     sugar_rush: { icon: "🍬", price: 8, life: { unit: "touches", amount: 20 },
       desc: () => d("allFlat", 25), apply() { for (let i = 0; i < fruitFlat.length; i++) fruitFlat[i] += 25; } },
+    // The clock is the price. Every one of these is worth more per coin than a permanent at
+    // the same money, and the decision it creates is WHEN -- you buy one when the next quota
+    // looks out of reach, not when you have spare change. The pool used to stop at 고급,
+    // which meant that decision disappeared from the second half of a run entirely.
+    // the permanent touch ladder is +1/+2/+3 at 5/9/13, so a consumable that gave +2 was
+    // 지구력 with an expiry date -- same sentence, worse card. It buys a burst instead.
+    teapot: { icon: "🫖", price: 6, life: { unit: "stages", amount: 2 },
+      desc: () => d("touch", 5), apply() { touchBonus += 5; } },
+    gold_dust: { icon: "✨", price: 12, life: { unit: "stages", amount: 2 },
+      desc: () => d("payoutPct", 100), apply() { payoutMult += 1; } },
+    fruit_crate: { icon: "📦", price: 14, life: { unit: "touches", amount: 20 },
+      desc: () => d("allFlat", 40),
+      apply() { for (let i = 0; i < fruitFlat.length; i++) fruitFlat[i] += 40; } },
+    golden_rain: { icon: "🌧️", price: 17, life: { unit: "touches", amount: 20 },
+      desc: () => d("coinFruit", 60), apply() { coinFruitBonus += 0.6; } },
+    storm_front: { icon: "⛈️", price: 18, life: { unit: "stages", amount: 1 },
+      desc: () => d("popMult", 2), modify: { pop: v => Math.round(v * 2) } },
+    crescendo: { icon: "🎼", price: 24, life: { unit: "stages", amount: 1 },
+      desc: () => d("popMult", 3), modify: { pop: v => Math.round(v * 3) } },
+    // a legendary that expires is a wall-breaker, not a build: two stages of x6 is enough to
+    // push through a quota you could not otherwise reach, and then it is gone
+    last_feast: { icon: "🎆", price: 32, life: { unit: "stages", amount: 2 },
+      desc: () => d("popMult", 6), modify: { pop: v => Math.round(v * 6) } },
 
     // ---- G. stacking: value that grows with play, not with the shop ----
     piggy_cherry: { icon: "🐷", price: 15,
@@ -5651,6 +5715,14 @@
       card.style.borderColor = tier.color + "66";
       const gr = document.createElement("span");
       gr.className = "of-tier"; gr.textContent = tier.name; gr.style.color = tier.color;
+      // a consumable reads as permanent until you have lost one: the duration was only on the
+      // price line, where it looks like part of the price. Mark it where the grade is.
+      if (R.life) {
+        const tm = document.createElement("span");
+        tm.className = "of-temp"; tm.textContent = "⏳";
+        tm.title = d("tempRelic");
+        gr.appendChild(tm);
+      }
       const nm = document.createElement("b"); nm.className = "of-name"; nm.textContent = R.name;
       const ic = relicIcon(id, "of-ic");
       // the description always shows: you cannot decide what to sell without knowing what
@@ -5734,6 +5806,9 @@
   }
   function renderTraits() {
     const rr = $sh("tr-reroll");
+    // the reroll price means nothing without the balance beside it: you cannot tell whether
+    // you can afford one, let alone how many
+    $sh("tr-coin").textContent = fmtNum(coins);
     rr.disabled = coins < traitReroll || !traitOffers.length;
     $sh("tr-reroll-cost").textContent = traitReroll;
     const btn = $sh("tr-double");
@@ -5853,16 +5928,28 @@
         const inert = i >= relicCap();
         let act = null;
         if (inShop) {
-          act = document.createElement("button");
-          act.className = "inf-drop";
+          act = document.createElement("span");
+          act.className = "inf-acts";
+          const sell = document.createElement("button");
+          sell.className = "inf-drop";
           // "버리기 🪙5" read as though it cost 5. Say what actually happens: you sell it
           // and money comes back.
-          setCoinText(act, dropArmed === id ? d("sellSure") : d("sellFor", Math.floor(R.price / 2)));
-          act.classList.toggle("armed", dropArmed === id);
-          act.addEventListener("click", e => { e.stopPropagation(); discardRelic(i); });
+          setCoinText(sell, dropArmed === id ? d("sellSure") : d("sellFor", Math.floor(R.price / 2)));
+          sell.classList.toggle("armed", dropArmed === id);
+          sell.addEventListener("click", e => { e.stopPropagation(); discardRelic(i); });
+          act.appendChild(sell);
+          // An armed question with no way out is a trap: the only ways to answer "정말?" were
+          // to sell it or to leave the shop. Say no in place.
+          if (dropArmed === id) {
+            const no = document.createElement("button");
+            no.className = "inf-drop inf-cancel";
+            no.textContent = d("sellCancel");
+            no.addEventListener("click", e => { e.stopPropagation(); dropArmed = null; renderInfo(); });
+            act.appendChild(no);
+          }
         }
         const left = relicLife[id];
-        row(relicIcon(id, "inf-ic"), R.name, inert ? d("relicOff") : R.desc,
+        row(relicIcon(id, "inf-ic"), R.name + (R.life ? " ⏳" : ""), inert ? d("relicOff") : R.desc,
             inert ? d("inactive") : (left ? d("lifeLeft", left, lifeUnitLabel(R.life.unit)) : ""),
             inert, act);
       });
