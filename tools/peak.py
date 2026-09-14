@@ -23,6 +23,7 @@ ARGS = sys.argv[1:]
 def opt(name, dflt):
     return int(ARGS[ARGS.index(name) + 1]) if name in ARGS else dflt
 STAGES = opt('--stages', 30)
+POLL = opt('--poll', 8)      # ms between settle polls: bigger = fewer canvas draws per chain
 REPEAT = opt('--repeat', 2)
 # one build per process: a sweep of thirteen in series is an hour, and they are independent
 OUT = ARGS[ARGS.index('--out') + 1] if '--out' in ARGS else '/tmp/peak-last.json'
@@ -34,7 +35,7 @@ const sleep = ms => new Promise(r => setTimeout(r, ms));
 window.addEventListener('load', () => setTimeout(async () => {
  try {
   const F = window.__fs, $ = id => document.getElementById(id), cv = $('game');
-  const STAGES = window.__STAGES, ONLY = window.__ONLY;
+  const STAGES = window.__STAGES, ONLY = window.__ONLY, POLL_MS = window.__POLL || 8;
   const shown = id => !$(id).classList.contains('hidden');
 
   // ---- who belongs to which build -------------------------------------------------
@@ -80,7 +81,10 @@ window.addEventListener('load', () => setTimeout(async () => {
   // a fruit build takes its OWN relics first, then spends what is left on the all-fruit ones
   // (풍요의뿔, 프리즘) -- sorting purely by price would hand all seven builds the same list
   const forTag = (tag, isFruit) => {
-    const mine = Object.keys(F.RELICS).filter(id => has(tagOf[id], tag));
+    // consumables are left out on purpose: a forced build is the PERMANENT core, and a card
+    // that expires mid-run would quietly change the thing being measured halfway through.
+    // Deciding when to spend on one is a separate question from how high a build reaches.
+    const mine = Object.keys(F.RELICS).filter(id => has(tagOf[id], tag) && !F.RELICS[id].life);
     const own = id => !isFruit || [...tagOf[id]].filter(x => /^fruit\d$/.test(x)).length <= 2;
     return mine.sort((a, b) => (own(b) - own(a)) || (price(b) - price(a)));
   };
@@ -102,7 +106,7 @@ window.addEventListener('load', () => setTimeout(async () => {
     for (let i = 0; i < max; i++) {
       if (F.links.length || F.birds.length) F.draw();
       if (!F.busy && !F.links.length && !F.birds.length) return true;
-      await sleep(8);
+      await sleep(POLL_MS);
     }
     return false;
   };
@@ -155,6 +159,11 @@ window.addEventListener('load', () => setTimeout(async () => {
         continue;
       }
       if (shown('shop')) { F.closeShop(); await sleep(40); await settle(); continue; }
+      // Headless Chrome marks a page hidden when several run at once, and the game pauses a
+      // live run on visibilitychange -- correct behaviour, but #pause is not in MODAL_IDS, so
+      // nothing here saw it and the run sat paused until the guard ran out. That is what made
+      // 키위 look like it stopped at stage 4 while still alive.
+      if (shown('pause')) { $('btn-resume').click(); await sleep(40); await settle(); continue; }
       if (F.stage !== seenStage) {                // the engine closed it for us
         rows.push({ st: seenStage, quota: F.rules().quota(seenStage), got: best, taps });
         seenStage = F.stage; best = 0; taps = 0;
@@ -191,13 +200,17 @@ def play(build, stages):
     # each process deleting the page the others were still loading -- twelve of thirteen runs
     # came back empty before this
     page = f'_peak-{os.getpid()}.html'
-    head = (f"<script>window.__STAGES={stages};"
+    head = (f"<script>window.__STAGES={stages};window.__POLL={POLL};"
             f"window.__ONLY={json.dumps([build] if build else [])};</script>")
     open(page, 'w', encoding='utf-8').write(
         open('index.html', encoding='utf-8').read().replace('</body>', head + TEST + '</body>'))
     try:
         out = subprocess.run(['/Applications/Google Chrome.app/Contents/MacOS/Google Chrome',
             '--headless', '--disable-gpu', '--no-first-run', '--window-size=430,932',
+            # stop Chrome deciding the page is hidden when several of these run at once: the
+            # game pauses a live run on visibilitychange, which stalled whole measurements
+            '--disable-backgrounding-occluded-windows', '--disable-renderer-backgrounding',
+            '--disable-background-timer-throttling',
             '--virtual-time-budget=2400000', '--dump-dom',
             f'http://localhost:8899/{page}?test=1'],
             capture_output=True, text=True, timeout=2700).stdout
