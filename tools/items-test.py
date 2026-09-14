@@ -300,6 +300,26 @@ window.addEventListener('load', async () => {
     await pump(40, 12);
   }
   chk('and it grows back into a kiwi', F.grid[sr][sc], 2);
+  chk('the revived kiwi is marked as such', F.sprouted[sr][sc], 1);
+
+  // ...and that is the END of the chain. The loop used to be endless: kiwi -> seed -> kiwi ->
+  // seed, with the per-pop ledgers raising the value of each one, which put an assembled kiwi
+  // build at thirty times any other fruit. One revival per kiwi makes the total finite.
+  F.mode = 'rush'; F.resetRun(); F.relics = ['kiwi_seed']; F.applyRelics();
+  F.busy = false;
+  clearBoard();
+  for (let r = 0; r < F.ROWS; r++) for (let c = 0; c < F.COLS; c++) F.sprouted[r][c] = 0;
+  F.grid[4][4] = 2; F.sprouted[4][4] = 1;        // a kiwi that came from a seed
+  F.grid[4][5] = 2; F.grid[5][4] = 2;            // ...and two ordinary ones beside it
+  F.nextColor = 2; F.nextColor2 = 2;
+  const rc3 = cv.getBoundingClientRect();
+  const px3 = rc3.left + 5.5 * rc3.width / F.COLS, py3 = rc3.top + 5.5 * rc3.height / F.ROWS;
+  cv.dispatchEvent(new PointerEvent('pointerdown', {clientX:px3, clientY:py3, bubbles:true}));
+  cv.dispatchEvent(new PointerEvent('pointerup',   {clientX:px3, clientY:py3, bubbles:true}));
+  await settle();
+  chk('a kiwi grown from a seed leaves no second seed', F.grid[4][4] === F.SEED, false);
+  chk('while an ordinary kiwi beside it still does', F.grid[4][5], F.SEED);
+  chk('and the mark is cleared with the cell', F.sprouted[4][4], 0);
 
   // 바나나 군락 — converts what it did not take. Counted on NAMED cells: every turn spawns
   // fresh fruit, so a board-wide tally of bananas measures the spawner, not the relic.
@@ -428,10 +448,14 @@ window.addEventListener('load', async () => {
     cv.dispatchEvent(new PointerEvent('pointerdown', {clientX:x, clientY:y, bubbles:true}));
     cv.dispatchEvent(new PointerEvent('pointerup',   {clientX:x, clientY:y, bubbles:true}));
     await settle();
-    return { gone: F.grid[2][4] === -1, score: F.score, coins: F.coins };
+    return { gone: F.grid[2][4] === -1, score: F.score, coins: F.coins,
+             why: { at24: F.grid[2][4], hp24: F.hp[2][4], placed: F.grid[3][4],
+                    n35: F.grid[3][5], n44: F.grid[4][4], n45: F.grid[4][5],
+                    busy: F.busy, touches: F.touchesLeft } };
   };
   const plainBreak = await breakOne([]);
-  chk('one adjacent pop breaks a cracker', plainBreak.gone, true);
+  chk('one adjacent pop breaks a cracker',
+      plainBreak.gone ? true : JSON.stringify(plainBreak.why), true);
   chk('a cracker is worth its base score',
       plainBreak.score >= F.CRACKER_SCORE, true);
 

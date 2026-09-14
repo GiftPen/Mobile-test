@@ -1430,6 +1430,11 @@
   let crackerImg = null;      // the obstacle's art -- one piece, one hit
   let glow;                    // glow[r][c] = {c: colorIdx, t: 0..1}
   let coinCell;                // coinCell[r][c] = 1 when this fruit spawned carrying a coin
+  // sprouted[r][c] = 1 when this kiwi grew from a seed. A kiwi that grew from a seed does NOT
+  // leave another one: without that the loop is endless, and endless is what made the kiwi
+  // build score thirty times the other fruits (measured). One revival per kiwi keeps the
+  // relic's promise -- "a popped kiwi leaves a seed" -- while making the total finite.
+  let sprouted;
   let ghost;                   // ghost[r][c] = colorIdx of a cell already cleared in logic
                                // but not yet visually popped -- keeps the fruit on screen
                                // until ITS staggered burst fires, so a blast reads as fruit
@@ -1523,7 +1528,7 @@
   function resetRun() {
     ROWS = 8;                              // Star Rush grows this mid-run; runs start at 8
     grid = layer(-1); special = layer(null); hp = layer(0);
-    coinCell = layer(0);
+    coinCell = layer(0); sprouted = layer(0);
     glow = layer(null); appear = layer(0); ghost = layer(null);   // display-only layers
     nextColor = null; nextColor2 = null;   // null queue -> pickNext refills both slots
     score = 0; streak = 0; touchCount = 0;
@@ -1551,7 +1556,7 @@
     layout();                              // ROWS may have changed -> resize the board
   }
   function serializeRun() {
-    return { v: RUN_VERSION, mode, rows: ROWS, grid, special, hp, coinCell,
+    return { v: RUN_VERSION, mode, rows: ROWS, grid, special, hp, coinCell, sprouted,
              nextColor, nextColor2, score, streak, touchCount,
              stage, stageScore, touchesLeft, coins, oddsMult, fruitMult,
              fruitStack, fruitBoost, relics, relicLife, traits, doubles, coinsSpent, crackerScore };
@@ -1563,6 +1568,8 @@
     ({ grid, special, hp, coinCell, nextColor, nextColor2, score, streak, touchCount,
        stage, stageScore, touchesLeft, coins, oddsMult, fruitMult,
        fruitStack, fruitBoost, relics, relicLife, traits, doubles } = o);
+    // absent in an older save: an empty layer just means no kiwi is mid-revival yet
+    sprouted = o.sprouted || layer(0);
     coinsSpent = o.coinsSpent || 0;              // absent in an older save: start it at zero
     crackerScore = o.crackerScore || CRACKER_SCORE;
     coinsShown = coins; clearCoinFly();
@@ -4156,7 +4163,7 @@
     while (ROWS < want) {
       ROWS++;
       for (const [lyr, fill] of [[grid,-1],[special,null],[hp,0],[coinCell,0],
-                                 [glow,null],[appear,0],[ghost,null]])
+                                 [sprouted,0],[glow,null],[appear,0],[ghost,null]])
         if (lyr) lyr.push(Array(COLS).fill(fill));
     }
     layout();
@@ -4962,12 +4969,15 @@
     // a seed planted this turn must not be counted down by the same turn.
     for (let r = 0; r < ROWS; r++) for (let c = 0; c < COLS; c++) {
       if (grid[r][c] !== SEED) continue;
-      if (--hp[r][c] <= 0) { grid[r][c] = 2; hp[r][c] = 0; appear[r][c] = 1; dirty = true; }
+      if (--hp[r][c] <= 0) {
+        grid[r][c] = 2; hp[r][c] = 0; appear[r][c] = 1; sprouted[r][c] = 1; dirty = true;
+      }
     }
     SFX.play("plant");
     buzz(12);                              // the tick under your thumb
     grid[r0][c0] = color;            // the placed ball (removed later if it clears)
     special[r0][c0] = null;
+    sprouted[r0][c0] = 0;            // a ball you placed is not a revived kiwi
     const R = BURST_RADIUS;
     const visited = Array.from({length: ROWS}, () => Array(COLS).fill(false));
     const placedSig = [];        // the ball you put down gets its own fruit's rule (see below)
@@ -5020,9 +5030,12 @@
           grid[nr][nc] = 6; appear[nr][nc] = 1; visited[nr][nc] = true; left--;
         }
     }
-    if (colorIdx === 2 && kiwiSeed) {             // 키위 씨앗: the cell grows back
+    // 키위 씨앗: the cell grows back -- once. A kiwi that came from a seed has had its turn,
+    // so it clears like any other fruit and the chain terminates.
+    if (colorIdx === 2 && kiwiSeed && !sprouted[r][c]) {
       grid[r][c] = SEED; hp[r][c] = SEED_TOUCHES; ghost[r][c] = null;
     }
+    sprouted[r][c] = 0;
   }
 
   // run the chain from an initial frontier; placement=true means a ball was placed
@@ -6219,7 +6232,7 @@
     const take = Math.ceil(filled.length * REVIVE_CLEAR);
     for (let i = 0; i < take && filled.length; i++) {
       const [r, c] = filled.splice(randInt(filled.length), 1)[0];
-      grid[r][c] = -1; hp[r][c] = 0; coinCell[r][c] = 0;
+      grid[r][c] = -1; hp[r][c] = 0; coinCell[r][c] = 0; sprouted[r][c] = 0;
     }
     touchesLeft = Math.max(touchesLeft, stageTouches());
     running = true; busy = false; paused = false;
@@ -6854,6 +6867,22 @@
           ctx.restore();
         }
 
+        // A revived kiwi will not leave another seed, and that changes whether this cell is
+        // about to be blocked -- which is tactical, so it has to be visible. A badge rather
+        // than a second sprite: at 40px a whole different kiwi would have to stop looking like
+        // a kiwi to read, and this is a state, not a kind. Upper-left, opposite the coin.
+        if (sprouted[r][c] && grid[r][c] === 2) {
+          const bx = x + cell * 0.24, by = y + cell * 0.24, br = cell * 0.15;
+          ctx.save();
+          ctx.fillStyle = "rgba(0,0,0,.45)";
+          ctx.beginPath(); ctx.arc(bx, by, br * 1.28, 0, PI2); ctx.fill();
+          ctx.fillStyle = "#43d17a";                       // the kiwi green
+          ctx.font = `700 ${Math.round(cell * 0.26)}px system-ui, sans-serif`;
+          ctx.textAlign = "center"; ctx.textBaseline = "middle";
+          ctx.fillText("🌱", bx, by + cell * 0.01);
+          ctx.restore();
+        }
+
         // a fruit that spawned carrying a coin wears it on its lower-right
         if (coinCell[r][c] && grid[r][c] >= 0) {
           const bx = x + cell * 0.76, by = y + cell * 0.76, br = cell * 0.15;
@@ -7400,6 +7429,7 @@
     if (tut.i >= TUT_STEPS.length) { finishTutorial(true); return; }
     // a clean slate each step: the lesson is the shape on the board, not what is left over
     grid = layer(-1); special = layer(null); hp = layer(0); coinCell = layer(0);
+    sprouted = layer(0);
     glow = layer(null); appear = layer(0); ghost = layer(null);
     const step = TUT_STEPS[tut.i];
     tut.target = step.setup();
@@ -7729,6 +7759,7 @@
       get traitOffers() { return traitOffers; }, set traitOffers(v) { traitOffers = v; },
       get graftArmed() { return graftArmed; }, set graftArmed(v) { graftArmed = v; },
       get coinCell() { return coinCell; }, set coinCell(v) { coinCell = v; },
+      get sprouted() { return sprouted; }, set sprouted(v) { sprouted = v; },
       get shopOffers() { return shopOffers; }, set shopOffers(v) { shopOffers = v; },
       get touchBonus() { return touchBonus; }, get spawnBonus() { return spawnBonus; },
       get slotBonus()  { return slotBonus; }, get crackerChance() { return crackerChance; },
