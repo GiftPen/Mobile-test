@@ -465,8 +465,6 @@ window.addEventListener('load', async () => {
       after40, F.CRACKER_SCORE + 40 * F.CRACKER_KING_STEP);
   chk('and that is far below what doubling would give',
       after40 < F.CRACKER_SCORE * Math.pow(2, 20), true);
-  chk('the growth step is its own number, not the base',
-      F.CRACKER_KING_STEP !== F.CRACKER_SCORE, true);
   F.resetRun();
   chk('a new run starts it over', F.crackerValue(), F.CRACKER_SCORE);
 
@@ -853,6 +851,17 @@ if not m:
     print('NO RESULT', (t.group(1)[:260] if t else ''))
     sys.exit(1)
 res = json.loads(m.group(1))
+# The step and the base are separate knobs on purpose, and tuning made them equal (both 100),
+# so comparing the two VALUES no longer says anything. Read the source instead: what matters is
+# that the growth is driven by its own constant and cannot be re-tuned by moving the base.
+src = open('index.html', encoding='utf-8').read()
+body = re.search(r'function crackerBroken\(\)\s*\{(.*?)\}', src, re.S)
+if not body:
+    res['fails'].append({'check': 'crackerBroken exists', 'got': None, 'want': 'a function'})
+elif 'CRACKER_KING_STEP' not in body.group(1) or 'CRACKER_SCORE' in body.group(1):
+    res['fails'].append({'check': 'the growth step is its own constant, not the base',
+                         'got': body.group(1).strip()[:70], 'want': 'uses CRACKER_KING_STEP'})
+
 print(f"items: {len(res['fails'])} fail")
 if res.get('err'): print('  JS errors:', res['err'])
 for f in res['fails']: print('  ', f)
