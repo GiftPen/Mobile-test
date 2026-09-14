@@ -277,6 +277,99 @@ window.addEventListener('load', async () => {
   const fusedLem = await place(['citrus_plate'], citrusBuild, lemons);
   chk('감귤 한 접시 pops the lemons too', fusedLem.size, lemons.length);
 
+  // ---- the nine cards added to fill the empty rungs ----
+  const gradesOf = tag => {
+    const out = {};
+    for (const id of Object.keys(F.RELICS)) {
+      F.mode='rush'; F.resetRun(); F.relics=[]; F.traits=[]; F.applyRelics();
+      const cats = F.relicCats(id);
+      if (cats.includes(tag)) (out[F.relicTier(F.RELICS[id])] ||= []).push(id);
+    }
+    return out;
+  };
+  // 콤보 was the worst trade in the game: every card cheap, no 유니크, no 전설, dead by round 6
+  const combo = gradesOf('combo');
+  chk('콤보 tree now reaches every grade',
+      F.TIER_KEYS.filter(t => !combo[t]), []);
+  // 보드 could not even start: zoneOn() needs zoneMult > 1 or zoneCoins, and nothing under
+  // 14 coins turned it on, so the first three shops had nothing to sell a board build
+  F.mode='rush'; F.resetRun(); F.relics=['sweet_spot']; F.applyRelics();
+  chk('명당 turns the bonus zone on by itself', F.zoneCount() > 0, true);
+  chk('and it is the cheapest card that does',
+      Math.min(...Object.keys(F.RELICS)
+        .filter(id => { F.relics=[id]; F.applyRelics(); return F.zoneCount() > 0; })
+        .map(id => F.RELICS[id].price)), F.RELICS.sweet_spot.price);
+
+  // 무아지경 — keeps the streak through a miss. Deliberately NOT "no cap": that is 레몬 한
+  // 스푼's entire card, and the two are meant to stack rather than replace each other.
+  F.mode='rush'; F.resetRun(); F.relics=[]; F.traits=[]; F.applyRelics();
+  // high enough that the cap is actually what is binding: 1 + 40*STREAK_STEP is well past it
+  F.streak = 40;
+  F.relics=['trance']; F.applyRelics();
+  chk('무아지경 does not touch the cap', F.streakMult(0), F.STREAK_CAP);
+  chk('and 레몬 한 스푼 is still the only card that lifts it',
+      (() => { F.relics=['lemon_spoon']; F.applyRelics(); return F.streakMult(3) > F.STREAK_CAP; })(),
+      true);
+  clearBoard();
+  F.relics=['trance']; F.applyRelics();
+  F.streak = 5; F.busy = false;
+  const missAt = cv.getBoundingClientRect();
+  const mx = missAt.left + 1.5 * missAt.width / F.COLS, my = missAt.top + 1.5 * missAt.height / F.ROWS;
+  cv.dispatchEvent(new PointerEvent('pointerdown', {clientX:mx, clientY:my, bubbles:true}));
+  cv.dispatchEvent(new PointerEvent('pointerup',   {clientX:mx, clientY:my, bubbles:true}));
+  await settle();
+  chk('a miss no longer resets the streak', F.streak >= 5, true);
+  F.relics=[]; F.applyRelics();
+  clearBoard(); F.streak = 5; F.busy = false;
+  cv.dispatchEvent(new PointerEvent('pointerdown', {clientX:mx, clientY:my, bubbles:true}));
+  cv.dispatchEvent(new PointerEvent('pointerup',   {clientX:mx, clientY:my, bubbles:true}));
+  await settle();
+  chk('...and without it a miss still does', F.streak, 0);
+
+  // 제분소 — pays a touch per cracker, but only so many a stage. 크래커 왕 drops one every
+  // touch and 가루 폭발 breaks them in threes, so an uncapped version buys more touches than
+  // it spends and the stage never ends.
+  F.mode='rush'; F.resetRun(); F.relics=['mill']; F.applyRelics();
+  F.millPaid = 0;
+  const t0 = F.touchesLeft;
+  F.crackerBroken();
+  chk('제분소 pays a touch per cracker broken', F.touchesLeft, t0 + 1);
+  for (let i = 0; i < 20; i++) F.crackerBroken();
+  chk('but never more than its allowance in one stage', F.touchesLeft, t0 + F.MILL_CAP);
+  F.millPaid = 0;
+  F.crackerBroken();
+  chk('and the allowance comes back next stage', F.touchesLeft, t0 + F.MILL_CAP + 1);
+  F.relics=[]; F.applyRelics();
+  const t1 = F.touchesLeft;
+  F.crackerBroken();
+  chk('and nothing happens without it', F.touchesLeft, t1);
+
+  // 키위 묘목 — plants its own seeds, so it does not need the 7%-draw legendary to mean
+  // anything. Seeds ripen into kiwi whether or not 키위 씨앗 is held.
+  F.mode='rush'; F.resetRun(); F.relics=['kiwi_nursery']; F.applyRelics();
+  clearBoard();
+  const seedCount = () => {
+    let n = 0;
+    for (let r = 0; r < F.ROWS; r++) for (let c = 0; c < F.COLS; c++)
+      if (F.grid[r][c] === F.SEED) n++;
+    return n;
+  };
+  chk('a cleared board has no seeds', seedCount(), 0);
+  F.notify('onStageStart', { stage: 2 });
+  chk('키위 묘목 plants them at the stage start', seedCount(), 3);
+  chk('and it does not need 키위 씨앗 to do it', F.relics.includes('kiwi_seed'), false);
+
+  // 금본위 — the top of the hoarding ladder: 10 coins a point, then 3, then 1
+  F.mode='rush'; F.resetRun(); F.relics=[]; F.applyRelics();
+  F.coins = 12;
+  const bare = F.fruitScore(0);
+  F.relics=['rich_eye']; F.applyRelics();  const per10 = F.fruitScore(0);
+  F.relics=['midas'];    F.applyRelics();  const per3  = F.fruitScore(0);
+  F.relics=['gold_standard']; F.applyRelics();
+  chk('the hoarding ladder still climbs', [per10 > bare, per3 > per10, F.fruitScore(0) > per3],
+      [true, true, true]);
+  F.mode='rush'; F.resetRun(); F.relics=[]; F.traits=[]; F.applyRelics();
+
   // 바나나 밭 — a 3x3 patch that grows its own fruit on a touch clock
   F.mode = 'rush'; F.resetRun(); F.relics = []; F.traits = []; F.applyRelics();
   chk('no patch without the relic', F.bananaField, null);

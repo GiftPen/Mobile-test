@@ -142,7 +142,16 @@
     "storm_front": "a dark thundercloud with a single bright lightning bolt beneath it",
     "crescendo": "a music sheet rolled open with a swelling crescendo mark and three rising notes",
     "last_feast": "a single firework bursting over a tiny table of fruit, the last spark falling",
-    "banana_field": "a small fenced square plot of soil with three young banana shoots sprouting from it"
+    "banana_field": "a small fenced square plot of soil with three young banana shoots sprouting from it",
+    "crumb_plate": "a small plate holding a neat stack of cracker shards",
+    "mill": "a stout windmill with sails turning, a spill of cracker crumbs at its base",
+    "sweet_spot": "a four-leaf clover standing on a small square patch of marked ground",
+    "stakes": "two wooden survey stakes with a taut string between them, marking off a corner",
+    "rich_soil": "a mound of dark crumbly earth with one gold coin and a green shoot rising from it",
+    "chain_react": "a spiral of expanding rings, each ring larger and brighter than the last",
+    "trance": "an unbroken loop of light, like a ribbon with no end, drawn around a calm closed-eye face",
+    "gold_standard": "a single large gold bar on a balance scale, the scale tipped fully to its side",
+    "kiwi_nursery": "a shallow seed tray with three kiwi seeds bedded in dark soil, one just splitting open"
   },
   "traits": {
     "cherry_taste": "a cherry inside a laurel wreath badge",

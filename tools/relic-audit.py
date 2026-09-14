@@ -37,6 +37,7 @@ window.addEventListener('load', () => setTimeout(() => {
     F.crackerValue(), F.crackerCoin, +F.crackerBoom, +F.crackerDouble, +F.crackerEvery,
     F.cherryPile, F.grapeBulk, +F.lemonFree, F.bananaSpread, F.coinFruitMult, F.coinToScore,
     +F.peachBurst, +F.citrusFuse, +F.kiwiSeed, +F.fieldOn,
+    F.crackerTouch, +F.comboKeep,
   ]);
   // A coin-scaled relic is invisible at zero coins, so the audit would call it dead. Hold
   // money while auditing -- which is also the only state in which such a relic means anything.
