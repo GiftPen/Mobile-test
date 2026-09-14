@@ -44,7 +44,7 @@ window.addEventListener('load', () => setTimeout(async () => {
   // apply() and see which fruit index moved. The seven fruit legendaries move a scalar
   // (peachBurst, kiwiSeed, ...) rather than an array slot, so those are named directly.
   const SCALAR_FRUIT = { cherryPile: 0, citrusFuse: 1, kiwiSeed: 2, lemonFree: 3,
-                         grapeBulk: 4, peachBurst: 5, bananaSpread: 6 };
+                         grapeBulk: 4, peachBurst: 5, bananaSpread: 6, fieldOn: 6 };
   const ARRAYS = ['oddsMult', 'fruitMult', 'fruitFlat', 'fruitCrown', 'stackOnPop'];
   const snap = () => [ARRAYS.map(k => (F[k] || []).slice()),
                       Object.keys(SCALAR_FRUIT).map(k => String(F[k]))];

@@ -34,7 +34,7 @@ window.addEventListener('load', () => setTimeout(() => {
 
   // ---- same membership rule peak.py uses, so the two tables talk about the same builds ----
   const SCALAR_FRUIT = { cherryPile: 0, citrusFuse: 1, kiwiSeed: 2, lemonFree: 3,
-                         grapeBulk: 4, peachBurst: 5, bananaSpread: 6 };
+                         grapeBulk: 4, peachBurst: 5, bananaSpread: 6, fieldOn: 6 };
   const ARRAYS = ['oddsMult', 'fruitMult', 'fruitFlat', 'fruitCrown', 'stackOnPop'];
   const snap = () => [ARRAYS.map(k => (F[k] || []).slice()),
                       Object.keys(SCALAR_FRUIT).map(k => String(F[k]))];

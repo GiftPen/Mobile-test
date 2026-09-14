@@ -277,6 +277,47 @@ window.addEventListener('load', async () => {
   const fusedLem = await place(['citrus_plate'], citrusBuild, lemons);
   chk('감귤 한 접시 pops the lemons too', fusedLem.size, lemons.length);
 
+  // 바나나 밭 — a 3x3 patch that grows its own fruit on a touch clock
+  F.mode = 'rush'; F.resetRun(); F.relics = []; F.traits = []; F.applyRelics();
+  chk('no patch without the relic', F.bananaField, null);
+  F.relics = ['banana_field']; F.applyRelics(); F.rollField();
+  chk('the relic puts a patch on the board', !!F.bananaField, true);
+  // a missing patch must report as the one failed check above, not throw and take the rest
+  // of the suite with it
+  const fld = F.bananaField || { r0: 0, c0: 0 };
+  chk('the patch is 3x3 and fits on the board',
+      [fld.r0 >= 0, fld.c0 >= 0, fld.r0 + 3 <= F.ROWS, fld.c0 + 3 <= F.COLS], [true,true,true,true]);
+  chk('a cell just outside it is not in it', F.fieldAt(fld.r0 + 3, fld.c0), false);
+  clearBoard();
+  F.busy = false;
+  // place away from the patch so the count, not the placement, is what fills it
+  const far = [];
+  for (let r = 0; r < F.ROWS && far.length < 8; r++)
+    for (let c = 0; c < F.COLS && far.length < 8; c++)
+      if (!F.fieldAt(r, c)) far.push([r, c]);
+  const inPatch = () => {
+    let n = 0;
+    for (let r = fld.r0; r < fld.r0 + 3; r++)
+      for (let c = fld.c0; c < fld.c0 + 3; c++) if (F.grid[r][c] === 6) n++;
+    return n;
+  };
+  const before = inPatch();
+  const rcF = cv.getBoundingClientRect();
+  for (let i = 0; i < F.FIELD_EVERY; i++) {
+    const [r, c] = far[i];
+    const fx = rcF.left + (c + 0.5) * rcF.width / F.COLS;
+    const fy = rcF.top + (r + 0.5) * rcF.height / F.ROWS;
+    cv.dispatchEvent(new PointerEvent('pointerdown', {clientX:fx, clientY:fy, bubbles:true}));
+    cv.dispatchEvent(new PointerEvent('pointerup',   {clientX:fx, clientY:fy, bubbles:true}));
+    await settle();
+  }
+  chk('a banana grows in the patch on the clock', inPatch() > before, true);
+  // and it is DERIVED: dropping the relic takes the patch away on the next roll
+  F.relics = []; F.applyRelics(); F.rollField();
+  chk('drop the relic and the patch goes', F.bananaField, null);
+  chk('and the channel does not linger', F.fieldOn, false);
+  F.mode = 'rush'; F.resetRun(); F.relics = []; F.traits = []; F.applyRelics();
+
   // 키위 씨앗 — the cell is not empty, it is counting down
   await place(['kiwi_seed'], trio(2));
   const seeds = [];

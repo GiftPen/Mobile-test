@@ -141,7 +141,8 @@
     "golden_rain": "a small cloud raining gold coins instead of drops",
     "storm_front": "a dark thundercloud with a single bright lightning bolt beneath it",
     "crescendo": "a music sheet rolled open with a swelling crescendo mark and three rising notes",
-    "last_feast": "a single firework bursting over a tiny table of fruit, the last spark falling"
+    "last_feast": "a single firework bursting over a tiny table of fruit, the last spark falling",
+    "banana_field": "a small fenced square plot of soil with three young banana shoots sprouting from it"
   },
   "traits": {
     "cherry_taste": "a cherry inside a laurel wreath badge",

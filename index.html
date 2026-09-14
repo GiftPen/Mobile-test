@@ -911,6 +911,7 @@
   const CRACKER = -2;            // grid value for a cracker (wall; only items can clear it)
   const SEED  = -3;            // a kiwi's leftover: blocks the cell, counts down, grows back
   const SEED_TOUCHES = 3;      // ...in this many touches
+  const FIELD_EVERY = 3;       // 바나나 밭: a banana grows every this many touches
   const CRACKER_EVERY = 5;       // one cracker spawns every N touches once unlocked
   const CRACKER_SCORE = 100;   // what breaking one is worth, before relics
   // 크래커 왕's growth, kept apart from the base: how much a cracker is worth and how fast
@@ -1543,6 +1544,7 @@
     spendFlat = 0; shopDiscount = 1; resonance = RESONANCE_BASE;
     bombRadiusBonus = 0; itemEase = 0; birdFlock = 1; crossLine = false;
     zoneMult = 1; zoneCoins = 0; zoneBonus = 0; zoneCells = new Set();
+    fieldOn = false; bananaField = null;
     STREAK_STEP = STREAK_STEP_BASE; STREAK_CAP = 2.0;
     traits = []; doubles = 0; armedItem = null;
     coins = 0; coinsShown = 0; coinsSpent = 0; crackerScore = CRACKER_SCORE; clearCoinFly();
@@ -1556,7 +1558,7 @@
     layout();                              // ROWS may have changed -> resize the board
   }
   function serializeRun() {
-    return { v: RUN_VERSION, mode, rows: ROWS, grid, special, hp, coinCell, sprouted,
+    return { v: RUN_VERSION, mode, rows: ROWS, grid, special, hp, coinCell, sprouted, bananaField,
              nextColor, nextColor2, score, streak, touchCount,
              stage, stageScore, touchesLeft, coins, oddsMult, fruitMult,
              fruitStack, fruitBoost, relics, relicLife, traits, doubles, coinsSpent, crackerScore };
@@ -1570,6 +1572,7 @@
        fruitStack, fruitBoost, relics, relicLife, traits, doubles } = o);
     // absent in an older save: an empty layer just means no kiwi is mid-revival yet
     sprouted = o.sprouted || layer(0);
+    bananaField = o.bananaField || null;   // absent in an older save: rolled again next stage
     coinsSpent = o.coinsSpent || 0;              // absent in an older save: start it at zero
     crackerScore = o.crackerScore || CRACKER_SCORE;
     coinsShown = coins; clearCoinFly();
@@ -1623,7 +1626,7 @@
     $sh("overlay").classList.add("hidden");
     $sh("gameover").classList.add("hidden");
     syncBanner();
-    rollZones();
+    rollZones(); rollField();
     updateHUD(); dirty = true;
     paused = true;
     renderSettings();
@@ -1773,6 +1776,17 @@
   const zoneOn = () => zoneMult > 1 || zoneCoins;
   const zoneCount = () => zoneOn() ? Math.min(ROWS * COLS, ZONE_BASE + zoneBonus) : 0;
   const zoneAt = (r, c) => zoneCells.has(r * COLS + c);
+  // 바나나 밭: a 3x3 patch that grows its own fruit. Kept apart from zoneCells -- that set is
+  // scattered single cells and means "score more here", while this is one solid block that
+  // MAKES something. Sharing the set would have made both unreadable on the board.
+  let bananaField = null;      // {r0, c0} top-left of the patch, or null
+  let fieldOn = false;         // DERIVED: rebuilt by applyRelics like every other channel
+  const fieldAt = (r, c) => !!bananaField && r >= bananaField.r0 && r < bananaField.r0 + 3
+                                          && c >= bananaField.c0 && c < bananaField.c0 + 3;
+  function rollField() {
+    bananaField = fieldOn && ROWS >= 3 && COLS >= 3
+      ? { r0: randInt(ROWS - 2), c0: randInt(COLS - 2) } : null;
+  }
   // a fruit is worth more on a marked cell
   const fruitScoreAt = (r, c, colorIdx) => {
     let base = fruitScore(colorIdx);
@@ -2069,6 +2083,7 @@
         banana_bite: "바나나 한 입",
         banana_cellar: "바나나 저장고",
         banana_grove: "바나나 농장",
+        banana_field: "바나나 밭",
         banana_hunter: "바나나 사냥꾼",
         oven: "화덕",
         change_count: "잔돈 계산",
@@ -2318,6 +2333,7 @@
       cherryPile: n => `체리를 터뜨릴 때마다 이 스테이지 동안 체리 점수 +${n}`,
       citrusFuse: () => "오렌지와 레몬이 한 덩어리로 이어집니다",
       kiwiSeed: () => "키위를 터뜨리면 씨앗이 남습니다",
+      bananaField: n => `3×3 바나나 밭이 생기고 ${n}터치마다 바나나가 1개 자랍니다`,
       lemonFree: () => "레몬은 콤보 상한이 없습니다",
       grapeBulk: n => `포도 덩어리를 ${n}만큼 크게 계산합니다`,
       peachBurst: () => "복숭아는 터질 때 주변 1칸을 함께 터뜨립니다",
@@ -2431,6 +2447,7 @@
         banana_bite: "Banana Bite",
         banana_cellar: "Banana Cellar",
         banana_grove: "Banana Plantation",
+        banana_field: "Banana Patch",
         banana_hunter: "Banana Hunter",
         oven: "Oven",
         change_count: "Counting Change",
@@ -2680,6 +2697,7 @@
       cherryPile: n => `Each cherry popped adds +${n} to cherries for this stage`,
       citrusFuse: () => "Orange and lemon count as one colour",
       kiwiSeed: () => "A popped kiwi leaves a seed behind",
+      bananaField: n => `A 3x3 banana patch grows one banana every ${n} touches`,
       lemonFree: () => "Lemon has no combo cap",
       grapeBulk: n => `A grape cluster counts ${n} larger`,
       peachBurst: () => "A peach takes the ring around it with it",
@@ -2793,6 +2811,7 @@
         banana_bite: "バナナ一口",
         banana_cellar: "バナナ貯蔵庫",
         banana_grove: "バナナ農園",
+        banana_field: "バナナ畑",
         banana_hunter: "バナナ狩人",
         oven: "窯",
         change_count: "小銭勘定",
@@ -3041,6 +3060,7 @@
       cherryPile: n => `さくらんぼを割るたび、このステージ中 さくらんぼのスコア +${n}`,
       citrusFuse: () => "オレンジとレモンがひとつの色としてつながります",
       kiwiSeed: () => "キウイを割ると種が残ります",
+      bananaField: n => `3×3のバナナ畑ができ、${n}タッチごとにバナナが1つ育ちます`,
       lemonFree: () => "レモンはコンボ上限がありません",
       grapeBulk: n => `ぶどうの塊を ${n} 大きく数えます`,
       peachBurst: () => "ももは割れるとき周囲1マスも一緒に割ります",
@@ -3154,6 +3174,7 @@
         banana_bite: "一口香蕉",
         banana_cellar: "香蕉仓库",
         banana_grove: "香蕉农场",
+        banana_field: "香蕉田",
         banana_hunter: "香蕉猎人",
         oven: "烤炉",
         change_count: "数零钱",
@@ -3402,6 +3423,7 @@
       cherryPile: n => `每消除一个樱桃，本关樱桃分数 +${n}`,
       citrusFuse: () => "橙子和柠檬视为同一种颜色",
       kiwiSeed: () => "消除猕猴桃会留下种子",
+      bananaField: n => `出现3×3香蕉田，每${n}次触摸长出1个香蕉`,
       lemonFree: () => "柠檬没有连击上限",
       grapeBulk: n => `葡萄团块按大 ${n} 计算`,
       peachBurst: () => "桃子消除时连带周围一圈",
@@ -4059,6 +4081,12 @@
       desc: () => d("peachBurst"), apply() { peachBurst = true; } },
     banana_grove2:{ icon: "🍌", price: 38,
       desc: () => d("bananaSpread", 3), apply() { bananaSpread += 3; } },
+    // The banana tree's second engine, and deliberately NOT bolted onto 바나나 군락: one card
+    // saying "converts three neighbours AND grows its own" is two unrelated promises. Growth
+    // is paced at a third of "one a touch" because banana is already a build that dies of a
+    // full board (4 of 7 measured runs), and a patch you can see is one you can play around.
+    banana_field: { icon: "🌴", price: 27,
+      desc: () => d("bananaField", FIELD_EVERY), apply() { fieldOn = true; } },
     golden_reap:  { icon: "💰", price: 35,
       desc: () => d("coinFruitMult", 10), apply() { coinFruitMult *= 10; } },
 
@@ -4189,7 +4217,7 @@
     starEverything = false;
     spendFlat = 0; shopDiscount = 1; resonance = RESONANCE_BASE;
     bombRadiusBonus = 0; itemEase = 0; birdFlock = 1; crossLine = false;
-    zoneMult = 1; zoneCoins = 0; zoneBonus = 0;
+    zoneMult = 1; zoneCoins = 0; zoneBonus = 0; fieldOn = false;
     STREAK_STEP = STREAK_STEP_BASE; STREAK_CAP = 2.0;      // relics may raise these; reset first
     slotBonus = settleSlots();                // must be known before activeRelics() is read
     syncRows();                               // grows the board if a 개간 relic is active
@@ -4973,6 +5001,18 @@
         grid[r][c] = 2; hp[r][c] = 0; appear[r][c] = 1; sprouted[r][c] = 1; dirty = true;
       }
     }
+    // 바나나 밭 ripens on the touch count, not the turn: it has to be predictable enough to
+    // play around. The cell being placed into is excluded so the two never fight over it.
+    if (bananaField && touchCount % FIELD_EVERY === 0) {
+      const free = [];
+      for (let r = bananaField.r0; r < bananaField.r0 + 3; r++)
+        for (let c = bananaField.c0; c < bananaField.c0 + 3; c++)
+          if (grid[r][c] === -1 && !(r === r0 && c === c0)) free.push([r, c]);
+      if (free.length) {
+        const [fr, fc] = free[randInt(free.length)];
+        grid[fr][fc] = 6; appear[fr][fc] = 1; dirty = true;
+      }
+    }
     SFX.play("plant");
     buzz(12);                              // the tick under your thumb
     grid[r0][c0] = color;            // the placed ball (removed later if it clears)
@@ -5562,7 +5602,7 @@
                      interestPer, interestPct, interestCap, shopDiscount]],
     ["item",  () => [bombRadiusBonus, itemEase, birdFlock, +crossLine, +starEverything,
                      +peachBurst, +citrusFuse, +kiwiSeed, bananaSpread]],
-    ["board", () => [zoneMult, zoneCoins, zoneBonus]],
+    ["board", () => [zoneMult, zoneCoins, zoneBonus, +fieldOn]],
   ];
   let relicCatCache = null;
   function relicCats(id) {
@@ -5598,7 +5638,7 @@
     peachBurst = false; citrusFuse = false; kiwiSeed = false; lemonFree = false;
     grapeBulk = 0; bananaSpread = 0; cherryPile = 0; coinFruitMult = 1;
           bombRadiusBonus = 0; itemEase = 0; birdFlock = 1; crossLine = false;
-          zoneMult = 1; zoneCoins = 0; zoneBonus = 0;
+          zoneMult = 1; zoneCoins = 0; zoneBonus = 0; fieldOn = false;
           STREAK_STEP = STREAK_STEP_BASE; STREAK_CAP = 2.0;
         }
         // a fruit-specific relic resonates with that fruit, not merely with "score"
@@ -5692,7 +5732,7 @@
     $sh("hint").textContent =
       d("hintStage", stageLabel(stage), rules().quota(stage), touchesLeft);
     if (fresh) {
-      rollZones();               // a fresh map each stage -- but NOT on a revive
+      rollZones(); rollField();  // a fresh map each stage -- but NOT on a revive
       notify("onStageStart", { stage });
     }
     updateHUD();
@@ -6735,6 +6775,20 @@
         ctx.fillStyle = "#262a3d";
         roundRect(x + g, y + g, cell - g*2, cell - g*2, cell*0.22); ctx.fill();
 
+        // the banana patch, in banana blue so it cannot be read as the (green/gold) bonus zone
+        if (bananaField && fieldAt(r, c)) {
+          ctx.save();
+          const pulse = 0.5 + 0.5 * Math.sin(frame * 0.04 + (r + c));
+          ctx.fillStyle = COLORS[6];
+          ctx.globalAlpha = 0.16 + 0.08 * pulse;
+          roundRect(x + g, y + g, cell - g*2, cell - g*2, cell*0.22); ctx.fill();
+          ctx.globalAlpha = 0.45 + 0.2 * pulse;
+          ctx.strokeStyle = "#90e0ef";
+          ctx.lineWidth = Math.max(1, cell * 0.04);
+          roundRect(x + g*1.6, y + g*1.6, cell - g*3.2, cell - g*3.2, cell*0.20); ctx.stroke();
+          ctx.restore();
+        }
+
         // bonus zone — drawn on the empty cell, under the fruit, so it reads as the board
         // being marked rather than as another piece sitting on it
         if (zoneCells.size && zoneAt(r, c)) {
@@ -7760,6 +7814,8 @@
       get graftArmed() { return graftArmed; }, set graftArmed(v) { graftArmed = v; },
       get coinCell() { return coinCell; }, set coinCell(v) { coinCell = v; },
       get sprouted() { return sprouted; }, set sprouted(v) { sprouted = v; },
+      get bananaField() { return bananaField; }, set bananaField(v) { bananaField = v; },
+      get fieldOn() { return fieldOn; }, rollField, fieldAt, FIELD_EVERY,
       get shopOffers() { return shopOffers; }, set shopOffers(v) { shopOffers = v; },
       get touchBonus() { return touchBonus; }, get spawnBonus() { return spawnBonus; },
       get slotBonus()  { return slotBonus; }, get crackerChance() { return crackerChance; },
