@@ -344,20 +344,34 @@ window.addEventListener('load', async () => {
   F.crackerBroken();
   chk('and nothing happens without it', F.touchesLeft, t1);
 
-  // 키위 묘목 — plants its own seeds, so it does not need the 7%-draw legendary to mean
-  // anything. Seeds ripen into kiwi whether or not 키위 씨앗 is held.
-  F.mode='rush'; F.resetRun(); F.relics=['kiwi_nursery']; F.applyRelics();
-  clearBoard();
-  const seedCount = () => {
+  // No relic may hand the board free fruit at a stage start. 키위 묘목 planted three seeds
+  // and took the strongest tree from x10 to x28 of the round 9-10 quota -- material given to
+  // the leader compounds through every multiplier it already holds.
+  F.mode='rush'; F.resetRun(); F.relics=[]; F.traits=[]; F.applyRelics();
+  const filled = () => {
     let n = 0;
     for (let r = 0; r < F.ROWS; r++) for (let c = 0; c < F.COLS; c++)
-      if (F.grid[r][c] === F.SEED) n++;
+      if (F.grid[r][c] !== -1) n++;
     return n;
   };
-  chk('a cleared board has no seeds', seedCount(), 0);
-  F.notify('onStageStart', { stage: 2 });
-  chk('키위 묘목 plants them at the stage start', seedCount(), 3);
-  chk('and it does not need 키위 씨앗 to do it', F.relics.includes('kiwi_seed'), false);
+  const freeFruit = [];
+  for (const id of Object.keys(F.RELICS)) {
+    if (!F.RELICS[id].onStageStart) continue;
+    F.relics = [id]; F.applyRelics(); clearBoard();
+    F.notify('onStageStart', { stage: 2 });
+    const got = filled();
+    // 과일 바구니 says so on the card and is priced for it; anything else is a surprise
+    if (got > 0 && id !== 'basket') freeFruit.push(id + ':' + got);
+  }
+  chk('only the card that advertises it seeds the board', freeFruit, []);
+  F.mode='rush'; F.resetRun(); F.relics=[]; F.traits=[]; F.applyRelics();
+
+  // the bonus zone has to cover enough of the board to build around
+  chk('the bonus zone is a real share of the board once it is on',
+      (() => { F.relics=['sweet_spot']; F.applyRelics(); return F.zoneCount(); })() >= 5, true);
+  chk('...but still a minority of it',
+      F.zoneCount() < F.ROWS * F.COLS / 3, true);
+  F.relics=[]; F.applyRelics();
 
   // 금본위 — the top of the hoarding ladder: 10 coins a point, then 3, then 1
   F.mode='rush'; F.resetRun(); F.relics=[]; F.applyRelics();

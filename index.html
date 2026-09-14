@@ -913,17 +913,6 @@
   const SEED  = -3;            // a kiwi's leftover: blocks the cell, counts down, grows back
   const SEED_TOUCHES = 3;      // ...in this many touches
   const FIELD_EVERY = 3;       // 바나나 밭: a banana grows every this many touches
-  // Seeds ripen into kiwi whether or not you hold 키위 씨앗 -- only "a popped kiwi LEAVES
-  // one" is the legendary's part. So a card that plants them stands on its own.
-  function plantSeeds(k) {
-    for (let i = 0; i < k; i++) {
-      const e = emptyCells();
-      if (!e.length) return;
-      const [r, c] = e[randInt(e.length)];
-      grid[r][c] = SEED; hp[r][c] = SEED_TOUCHES; appear[r][c] = 1;
-    }
-    dirty = true;
-  }
   const CRACKER_EVERY = 5;       // one cracker spawns every N touches once unlocked
   const CRACKER_SCORE = 100;   // what breaking one is worth, before relics
   // 크래커 왕's growth, kept apart from the base: how much a cracker is worth and how fast
@@ -1793,7 +1782,11 @@
   // called for and nothing had built. They exist only while a zone relic is owned, so a run
   // without one plays exactly as before. Stored as flat r*COLS+c indices, which stay valid
   // when 개간 appends a row (COLS is fixed).
-  const ZONE_BASE = 3;
+  // 3 marked cells out of 64 meant a board build applied to about a seventh of what it
+  // popped, which is why it scored under half the quota by round 5 with every card in the
+  // tree. 5 is still a minority of the board -- it is a bonus, not the rule -- but it is
+  // enough of one to build around.
+  const ZONE_BASE = 5;
   let zoneCells = new Set(), zoneMult = 1, zoneCoins = 0, zoneBonus = 0;
   const zoneOn = () => zoneMult > 1 || zoneCoins;
   const zoneCount = () => zoneOn() ? Math.min(ROWS * COLS, ZONE_BASE + zoneBonus) : 0;
@@ -2114,7 +2107,7 @@
         banana_cellar: "바나나 저장고",
         banana_grove: "바나나 농장",
         banana_field: "바나나 밭",
-        kiwi_nursery: "키위 묘목",
+        kiwi_jam: "키위 잼",
         crumb_plate: "부스러기 접시",
         mill: "제분소",
         sweet_spot: "명당",
@@ -2373,7 +2366,6 @@
       citrusFuse: () => "오렌지와 레몬이 한 덩어리로 이어집니다",
       kiwiSeed: () => "키위를 터뜨리면 씨앗이 남습니다",
       bananaField: n => `3×3 바나나 밭이 생기고 ${n}터치마다 바나나가 1개 자랍니다`,
-      startSeeds:  n => `스테이지를 시작할 때 키위 씨앗 ${n}개가 생깁니다`,
       crackerTouch: (n, cap) => `크래커를 부술 때마다 터치 +${n} (스테이지마다 ${cap}회까지)`,
       comboKeep:   () => "콤보가 끊기지 않습니다",
       richSoil:  (a, b) => `보너스 영역에서 터뜨린 과일 점수 ×${n1(a)}, 코인 +${b}`,
@@ -2491,7 +2483,7 @@
         banana_cellar: "Banana Cellar",
         banana_grove: "Banana Plantation",
         banana_field: "Banana Patch",
-        kiwi_nursery: "Kiwi Nursery",
+        kiwi_jam: "Kiwi Jam",
         crumb_plate: "Crumb Plate",
         mill: "Mill",
         sweet_spot: "Sweet Spot",
@@ -2750,7 +2742,6 @@
       citrusFuse: () => "Orange and lemon count as one colour",
       kiwiSeed: () => "A popped kiwi leaves a seed behind",
       bananaField: n => `A 3x3 banana patch grows one banana every ${n} touches`,
-      startSeeds:  n => `Each stage starts with ${n} kiwi seeds on the board`,
       crackerTouch: (n, cap) => `+${n} touch per cracker broken (up to ${cap} a stage)`,
       comboKeep:   () => "A miss no longer resets your combo",
       richSoil:  (a, b) => `Fruit popped in a bonus zone scores ×${n1(a)} and pays ${b} coin`,
@@ -2868,7 +2859,7 @@
         banana_cellar: "バナナ貯蔵庫",
         banana_grove: "バナナ農園",
         banana_field: "バナナ畑",
-        kiwi_nursery: "キウイの苗床",
+        kiwi_jam: "キウイジャム",
         crumb_plate: "かけら皿",
         mill: "製粉所",
         sweet_spot: "好立地",
@@ -3126,7 +3117,6 @@
       citrusFuse: () => "オレンジとレモンがひとつの色としてつながります",
       kiwiSeed: () => "キウイを割ると種が残ります",
       bananaField: n => `3×3のバナナ畑ができ、${n}タッチごとにバナナが1つ育ちます`,
-      startSeeds:  n => `ステージ開始時にキウイの種が${n}個できます`,
       crackerTouch: (n, cap) => `クラッカーを割るたびにタッチ +${n}（ステージごとに${cap}回まで）`,
       comboKeep:   () => "コンボが途切れなくなります",
       richSoil:  (a, b) => `ボーナス領域で割ったフルーツのスコア ×${n1(a)}、コイン +${b}`,
@@ -3244,7 +3234,7 @@
         banana_cellar: "香蕉仓库",
         banana_grove: "香蕉农场",
         banana_field: "香蕉田",
-        kiwi_nursery: "猕猴桃苗圃",
+        kiwi_jam: "猕猴桃果酱",
         crumb_plate: "碎屑盘",
         mill: "磨坊",
         sweet_spot: "风水宝地",
@@ -3502,7 +3492,6 @@
       citrusFuse: () => "橙子和柠檬视为同一种颜色",
       kiwiSeed: () => "消除猕猴桃会留下种子",
       bananaField: n => `出现3×3香蕉田，每${n}次触摸长出1个香蕉`,
-      startSeeds:  n => `每个阶段开始时出现${n}颗猕猴桃种子`,
       crackerTouch: (n, cap) => `每次打碎饼干获得触摸 +${n}（每阶段最多${cap}次）`,
       comboKeep:   () => "连击不会中断",
       richSoil:  (a, b) => `在奖励区域内消除的水果分数 ×${n1(a)}，金币 +${b}`,
@@ -4171,12 +4160,12 @@
       desc: () => d("bananaField", FIELD_EVERY), apply() { fieldOn = true; } },
     // 키위: the tree had one card per grade but only six in total, and nothing that played
     // with the seed itself
-    // Gated cards are a trap when the gate is a 7%-draw legendary, so this does not need
-    // 키위 씨앗 at all: it puts the seeds there itself, and holding both simply means the
-    // ones you pop come back too.
-    kiwi_nursery: { icon: "🌱", price: 13,
-      desc: () => d("startSeeds", 3),
-      onStageStart: () => plantSeeds(3) },
+    // This was 키위 묘목, which planted three seeds a stage. Measured, that handed the
+    // strongest tree in the game free material every stage and took it from x10 to x28 of the
+    // round 9-10 quota -- the fix for a dead card made the outlier worse. A flat card adds the
+    // tenth kiwi without touching the engine.
+    kiwi_jam: { icon: "🥝", price: 12,
+      desc: () => d("fruitFlat", 2, 30), apply() { fruitFlat[2] += 30; } },
 
     // ---- 크래커: seven cards, and nothing under 11 that lasts ----
     crumb_plate: { icon: "🍽️", price: 6,
@@ -7939,7 +7928,6 @@
       get fieldOn() { return fieldOn; }, rollField, fieldAt, FIELD_EVERY,
       get crackerTouch() { return crackerTouch; }, get comboKeep() { return comboKeep; },
       get millPaid() { return millPaid; }, set millPaid(v) { millPaid = v; }, MILL_CAP,
-      plantSeeds,
       get shopOffers() { return shopOffers; }, set shopOffers(v) { shopOffers = v; },
       get touchBonus() { return touchBonus; }, get spawnBonus() { return spawnBonus; },
       get slotBonus()  { return slotBonus; }, get crackerChance() { return crackerChance; },
