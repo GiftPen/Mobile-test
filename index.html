@@ -1525,6 +1525,7 @@
   const TEST_MODE = location.search.includes("test=1");
   const BUILD_VER = "0.9";   // shown in settings so a bug report can name a build
   const RUN_VERSION = 1;
+  const RELIC_RENAMES = { peach_soft: "peach_stone" };   // old save id -> current id
   const layer = fill => Array.from({ length: ROWS }, () => Array(COLS).fill(fill));
 
   function resetRun() {
@@ -1572,6 +1573,11 @@
        stage, stageScore, touchesLeft, coins, oddsMult, fruitMult,
        fruitStack, fruitBoost, relics, relicLife, traits, doubles } = o);
     // absent in an older save: an empty layer just means no kiwi is mid-revival yet
+    // A renamed relic would be dropped by applyRelics (it guards on RELICS[id]) and the
+    // player would just find a legendary missing mid-run, so old ids are carried across.
+    relics = relics.map(id => RELIC_RENAMES[id] || id);
+    for (const [was, now] of Object.entries(RELIC_RENAMES))
+      if (relicLife && relicLife[was] != null) { relicLife[now] = relicLife[was]; delete relicLife[was]; }
     sprouted = o.sprouted || layer(0);
     bananaField = o.bananaField || null;   // absent in an older save: rolled again next stage
     coinsSpent = o.coinsSpent || 0;              // absent in an older save: start it at zero
@@ -2166,7 +2172,7 @@
         kiwi_seed: "키위 씨앗",
         lemon_spoon: "레몬 한 스푼",
         grape_bunch2: "포도 송이",
-        peach_soft: "물렁 복숭아",
+        peach_stone: "돌복숭아",
         banana_grove2: "바나나 군락",
         golden_reap: "황금 수확",
         crumb_tin: "부스러기 통",
@@ -2542,7 +2548,7 @@
         kiwi_seed: "Kiwi Seed",
         lemon_spoon: "Lemon Spoon",
         grape_bunch2: "Grape Cluster",
-        peach_soft: "Soft Peach",
+        peach_stone: "Stone Peach",
         banana_grove2: "Banana Colony",
         golden_reap: "Golden Reaping",
         crumb_tin: "Crumb Tin",
@@ -2918,7 +2924,7 @@
         kiwi_seed: "キウイの種",
         lemon_spoon: "レモン一さじ",
         grape_bunch2: "ぶどうの房",
-        peach_soft: "熟したもも",
+        peach_stone: "石もも",
         banana_grove2: "バナナの群落",
         golden_reap: "黄金の取り入れ",
         crumb_tin: "くず入れ",
@@ -3293,7 +3299,7 @@
         kiwi_seed: "猕猴桃种子",
         lemon_spoon: "一勺柠檬",
         grape_bunch2: "葡萄串",
-        peach_soft: "软桃",
+        peach_stone: "石桃",
         banana_grove2: "香蕉群落",
         golden_reap: "黄金收割",
         crumb_tin: "碎屑罐",
@@ -4148,7 +4154,10 @@
       desc: () => d("lemonFree"), apply() { lemonFree = true; } },
     grape_bunch2: { icon: "🍇", price: 34,
       desc: () => d("grapeBulk", 2), apply() { grapeBulk += 2; } },
-    peach_soft:   { icon: "🍑", price: 34,
+    // Named 물렁 복숭아 at first, which fought its own effect: this one breaks THROUGH the
+    // cell beside it whatever colour sits there, and that reads as a hard peach, not a mushy
+    // one. 돌복숭아 is the wild, hard kind -- and a peach is a stone fruit either way.
+    peach_stone:  { icon: "🍑", price: 34,
       desc: () => d("peachBurst"), apply() { peachBurst = true; } },
     banana_grove2:{ icon: "🍌", price: 38,
       desc: () => d("bananaSpread", 4), apply() { bananaSpread += 4; } },
@@ -7924,6 +7933,7 @@
       get graftArmed() { return graftArmed; }, set graftArmed(v) { graftArmed = v; },
       get coinCell() { return coinCell; }, set coinCell(v) { coinCell = v; },
       get sprouted() { return sprouted; }, set sprouted(v) { sprouted = v; },
+      RELIC_RENAMES,
       get bananaField() { return bananaField; }, set bananaField(v) { bananaField = v; },
       get fieldOn() { return fieldOn; }, rollField, fieldAt, FIELD_EVERY,
       get crackerTouch() { return crackerTouch; }, get comboKeep() { return comboKeep; },

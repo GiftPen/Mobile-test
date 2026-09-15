@@ -266,7 +266,7 @@ window.addEventListener('load', async () => {
   const peachBuild = () => { trio(5)(); for (const [r,c] of ring) F.grid[r][c] = 6; };
   const plainRing = await place([], peachBuild, ring);
   chk('a plain peach leaves its neighbours', [...plainRing], []);
-  const burstRing = await place(['peach_soft'], peachBuild, ring);
+  const burstRing = await place(['peach_stone'], peachBuild, ring);
   chk('물렁 복숭아 takes the ring with it', burstRing.size, ring.length);
 
   // 감귤 한 접시 — orange and lemon are one colour to the chain

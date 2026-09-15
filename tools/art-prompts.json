@@ -138,7 +138,6 @@
     "kiwi_seed": "a single kiwi seed sprouting one small green shoot from dark soil",
     "lemon_spoon": "a spoon heaped with bright lemon zest, a curl of peel balanced on it",
     "grape_bunch2": "an oversized dense bunch of grapes, far more than a normal bunch",
-    "peach_soft": "an overripe peach split open, juice bursting outward in a ring",
     "banana_grove2": "a dense cluster of banana hands growing from one thick stem",
     "golden_reap": "a sickle cutting through a sheaf of wheat that is raining gold coins",
     "change_count": "an abacus with a small stack of coins beside it",
@@ -162,7 +161,8 @@
     "chain_react": "a spiral of expanding rings, each ring larger and brighter than the last",
     "trance": "an unbroken loop of light, like a ribbon with no end, drawn around a calm closed-eye face",
     "gold_standard": "a single large gold bar on a balance scale, the scale tipped fully to its side",
-    "kiwi_jam": "an open jar of bright green kiwi jam with a spoon resting in it"
+    "kiwi_jam": "an open jar of bright green kiwi jam with a spoon resting in it",
+    "peach_stone": "a firm peach with a hard stone pit showing through a clean crack, a small shockwave ring behind it"
   },
   "traits": {
     "cherry_taste": "a cherry inside a laurel wreath badge",

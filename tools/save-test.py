@@ -74,6 +74,31 @@ window.addEventListener('load', () => setTimeout(async () => {
   chk('the tutorial is never saved', F.loadSave(), null);
   F.finishTutorial(true); await settle(150);
 
+  // --- a relic that was renamed must survive the rename ---
+  // applyRelics guards on RELICS[id], so an unknown id is skipped in silence: without a
+  // migration the player just finds a legendary gone from a run they were in the middle of.
+  const renames = Object.entries(F.RELIC_RENAMES);
+  chk('there is at least one rename to carry', renames.length > 0, true);
+  for (const [was, now] of renames) {
+    F.start('rush'); await settle(120);
+    F.relics = [now]; F.relicLife = {}; F.applyRelics();
+    F.saveRun();
+    const o = JSON.parse(localStorage.getItem(F.SAVE_KEY));
+    o.relics = [was];                       // exactly what a save written before the rename holds
+    localStorage.setItem(F.SAVE_KEY, JSON.stringify(o));
+    F.resetRun(); F.running = false;
+    F.resumeSavedRun();
+    await settle(120);
+    chk(`an old save holding ${was} comes back as ${now}`, F.relics, [now]);
+    chk(`and ${now} is actually applied, not just listed`,
+        !!(F.RELICS[now] && F.relics.some(id => F.RELICS[id])), true);
+  }
+  F.clearSave();
+  // resuming leaves the run paused, which is correct -- but the checks below are about
+  // whether BACKGROUNDING pauses, so hand them a live board rather than a paused one
+  if (shown('pause')) document.getElementById('btn-resume').click();
+  await settle(60);
+
   // --- a save from an older build must not be loaded ---
   F.start('rush'); await settle(100); F.saveRun();
   try {
