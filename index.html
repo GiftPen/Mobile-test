@@ -1549,7 +1549,7 @@
     grapeBulk = 0; bananaSpread = 0; cherryPile = 0; coinFruitMult = 1;
     starEverything = false;
     spendFlat = 0; shopDiscount = 1; resonance = RESONANCE_BASE;
-    bombRadiusBonus = 0; itemEase = 0; birdFlock = 1; crossLine = false;
+    bombRadiusBonus = 0; itemEase = 0; birdFlock = 1; crossLine = false; birdFeed = 0;
     zoneMult = 1; zoneCoins = 0; zoneBonus = 0; zoneCells = new Set();
     fieldOn = false; bananaField = null; crackerTouch = 0; comboKeep = false; millPaid = 0;
     STREAK_STEP = STREAK_STEP_BASE; STREAK_CAP = 2.0;
@@ -1801,6 +1801,10 @@
   let starEverything = false;   // the star links the whole board, not one colour
   let chainStep = 0, coinFruitBonus = 0, starCoinMult = 1, payoutMult = 1,
       bombRadiusBonus = 0, itemEase = 0, birdFlock = 1, crossLine = false;
+  // 참새떼: what a bird's meal is worth to the fruit it ate, for good. DERIVED -- rebuilt by
+  // applyRelics -- while the pile it feeds (fruitStack) is accumulated, which is the trap this
+  // codebase has fallen into three times.
+  let birdFeed = 0;
   // Bonus zones. Marked cells that pay extra when you pop on them -- the map layer the design
   // called for and nothing had built. They exist only while a zone relic is owned, so a run
   // without one plays exactly as before. Stored as flat r*COLS+c indices, which stay valid
@@ -2113,6 +2117,7 @@
       starAll: () => "별이 판의 모든 과일을 연결합니다",
       interestPaid: n => `이자 +${n}코인`,
       birds:      n => `참새가 ${n}마리씩 날아갑니다`,
+      birdFeed: (n, p) => `참새가 ${n}마리씩 날아가고, 참새가 먹은 과일은 그 과일 점수 +${p} (영구)`,
       birdsMore:  n => `참새가 ${n}마리 더 날아갑니다`,
       starCoin:   (a, b) => `별이 과일당 코인 ${a}개 → ${b}개`,
       starCoinUp: n => `별이 과일당 코인 +${n}`,
@@ -2491,6 +2496,7 @@
       starAll: () => "The star links every fruit on the board",
       interestPaid: n => `Interest +${n}`,
       birds:      n => `${n} sparrows fly at once`,
+      birdFeed: (n, p) => `${n} sparrows fly at once, and every fruit one eats gains +${p} for the rest of the run`,
       birdsMore:  n => `+${n} sparrow${n > 1 ? "s" : ""} fly`,
       starCoin:   (a, b) => `Stars pay ${a} → ${b} coins per fruit`,
       starCoinUp: n => `Stars pay +${n} coin per fruit`,
@@ -2867,6 +2873,7 @@
       starAll: () => "スターが盤面のすべてのフルーツをつなぎます",
       interestPaid: n => `利息 +${n}`,
       birds:      n => `スズメが ${n} 羽ずつ飛ぶ`,
+      birdFeed: (n, p) => `スズメが ${n} 羽ずつ飛び、食べたフルーツはそのスコアが +${p}（永続）`,
       birdsMore:  n => `スズメが ${n} 羽 多く飛ぶ`,
       starCoin:   (a, b) => `星のコインが フルーツごとに ${a} → ${b}`,
       starCoinUp: n => `星のコインが フルーツごとに +${n}`,
@@ -3242,6 +3249,7 @@
       starAll: () => "星星连接盘面上所有水果",
       interestPaid: n => `利息 +${n}`,
       birds:      n => `麻雀每次飞出 ${n} 只`,
+      birdFeed: (n, p) => `麻雀每次飞出 ${n} 只，被吃掉的水果分数永久 +${p}`,
       birdsMore:  n => `麻雀多飞出 ${n} 只`,
       starCoin:   (a, b) => `星星每个水果给 ${a} → ${b} 金币`,
       starCoinUp: n => `星星每个水果多给 ${n} 金币`,
@@ -4139,7 +4147,10 @@
 
     // ---- item upgrades the player asked for ----
     flock: { icon: "🐦", price: 22,
-      desc: () => d("birds", 3), apply() { birdFlock = 3; } },
+      // Was "three birds" alone, which measured x0.96: a bird eats a fruit for a flat 20 and
+      // that is less than the fruit was worth, so more birds meant less score. It still sends
+      // three, and now every mouthful pays the fruit back permanently.
+      desc: () => d("birdFeed", 3, 10), apply() { birdFlock = 3; birdFeed += 10; } },
     crossing: { icon: "✚", price: 20,
       desc: () => d("crossLine"), apply() { crossLine = true; } },
 
@@ -4356,7 +4367,7 @@
     grapeBulk = 0; bananaSpread = 0; cherryPile = 0; coinFruitMult = 1;
     starEverything = false;
     spendFlat = 0; shopDiscount = 1; resonance = RESONANCE_BASE;
-    bombRadiusBonus = 0; itemEase = 0; birdFlock = 1; crossLine = false;
+    bombRadiusBonus = 0; itemEase = 0; birdFlock = 1; crossLine = false; birdFeed = 0;
     zoneMult = 1; zoneCoins = 0; zoneBonus = 0; fieldOn = false;
     crackerTouch = 0; comboKeep = false;
     STREAK_STEP = STREAK_STEP_BASE; STREAK_CAP = 2.0;      // relics may raise these; reset first
@@ -5763,7 +5774,7 @@
     ["combo", () => [chainStep, STREAK_STEP, STREAK_CAP, +comboKeep]],
     ["coin",  () => [coinFruitBonus, starCoinMult, payoutMult, coinFlat, coinToScore, coinFlatPer, spendFlat,
                      interestPer, interestPct, interestCap, shopDiscount]],
-    ["item",  () => [bombRadiusBonus, itemEase, birdFlock, +crossLine, +starEverything,
+    ["item",  () => [bombRadiusBonus, itemEase, birdFlock, birdFeed, +crossLine, +starEverything,
                      +peachBurst, +citrusFuse, +kiwiSeed, bananaSpread]],
     ["board", () => [zoneMult, zoneCoins, zoneBonus, +fieldOn]],
   ];
@@ -5800,7 +5811,7 @@
           grapeBulk = 0; bananaSpread = 0; cherryPile = 0; coinFruitMult = 1;
     peachBurst = false; citrusFuse = false; kiwiSeed = false; lemonFree = false;
     grapeBulk = 0; bananaSpread = 0; cherryPile = 0; coinFruitMult = 1;
-          bombRadiusBonus = 0; itemEase = 0; birdFlock = 1; crossLine = false;
+          bombRadiusBonus = 0; itemEase = 0; birdFlock = 1; crossLine = false; birdFeed = 0;
           zoneMult = 1; zoneCoins = 0; zoneBonus = 0; fieldOn = false;
           crackerTouch = 0; comboKeep = false;
     crackerTouch = 0; comboKeep = false;
@@ -7369,6 +7380,9 @@
               crackerBroken();
             } else {
               addScore(BIRD_SCORE);
+              // 참새떼: the bird does not just clear the cell, it feeds that fruit for the rest
+              // of the run. Turns a card that DELETED value into one that banks it.
+              if (birdFeed && col >= 0) { fruitStack[col] += birdFeed; updateHUD(); }
             }
             dirty = true;
             updateHUD();
@@ -8097,6 +8111,7 @@
       ITEM_SCORE, BIRD_SCORE,
       CRACKER,
       get bombRadiusBonus() { return bombRadiusBonus; }, get itemEase() { return itemEase; },
+      get birdFeed() { return birdFeed; }, BIRD_SCORE,
       get STREAK_CAP() { return STREAK_CAP; }, get STREAK_STEP() { return STREAK_STEP; },
       get relics() { return relics; }, set relics(v) { relics = v; },
       get mode() { return mode; }, set mode(v) { mode = v; },

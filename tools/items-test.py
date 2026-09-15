@@ -809,109 +809,125 @@ window.addEventListener('load', async () => {
   }
   chk('유물 구매 순서가 누적 더미의 값을 바꾸지 않는다', flipped.slice(0, 8), []);
 
-  // 가루 폭발 SHELVED — the 3x3 blast checks go back in with the relic
-  // // 가루 폭발 takes the neighbours with it
-  // F.mode = 'rush'; F.resetRun(); F.relics = ['crumb_blast']; F.applyRelics();
-  // clearBoard();
-  // F.grid[2][4] = F.CRACKER; F.hp[2][4] = 1;
-  // for (const [r, c] of [[3,5],[4,4],[4,5]]) F.grid[r][c] = 5;
-  // const bystanders = [[1,3],[1,4],[1,5],[2,3],[2,5]];
-  // for (const [r, c] of bystanders) F.grid[r][c] = 6;     // a colour nothing else touches
-  // F.nextColor = 5; F.nextColor2 = 5; F.busy = false;
-  // const r4 = cv.getBoundingClientRect();
-  // const x4 = r4.left + 4.5 * r4.width / F.COLS, y4 = r4.top + 3.5 * r4.height / F.ROWS;
-  // const wb = watch(bystanders);
-  // cv.dispatchEvent(new PointerEvent('pointerdown', {clientX:x4, clientY:y4, bubbles:true}));
-  // cv.dispatchEvent(new PointerEvent('pointerup',   {clientX:x4, clientY:y4, bubbles:true}));
-  // await pumpWatch(wb, 140, 12);
-  // chk('가루 폭발 clears the 3x3 around the cracker', wb.seen.size, bystanders.length);
-  // F.relics = []; F.applyRelics(); F.resetEffects();
-  //
-  // // ---- an item is a tool, not a fruit ----
-  // // It used to be worth whatever fruit it was drawn on -- invisible under the art, so popping
-  // // "one lemon" with a line that happened to sit on a lemon banked two, with nothing on screen
-  // // to explain it. It pays its own flat price now and the fruit under it scores nothing.
-  // const itemOn = async (sp, fruit) => {
-  // F.mode = 'rush'; F.resetRun(); F.relics = []; F.traits = [];
-  // F.applyRelics(); F.pickTrait('lemon_ledger'); F.applyRelics();
-  // clearBoard();
-  // for (let r = 0; r < F.ROWS; r++) for (let c = 0; c < F.COLS; c++) F.coinCell[r][c] = 0;
-  // F.fruitStack[3] = 0; F.score = 0; F.busy = false;
-  // F.grid[4][4] = fruit; F.special[4][4] = sp;
-  // const b = cv.getBoundingClientRect();
-  // const x = b.left + 4.5 * b.width / F.COLS, y = b.top + 4.5 * b.height / F.ROWS;
-  // cv.dispatchEvent(new PointerEvent('pointerdown', {clientX:x, clientY:y, bubbles:true}));
-  // cv.dispatchEvent(new PointerEvent('pointerup',   {clientX:x, clientY:y, bubbles:true}));
-  // await settle();
-  // return { score: F.score, banked: F.fruitStack[3] };
-  // };
-  // for (const sp of ['bird', 'lineH', 'lineV', 'bomb', 'star']) {
-  // const onLemon = await itemOn(sp, 3);
-  // chk(`${sp}: the fruit it rides banks nothing`, onLemon.banked, 0);
-  // chk(`${sp}: it pays its own score`, onLemon.score >= F.ITEM_SCORE[sp], true);
-  // }
-  // // and the prices differ -- a star is not a sparrow
-  // chk('the item prices are graded, not one number',
-  // [F.ITEM_SCORE.bird < F.ITEM_SCORE.lineH, F.ITEM_SCORE.lineH < F.ITEM_SCORE.bomb,
-  // F.ITEM_SCORE.bomb < F.ITEM_SCORE.star], [true, true, true]);
-  // // an item on a lemon and the same item on a grape are worth exactly the same now
-  // const onGrape = await itemOn('lineH', 4), onLemon2 = await itemOn('lineH', 3);
-  // chk('what it rides on does not change what it pays', onGrape.score, onLemon2.score);
-  // F.mode = 'rush'; F.resetRun(); F.relics = []; F.traits = []; F.applyRelics();
-  //
-  // // ---- ...and every way a cracker can break has to PAY ----
-  // // The sound was wired through all of these; the economy was not. A cracker swallowed whole
-  // // by a bomb, a line, a star or 가루 폭발's own 3x3 went to the frontier and never touched
-  // // hitCrackers, so it died for 12 points against the 311 the same cracker pays when a
-  // // neighbour chips it -- no 소금통 coin and no 크래커 왕 growth either.
-  // const breakBy = async (how) => {
-  // F.mode = 'rush'; F.resetRun();
-  // F.relics = ['cracker_king', 'cracker_coin']; F.traits = []; F.applyRelics();
-  // clearBoard();
-  // for (let r = 0; r < F.ROWS; r++) for (let c = 0; c < F.COLS; c++) F.coinCell[r][c] = 0;
-  // F.score = 0; F.coins = 0; F.busy = false;
-  // const worth = F.crackerValue();
-  // F.grid[2][2] = F.CRACKER; F.hp[2][2] = 1;
-  // if (how === 'bird') {
-  // F.grid[7][7] = 1;
-  // F.birds.push({ sr: 7, sc: 7, tr: 2, tc: 2, t: 0.5, curve: 1 });
-  // await settle();
-  // } else if (how === 'neighbour') {
-  // // the one path that always worked: an adjacent colour pop chips it
-  // clearBoard();
-  // F.score = 0; F.coins = 0;
-  // F.grid[2][4] = F.CRACKER; F.hp[2][4] = 1;
-  // for (const [r, c] of [[3,5],[4,4],[4,5]]) F.grid[r][c] = 5;
-  // F.nextColor = 5; F.nextColor2 = 5;
-  // const b1 = cv.getBoundingClientRect();
-  // const x1 = b1.left + 4.5 * b1.width / F.COLS, y1 = b1.top + 3.5 * b1.height / F.ROWS;
-  // cv.dispatchEvent(new PointerEvent('pointerdown', {clientX:x1, clientY:y1, bubbles:true}));
-  // cv.dispatchEvent(new PointerEvent('pointerup',   {clientX:x1, clientY:y1, bubbles:true}));
-  // await settle();
-  // return { gone: F.grid[2][4] === -1, paid: F.score >= worth, coins: F.coins, grew: F.crackerValue() > worth };
-  // } else {
-  // F.grid[4][4] = 0; F.special[4][4] = how;      // bomb / lineH / lineV / star on (4,4)
-  // const b2 = cv.getBoundingClientRect();
-  // const x2 = b2.left + 4.5 * b2.width / F.COLS, y2 = b2.top + 4.5 * b2.height / F.ROWS;
-  // if (how === 'lineH') { F.grid[4][4] = 0; F.grid[2][2] = -1; F.grid[4][1] = F.CRACKER; F.hp[4][1] = 1; }
-  // if (how === 'lineV') { F.grid[4][4] = 0; F.grid[2][2] = -1; F.grid[1][4] = F.CRACKER; F.hp[1][4] = 1; }
-  // cv.dispatchEvent(new PointerEvent('pointerdown', {clientX:x2, clientY:y2, bubbles:true}));
-  // cv.dispatchEvent(new PointerEvent('pointerup',   {clientX:x2, clientY:y2, bubbles:true}));
-  // await settle();
-  // const at = how === 'lineH' ? [4,1] : how === 'lineV' ? [1,4] : [2,2];
-  // return { gone: F.grid[at[0]][at[1]] === -1, paid: F.score >= worth,
-  // coins: F.coins, grew: F.crackerValue() > worth };
-  // }
-  // return { gone: F.grid[2][2] === -1, paid: F.score >= worth,
-  // coins: F.coins, grew: F.crackerValue() > worth };
-  // };
-  // for (const how of ['neighbour', 'bomb', 'lineH', 'lineV', 'bird']) {
-  // const r = await breakBy(how);
-  // chk(`${how}: the cracker is gone`, r.gone, true);
-  // chk(`${how}: it pays its score`, r.paid, true);
-  // chk(`${how}: 소금통 pays its coins`, r.coins >= 2, true);
-  // chk(`${how}: 크래커 왕 grows on it`, r.grew, true);
-  // }
+  // 가루 폭발 SHELVED — its 3x3 checks are out with the relic; everything below is the
+  // item and cracker-payment work, which is live and was switched off with it by mistake.
+
+  // ---- 참새떼: a bird's meal feeds that fruit for the rest of the run ----
+  // The card used to be three birds and nothing else, which measured BELOW the baseline: a
+  // bird eats a fruit for a flat 20 and that is less than the fruit was worth, so more birds
+  // meant less score. Now each mouthful banks.
+  const birdEat = async (relics) => {
+    F.mode = 'rush'; F.resetRun(); F.relics = relics.slice(); F.traits = []; F.applyRelics();
+    clearBoard();
+    for (let r = 0; r < F.ROWS; r++) for (let c = 0; c < F.COLS; c++) F.coinCell[r][c] = 0;
+    F.fruitStack[4] = 0; F.score = 0; F.busy = false;
+    F.grid[2][2] = 4;                               // one grape for the bird
+    F.grid[7][7] = 1;
+    F.birds.push({ sr: 7, sc: 7, tr: 2, tc: 2, t: 0.5, curve: 1 });
+    await settle();
+    return { eaten: F.grid[2][2] === -1, banked: F.fruitStack[4], score: F.score };
+  };
+  const plainBird = await birdEat([]);
+  chk('a plain bird eats the fruit', plainBird.eaten, true);
+  chk('and banks nothing', plainBird.banked, 0);
+  chk('paying its flat fee', plainBird.score, F.BIRD_SCORE);
+  const flockBird = await birdEat(['flock']);
+  chk('참새떼: the fruit it ate is worth more for good', flockBird.banked, F.birdFeed);
+  chk('...and that is a real number', F.birdFeed > 0, true);
+  chk('the flat fee is unchanged', flockBird.score, F.BIRD_SCORE);
+  // derived, not accumulated: recomputing must not feed it again
+  const fedWas = F.fruitStack[4];
+  F.applyRelics(); F.applyRelics();
+  chk('a recompute does not feed it again', F.fruitStack[4], fedWas);
+  F.relics = []; F.applyRelics();
+  chk('and dropping the relic turns it off', F.birdFeed, 0);
+  F.mode = 'rush'; F.resetRun(); F.relics = []; F.traits = []; F.applyRelics();
+
+  // ---- an item is a tool, not a fruit ----
+  // It used to be worth whatever fruit it was drawn on -- invisible under the art, so popping
+  // "one lemon" with a line that happened to sit on a lemon banked two, with nothing on screen
+  // to explain it. It pays its own flat price now and the fruit under it scores nothing.
+  const itemOn = async (sp, fruit) => {
+    F.mode = 'rush'; F.resetRun(); F.relics = []; F.traits = [];
+    F.applyRelics(); F.pickTrait('lemon_ledger'); F.applyRelics();
+    clearBoard();
+    for (let r = 0; r < F.ROWS; r++) for (let c = 0; c < F.COLS; c++) F.coinCell[r][c] = 0;
+    F.fruitStack[3] = 0; F.score = 0; F.busy = false;
+    F.grid[4][4] = fruit; F.special[4][4] = sp;
+    const b = cv.getBoundingClientRect();
+    const x = b.left + 4.5 * b.width / F.COLS, y = b.top + 4.5 * b.height / F.ROWS;
+    cv.dispatchEvent(new PointerEvent('pointerdown', {clientX:x, clientY:y, bubbles:true}));
+    cv.dispatchEvent(new PointerEvent('pointerup',   {clientX:x, clientY:y, bubbles:true}));
+    await settle();
+    return { score: F.score, banked: F.fruitStack[3] };
+  };
+  for (const sp of ['bird', 'lineH', 'lineV', 'bomb', 'star']) {
+    const onLemon = await itemOn(sp, 3);
+    chk(`${sp}: the fruit it rides banks nothing`, onLemon.banked, 0);
+    chk(`${sp}: it pays its own score`, onLemon.score >= F.ITEM_SCORE[sp], true);
+  }
+  // and the prices differ -- a star is not a sparrow
+  chk('the item prices are graded, not one number',
+      [F.ITEM_SCORE.bird < F.ITEM_SCORE.lineH, F.ITEM_SCORE.lineH < F.ITEM_SCORE.bomb,
+       F.ITEM_SCORE.bomb < F.ITEM_SCORE.star], [true, true, true]);
+  // an item on a lemon and the same item on a grape are worth exactly the same now
+  const onGrape = await itemOn('lineH', 4), onLemon2 = await itemOn('lineH', 3);
+  chk('what it rides on does not change what it pays', onGrape.score, onLemon2.score);
+  F.mode = 'rush'; F.resetRun(); F.relics = []; F.traits = []; F.applyRelics();
+
+  // ---- ...and every way a cracker can break has to PAY ----
+  // The sound was wired through all of these; the economy was not. A cracker swallowed whole
+  // by a bomb, a line, a star or 가루 폭발's own 3x3 went to the frontier and never touched
+  // hitCrackers, so it died for 12 points against the 311 the same cracker pays when a
+  // neighbour chips it -- no 소금통 coin and no 크래커 왕 growth either.
+  const breakBy = async (how) => {
+    F.mode = 'rush'; F.resetRun();
+    F.relics = ['cracker_king', 'cracker_coin']; F.traits = []; F.applyRelics();
+    clearBoard();
+    for (let r = 0; r < F.ROWS; r++) for (let c = 0; c < F.COLS; c++) F.coinCell[r][c] = 0;
+    F.score = 0; F.coins = 0; F.busy = false;
+    const worth = F.crackerValue();
+    F.grid[2][2] = F.CRACKER; F.hp[2][2] = 1;
+    if (how === 'bird') {
+      F.grid[7][7] = 1;
+      F.birds.push({ sr: 7, sc: 7, tr: 2, tc: 2, t: 0.5, curve: 1 });
+      await settle();
+    } else if (how === 'neighbour') {
+      // the one path that always worked: an adjacent colour pop chips it
+      clearBoard();
+      F.score = 0; F.coins = 0;
+      F.grid[2][4] = F.CRACKER; F.hp[2][4] = 1;
+      for (const [r, c] of [[3,5],[4,4],[4,5]]) F.grid[r][c] = 5;
+      F.nextColor = 5; F.nextColor2 = 5;
+      const b1 = cv.getBoundingClientRect();
+      const x1 = b1.left + 4.5 * b1.width / F.COLS, y1 = b1.top + 3.5 * b1.height / F.ROWS;
+      cv.dispatchEvent(new PointerEvent('pointerdown', {clientX:x1, clientY:y1, bubbles:true}));
+      cv.dispatchEvent(new PointerEvent('pointerup',   {clientX:x1, clientY:y1, bubbles:true}));
+      await settle();
+      return { gone: F.grid[2][4] === -1, paid: F.score >= worth, coins: F.coins, grew: F.crackerValue() > worth };
+    } else {
+      F.grid[4][4] = 0; F.special[4][4] = how;      // bomb / lineH / lineV / star on (4,4)
+      const b2 = cv.getBoundingClientRect();
+      const x2 = b2.left + 4.5 * b2.width / F.COLS, y2 = b2.top + 4.5 * b2.height / F.ROWS;
+      if (how === 'lineH') { F.grid[4][4] = 0; F.grid[2][2] = -1; F.grid[4][1] = F.CRACKER; F.hp[4][1] = 1; }
+      if (how === 'lineV') { F.grid[4][4] = 0; F.grid[2][2] = -1; F.grid[1][4] = F.CRACKER; F.hp[1][4] = 1; }
+      cv.dispatchEvent(new PointerEvent('pointerdown', {clientX:x2, clientY:y2, bubbles:true}));
+      cv.dispatchEvent(new PointerEvent('pointerup',   {clientX:x2, clientY:y2, bubbles:true}));
+      await settle();
+      const at = how === 'lineH' ? [4,1] : how === 'lineV' ? [1,4] : [2,2];
+      return { gone: F.grid[at[0]][at[1]] === -1, paid: F.score >= worth,
+               coins: F.coins, grew: F.crackerValue() > worth };
+    }
+    return { gone: F.grid[2][2] === -1, paid: F.score >= worth,
+             coins: F.coins, grew: F.crackerValue() > worth };
+  };
+  for (const how of ['neighbour', 'bomb', 'lineH', 'lineV', 'bird']) {
+    const r = await breakBy(how);
+    chk(`${how}: the cracker is gone`, r.gone, true);
+    chk(`${how}: it pays its score`, r.paid, true);
+    chk(`${how}: 소금통 pays its coins`, r.coins >= 2, true);
+    chk(`${how}: 크래커 왕 grows on it`, r.grew, true);
+  }
 
   // ---- every way a cracker can break has to make the cracker sound ----
   // A bird eating one was silent: that path mutates the grid directly instead of going
