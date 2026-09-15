@@ -22,6 +22,19 @@ window.addEventListener('load', () => setTimeout(() => {
   const langs = Object.keys(F.LANGS);
   chk('there is more than one language', langs.length > 1, true);
 
+  // 0) no two cards may share a name, in any language.
+  // art-names.json is keyed by the NAME, so a duplicate silently overwrites and an image
+  // lands on the wrong card: 명당 was both sweet_spot and hotspot, and the clover drawn for
+  // one was filed under the other. gen-catalog.py refuses on this too, but that only runs
+  // when someone remembers to run it.
+  for (const lg of langs) {
+    const names = F.PACKS[lg]._names || {};
+    const seen = {}, dupes = [];
+    for (const id of Object.keys(names)) (seen[names[id]] = seen[names[id]] || []).push(id);
+    for (const nm of Object.keys(seen)) if (seen[nm].length > 1) dupes.push(nm + '=' + seen[nm].join('+'));
+    chk('no two cards share a name in ' + lg, dupes.sort(), []);
+  }
+
   // 1) every pattern the Korean pack defines must exist in every other pack
   const koKeys = Object.keys(F.PACKS.ko).filter(k => k[0] !== '_');
   for (const lg of langs) {
