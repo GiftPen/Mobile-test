@@ -6735,11 +6735,21 @@
   // Relic and trait art arrives a few pieces at a time. Listing what exists beats probing 84
   // ids and eating a 404 for each of them; tools/art-check.py keeps this list honest against
   // what is actually in assets_new/, in both directions.
-  const ART_IDS = new Set(["relic_banana_crown", "relic_banana_grove", "relic_big_reclaim", 
-                           "relic_crown", "relic_flock", "relic_grape_crown", 
-                           "relic_grape_farm", "relic_midas", "relic_orange_crown", 
-                           "relic_peach_crown", "relic_peach_farm", "relic_prism", 
-                           "relic_star_king", "relic_vault"]);
+  const ART_IDS = new Set(["relic_banana_crown", "relic_banana_field", "relic_banana_grove",
+                           "relic_banana_grove2", "relic_big_reclaim", "relic_chain_react",
+                           "relic_cherry_crown", "relic_cherry_farm", "relic_cherry_pile",
+                           "relic_citrus_plate", "relic_compound", "relic_cornucopia",
+                           "relic_cracker_king", "relic_crescendo", "relic_crown",
+                           "relic_crumb_blast", "relic_flock", "relic_gold_mine",
+                           "relic_gold_standard", "relic_golden_city", "relic_golden_clover",
+                           "relic_golden_reap", "relic_grape_bunch2", "relic_grape_crown",
+                           "relic_grape_farm", "relic_kiwi_crown", "relic_kiwi_farm",
+                           "relic_kiwi_seed", "relic_last_feast", "relic_lemon_crown",
+                           "relic_lemon_farm", "relic_lemon_spoon", "relic_midas",
+                           "relic_mill", "relic_orange_crown", "relic_oven",
+                           "relic_peach_crown", "relic_peach_farm", "relic_peach_stone",
+                           "relic_prism", "relic_resonator", "relic_star_king",
+                           "relic_tinkerer", "relic_trance", "relic_vault"]);
   const artImgs = {};
   // An icon that shows the emoji until its art is PROVEN to load. Anything else -- swapping
   // on the strength of the list alone -- leaves a blank square when a file is missing.
