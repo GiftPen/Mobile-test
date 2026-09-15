@@ -131,7 +131,6 @@
     "crumb_tin": "a small round tin of crackers with the lid tipped off, crumbs spilling",
     "cracker_score": "a square cracker with one bite taken out, crumbs flying, sparkles around it",
     "cracker_coin": "a broken cracker with gold coins tumbling out of the break",
-    "crumb_blast": "a cracker shattering outward in a burst of crumbs and shards",
     "cracker_king": "a tall stack of crackers wearing a small gold crown on top",
     "cherry_pile": "a heaped mound of cherries spilling over itself, one on top catching the light",
     "citrus_plate": "a round plate holding orange and lemon slices fanned together",
@@ -222,5 +221,8 @@
     "orange_pride": "an orange on a laurel crest, badge framed",
     "kiwi_pride": "a kiwi on a laurel crest, badge framed",
     "peach_pride": "a peach on a laurel crest, badge framed"
+  },
+  "_shelved": {
+    "crumb_blast": "a cracker shattering outward in a burst of crumbs and shards"
   }
 }

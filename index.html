@@ -2195,7 +2195,7 @@
         crumb_tin: "부스러기 통",
         cracker_score: "바삭한 한 입",
         cracker_coin: "과자 부스러기",
-        crumb_blast: "가루 폭발",
+        // crumb_blast: "가루 폭발",   // SHELVED
         cracker_king: "크래커 왕",
         cherry_crown: "체리 왕관",
         lemon_crown: "레몬 왕관",
@@ -2571,7 +2571,7 @@
         crumb_tin: "Crumb Tin",
         cracker_score: "Crisp Bite",
         cracker_coin: "Crumb Coin",
-        crumb_blast: "Crumb Blast",
+        // crumb_blast: "Crumb Blast",   // SHELVED
         cracker_king: "Cracker King",
         cherry_crown: "Cherry Crown",
         lemon_crown: "Lemon Crown",
@@ -2947,7 +2947,7 @@
         crumb_tin: "くず入れ",
         cracker_score: "サクッと一口",
         cracker_coin: "お菓子のくず",
-        crumb_blast: "くず爆発",
+        // crumb_blast: "くず爆発",   // SHELVED
         cracker_king: "クラッカー王",
         cherry_crown: "さくらんぼの王冠",
         lemon_crown: "レモンの王冠",
@@ -3322,7 +3322,7 @@
         crumb_tin: "碎屑罐",
         cracker_score: "酥脆一口",
         cracker_coin: "饼干碎币",
-        crumb_blast: "碎屑爆炸",
+        // crumb_blast: "碎屑爆炸",   // SHELVED
         cracker_king: "饼干之王",
         cherry_crown: "樱桃王冠",
         lemon_crown: "柠檬王冠",
@@ -3924,12 +3924,16 @@
     // The cracker build is meant to be a pair of legendaries: one makes them, the other makes
     // breaking them matter. They share the "risk" identity, so 공명 leans the shop toward the
     // second once you hold the first.
-    crumb_blast: { icon: "💥", price: 38,
-      desc: () => d("crackerBoom"), apply() { crackerBoom = true; } },
+    // SHELVED 2026-09-16. Measured x1.02 beside 크래커 왕 -- its own build -- because 크래커 왕
+    // fills the board with crackers, so the 3x3 has no fruit left to be worth anything on while
+    // still clearing the fruit that would have scored. The crackerBoom channel and the blast
+    // code below are left intact, so putting this line back is all it takes to revive it.
+    // crumb_blast: { icon: "💥", price: 38,
+    //   desc: () => d("crackerBoom"), apply() { crackerBoom = true; } },
     // ...which leaves the 유니크 rung empty, so the ladder gets one that is not the 3x3
     oven: { icon: "🔥", price: 26,
       desc: () => d("crackerMult", 2), apply() { crackerMult *= 2; } },
-    cracker_king: { icon: "👑", price: 44,
+    cracker_king: { icon: "👑", price: 50,
       desc: () => d("crackerKing", CRACKER_KING_STEP),
       apply() { crackerEvery = true; crackerDouble = true; } },
 
@@ -4092,7 +4096,7 @@
       desc: () => d("popMult", 3), modify: { pop: v => Math.round(v * 3) } },
     // a legendary that expires is a wall-breaker, not a build: two stages of x6 is enough to
     // push through a quota you could not otherwise reach, and then it is gone
-    last_feast: { icon: "🎆", price: 32, life: { unit: "stages", amount: 2 },
+    last_feast: { icon: "🎆", price: 50, life: { unit: "stages", amount: 2 },
       desc: () => d("popMult", 6), modify: { pop: v => Math.round(v * 6) } },
 
     // ---- G. stacking: value that grows with play, not with the shop ----
@@ -4163,11 +4167,11 @@
     // ---- 전설: one signature rule per fruit ----
     // Not bigger numbers -- a different RULE each, so a fruit build plays differently rather
     // than scoring differently.
-    cherry_pile:  { icon: "🍒", price: 30,
+    cherry_pile:  { icon: "🍒", price: 40,
       desc: () => d("cherryPile", 10), apply() { cherryPile += 10; } },
-    citrus_plate: { icon: "🍊", price: 32,
+    citrus_plate: { icon: "🍊", price: 30,
       desc: () => d("citrusFuse"), apply() { citrusFuse = true; } },
-    kiwi_seed:    { icon: "🥝", price: 32,
+    kiwi_seed:    { icon: "🥝", price: 46,
       desc: () => d("kiwiSeed"), apply() { kiwiSeed = true; } },
     lemon_spoon:  { icon: "🍋", price: 38,
       desc: () => d("lemonFree"), apply() { lemonFree = true; } },
@@ -4176,9 +4180,9 @@
     // Named 물렁 복숭아 at first, which fought its own effect: this one breaks THROUGH the
     // cell beside it whatever colour sits there, and that reads as a hard peach, not a mushy
     // one. 돌복숭아 is the wild, hard kind -- and a peach is a stone fruit either way.
-    peach_stone:  { icon: "🍑", price: 34,
+    peach_stone:  { icon: "🍑", price: 32,
       desc: () => d("peachBurst"), apply() { peachBurst = true; } },
-    banana_grove2:{ icon: "🍌", price: 38,
+    banana_grove2:{ icon: "🍌", price: 44,
       desc: () => d("bananaSpread", 4), apply() { bananaSpread += 4; } },
     // The banana tree's second engine, and deliberately NOT bolted onto 바나나 군락: one card
     // saying "converts three neighbours AND grows its own" is two unrelated promises. Growth
@@ -4219,7 +4223,7 @@
       desc: () => d("comboKeep"), apply() { comboKeep = true; } },
 
     // ---- 코인: five 유니크 and a single 전설, which it shares with the board tree ----
-    gold_standard: { icon: "🥇", price: 36,
+    gold_standard: { icon: "🥇", price: 40,
       desc: () => d("coinFlat", 1, 1), apply() { coinFlat += 1; coinFlatPer = 1; } },
     golden_reap:  { icon: "💰", price: 35,
       desc: () => d("coinFruitMult", 10), apply() { coinFruitMult *= 10; } },
@@ -4228,7 +4232,7 @@
     cornucopia: { icon: "🧺", price: 40,
       desc: () => d("allBoost", 2),
       apply() { for (let i = 0; i < fruitCrown.length; i++) fruitCrown[i] *= 2; } },
-    crown: { icon: "👑", price: 50,
+    crown: { icon: "👑", price: 40,
       desc: () => d("popMultRun", 2),
       modify: { pop: v => v * 2 } },
 
@@ -4251,7 +4255,9 @@
     // an apply() that mutated it would run again on every recompute.
     reclaim: { icon: "🌾", price: 21, tier: "epic",
       desc: () => d("rows", 1), rows: 1 },
-    big_reclaim: { icon: "🚜", price: 30, tier: "legend",
+    // 유니크로 내려옴: 공간은 점수가 아니라 생존으로 바뀌는 값이라 긴 벤치에서도 x0.98,
+    // 개간(에픽 21, 1줄) 바로 위 칸이 제자리다. 가격이 등급을 정하도록 명시 tier 를 뗐다.
+    big_reclaim: { icon: "🚜", price: 29,
       desc: () => d("rows", 2), rows: 2 },
 
     // ---- F. item upgrades ----
@@ -6785,31 +6791,31 @@
                            "relic_cherry_pile", "relic_citrus_crate", "relic_citrus_plate",
                            "relic_clover", "relic_compound", "relic_cornucopia",
                            "relic_cracker_king", "relic_cracker_score", "relic_crescendo",
-                           "relic_crown", "relic_crumb_blast", "relic_crumb_plate",
-                           "relic_crumb_tin", "relic_dust", "relic_endurance",
-                           "relic_first_step", "relic_flock", "relic_focus",
-                           "relic_frenzy", "relic_fruit_crate", "relic_gold_dust",
-                           "relic_gold_mine", "relic_gold_standard", "relic_gold_vein",
-                           "relic_golden_city", "relic_golden_clover", "relic_golden_reap",
-                           "relic_grape_bunch", "relic_grape_bunch2", "relic_grape_crown",
-                           "relic_grape_farm", "relic_grape_vine", "relic_heat",
-                           "relic_humble", "relic_kiwi_crown", "relic_kiwi_farm",
-                           "relic_kiwi_grove", "relic_kiwi_jam", "relic_kiwi_seed",
-                           "relic_kiwi_slice", "relic_last_feast", "relic_lemon_branch",
-                           "relic_lemon_crown", "relic_lemon_farm", "relic_lemon_jar",
-                           "relic_lemon_slice", "relic_lemon_spoon", "relic_lucky_coin",
-                           "relic_midas", "relic_mill", "relic_mint",
-                           "relic_one_cherry", "relic_orange_crown", "relic_orange_piece",
-                           "relic_orange_tree", "relic_orchard", "relic_oven",
-                           "relic_peach_crown", "relic_peach_farm", "relic_peach_half",
-                           "relic_peach_stone", "relic_peach_tree", "relic_piggy_cherry",
-                           "relic_pinch", "relic_prism", "relic_regular",
-                           "relic_resonator", "relic_satchel", "relic_sprout",
-                           "relic_stakes", "relic_stamina", "relic_star_king",
-                           "relic_storm", "relic_streak_step", "relic_sugar_rush",
-                           "relic_survey", "relic_sweet_spot", "relic_sweet_tooth",
-                           "relic_teapot", "relic_tinkerer", "relic_trance",
-                           "relic_tycoon", "relic_vault", "relic_whetstone"]);
+                           "relic_crown", "relic_crumb_plate", "relic_crumb_tin",
+                           "relic_dust", "relic_endurance", "relic_first_step",
+                           "relic_flock", "relic_focus", "relic_frenzy",
+                           "relic_fruit_crate", "relic_gold_dust", "relic_gold_mine",
+                           "relic_gold_standard", "relic_gold_vein", "relic_golden_city",
+                           "relic_golden_clover", "relic_golden_reap", "relic_grape_bunch",
+                           "relic_grape_bunch2", "relic_grape_crown", "relic_grape_farm",
+                           "relic_grape_vine", "relic_heat", "relic_humble",
+                           "relic_kiwi_crown", "relic_kiwi_farm", "relic_kiwi_grove",
+                           "relic_kiwi_jam", "relic_kiwi_seed", "relic_kiwi_slice",
+                           "relic_last_feast", "relic_lemon_branch", "relic_lemon_crown",
+                           "relic_lemon_farm", "relic_lemon_jar", "relic_lemon_slice",
+                           "relic_lemon_spoon", "relic_lucky_coin", "relic_midas",
+                           "relic_mill", "relic_mint", "relic_one_cherry",
+                           "relic_orange_crown", "relic_orange_piece", "relic_orange_tree",
+                           "relic_orchard", "relic_oven", "relic_peach_crown",
+                           "relic_peach_farm", "relic_peach_half", "relic_peach_stone",
+                           "relic_peach_tree", "relic_piggy_cherry", "relic_pinch",
+                           "relic_prism", "relic_regular", "relic_resonator",
+                           "relic_satchel", "relic_sprout", "relic_stakes",
+                           "relic_stamina", "relic_star_king", "relic_storm",
+                           "relic_streak_step", "relic_sugar_rush", "relic_survey",
+                           "relic_sweet_spot", "relic_sweet_tooth", "relic_teapot",
+                           "relic_tinkerer", "relic_trance", "relic_tycoon",
+                           "relic_vault", "relic_whetstone"]);
   const artImgs = {};
   // An icon that shows the emoji until its art is PROVEN to load. Anything else -- swapping
   // on the strength of the list alone -- leaves a blank square when a file is missing.
