@@ -218,6 +218,19 @@ if _face_unused:
     print('_style.with_face 에 존재하지 않는 항목:', ', '.join(_face_unused))
     sys.exit(1)
 
+# Two cards with the same name is not a cosmetic problem: art-names.json is keyed by name, so
+# the second one silently overwrites the first and an image lands on the wrong relic. 명당 was
+# both sweet_spot and hotspot, and the clover drawn for one of them ended up on the other.
+_by_name = {}
+for _x in d['relics'] + d['traits']:
+    _by_name.setdefault(_x['name'], []).append(_x['id'])
+_dupe_names = {n: ids for n, ids in _by_name.items() if len(ids) > 1}
+if _dupe_names:
+    print('이름이 겹칩니다 — 이미지가 엉뚱한 곳에 붙습니다:')
+    for n, ids in _dupe_names.items():
+        print(f'  "{n}" = {", ".join(ids)}')
+    sys.exit(1)
+
 _own_bad = [k for k in OWN_COLOUR
             if not (_byid.get(k, {}).get('fruits') or _tbyid.get(k, {}).get('fruits'))]
 if _own_bad:
