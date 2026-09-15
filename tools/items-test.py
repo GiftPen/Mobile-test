@@ -136,6 +136,9 @@ window.addEventListener('load', async () => {
     await pump(90, 12);
     return F.score;
   };
+  // the bomb's own flat price rides along in F.score and is NOT multiplied -- it is the item's
+  // fee, not fruit -- so the ratio is taken on the fruit part alone
+  const fruitPart = total => total - F.ITEM_SCORE.bomb;
   const noRelicPlain = await blastScore(false, []);
   const noRelicCoin  = await blastScore(true,  []);
   chk('without the relic, coin fruit changes nothing', noRelicCoin, noRelicPlain);
@@ -143,7 +146,10 @@ window.addEventListener('load', async () => {
   const withCoin  = await blastScore(true,  ['golden_harvest']);
   chk('금빛 수확 is idle when no coin fruit was taken', withPlain, noRelicPlain);
   chk('and pays when one was', withCoin > withPlain, true);
-  chk('by about half again', Math.abs(withCoin / withPlain - 1.5) < 0.02, true);
+  chk('by about half again on the fruit it scored',
+      Math.abs(fruitPart(withCoin) / fruitPart(withPlain) - 1.5) < 0.02, true);
+  chk('and the bomb itself charged its flat fee once',
+      noRelicPlain > F.ITEM_SCORE.bomb, true);
 
   // the same again through PLACEMENT, which scores on a different line entirely -- passing
   // the count on one path and not the other is the obvious way to half-fix this
@@ -639,7 +645,10 @@ window.addEventListener('load', async () => {
     cv.dispatchEvent(new PointerEvent('pointerdown', {clientX:x, clientY:y, bubbles:true}));
     cv.dispatchEvent(new PointerEvent('pointerup',   {clientX:x, clientY:y, bubbles:true}));
     await settle();
-    return { gone: F.grid[2][4] === -1, score: F.score, coins: F.coins,
+    // NOT "the cell is empty": the turn's spawn can drop a fresh fruit into the hole the
+    // cracker left, which failed this check about one run in eight for eight months of
+    // suspecting the engine. What matters is that the cracker is not there any more.
+    return { gone: F.grid[2][4] !== F.CRACKER, score: F.score, coins: F.coins,
              why: { at24: F.grid[2][4], hp24: F.hp[2][4], placed: F.grid[3][4],
                     n35: F.grid[3][5], n44: F.grid[4][4], n45: F.grid[4][5],
                     busy: F.busy, touches: F.touchesLeft } };
@@ -806,6 +815,38 @@ window.addEventListener('load', async () => {
   await pumpWatch(wb, 140, 12);
   chk('가루 폭발 clears the 3x3 around the cracker', wb.seen.size, bystanders.length);
   F.relics = []; F.applyRelics(); F.resetEffects();
+
+  // ---- an item is a tool, not a fruit ----
+  // It used to be worth whatever fruit it was drawn on -- invisible under the art, so popping
+  // "one lemon" with a line that happened to sit on a lemon banked two, with nothing on screen
+  // to explain it. It pays its own flat price now and the fruit under it scores nothing.
+  const itemOn = async (sp, fruit) => {
+    F.mode = 'rush'; F.resetRun(); F.relics = []; F.traits = [];
+    F.applyRelics(); F.pickTrait('lemon_ledger'); F.applyRelics();
+    clearBoard();
+    for (let r = 0; r < F.ROWS; r++) for (let c = 0; c < F.COLS; c++) F.coinCell[r][c] = 0;
+    F.fruitStack[3] = 0; F.score = 0; F.busy = false;
+    F.grid[4][4] = fruit; F.special[4][4] = sp;
+    const b = cv.getBoundingClientRect();
+    const x = b.left + 4.5 * b.width / F.COLS, y = b.top + 4.5 * b.height / F.ROWS;
+    cv.dispatchEvent(new PointerEvent('pointerdown', {clientX:x, clientY:y, bubbles:true}));
+    cv.dispatchEvent(new PointerEvent('pointerup',   {clientX:x, clientY:y, bubbles:true}));
+    await settle();
+    return { score: F.score, banked: F.fruitStack[3] };
+  };
+  for (const sp of ['bird', 'lineH', 'lineV', 'bomb', 'star']) {
+    const onLemon = await itemOn(sp, 3);
+    chk(`${sp}: the fruit it rides banks nothing`, onLemon.banked, 0);
+    chk(`${sp}: it pays its own score`, onLemon.score >= F.ITEM_SCORE[sp], true);
+  }
+  // and the prices differ -- a star is not a sparrow
+  chk('the item prices are graded, not one number',
+      [F.ITEM_SCORE.bird < F.ITEM_SCORE.lineH, F.ITEM_SCORE.lineH < F.ITEM_SCORE.bomb,
+       F.ITEM_SCORE.bomb < F.ITEM_SCORE.star], [true, true, true]);
+  // an item on a lemon and the same item on a grape are worth exactly the same now
+  const onGrape = await itemOn('lineH', 4), onLemon2 = await itemOn('lineH', 3);
+  chk('what it rides on does not change what it pays', onGrape.score, onLemon2.score);
+  F.mode = 'rush'; F.resetRun(); F.relics = []; F.traits = []; F.applyRelics();
 
   // ---- ...and every way a cracker can break has to PAY ----
   // The sound was wired through all of these; the economy was not. A cracker swallowed whole

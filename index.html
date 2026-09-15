@@ -906,6 +906,11 @@
   // used to make the whole flourish run at double speed on a 120Hz phone.
   const STAR_NODE_MS = 118;
   const BIRD_SCORE = 20;       // score per fruit a bird eats
+  // An item is a TOOL, not a fruit. It used to be worth whatever fruit it happened to be
+  // drawn on -- invisible under the art, so "I popped one lemon" could bank two and there was
+  // no way to see why. It pays its own flat price instead, graded by what it does, and the
+  // fruit underneath scores nothing and feeds no ledger.
+  const ITEM_SCORE = { bird: 30, lineH: 60, lineV: 60, lineX: 100, bomb: 120, star: 200 };
   // The swoop used to advance a fixed amount per FRAME: ~0.9s at 60Hz and half that on a
   // 120Hz phone, which read as a dart rather than a swoop. Wall clock, and slower.
   const BIRD_FLY_MS = 1050;
@@ -2415,10 +2420,10 @@
       helpRule1: "빈 칸을 탭해 과일을 놓습니다. 같은 색 과일 옆(3×3)에 놓으면 <b>이어진 같은 색이 모두 터집니다</b>.",
       helpRule2: "한 번에 많이 터뜨릴수록 <b>덩어리</b> 배율이, 연속으로 성공할수록 <b>콤보</b> 배율이 올라갑니다.",
       helpRule3: "판이 가득 차면 그 자리에서 끝납니다.",
-      helpBird: n => `🐦 <b>참새</b> — ${n}개 이상 터뜨리면 생깁니다. 날아가 방해물을 쪼아냅니다.`,
-      helpLine: n => `↔️ <b>라인</b> — ${n}개 이상. 가로나 세로 한 줄을 청소합니다.`,
-      helpBomb: (n, w) => `💣 <b>폭탄</b> — ${n}개 이상. ${w}×${w} 범위를 날립니다.`,
-      helpStar: n => `🌟 <b>별</b> — ${n}개 이상. 같은 색을 별자리로 이어 정리하고 코인을 떨굽니다.`
+      helpBird: (n, p) => `🐦 <b>참새</b> — ${n}개 이상 터뜨리면 생깁니다. 날아가 방해물을 쪼아냅니다. 발동 시 <b>+${p}점</b>.`,
+      helpLine: (n, p) => `↔️ <b>라인</b> — ${n}개 이상. 가로나 세로 한 줄을 청소합니다. 발동 시 <b>+${p}점</b>.`,
+      helpBomb: (n, w, p) => `💣 <b>폭탄</b> — ${n}개 이상. ${w}×${w} 범위를 날립니다. 발동 시 <b>+${p}점</b>.`,
+      helpStar: (n, p) => `🌟 <b>별</b> — ${n}개 이상. 같은 색을 별자리로 이어 정리하고 코인을 떨굽니다. 발동 시 <b>+${p}점</b>.`
       + "", helpItemFire: "아이템은 <b>직접 탭</b>하거나, <b>바로 옆에서 과일이 터질 때</b> 함께 발동합니다.",
       helpRun1: n => `스테이지마다 <b>목표 점수</b>와 <b>터치 횟수</b>가 있습니다. 터치를 다 쓰기 전에 목표를 채우세요. ${n}스테이지가 한 라운드입니다.`,
       helpRun2: "스테이지 사이마다 <b>상점</b>이 열립니다. 코인으로 산 유물은 이번 게임 내내 효과가 이어집니다.",
@@ -2791,10 +2796,10 @@
       helpRule1: "Tap an empty cell to place a fruit. Put it next to a matching one (3×3) and <b>the whole connected group pops</b>.",
       helpRule2: "The more you pop at once, the higher the <b>cluster</b> multiplier; the longer your streak, the higher the <b>combo</b>.",
       helpRule3: "If the board fills up, the run ends there.",
-      helpBird: n => `🐦 <b>Sparrow</b> — left behind by popping ${n} or more. Flies off and pecks whatever is in the way.`,
-      helpLine: n => `↔️ <b>Line</b> — ${n} or more. Clears a whole row or column.`,
-      helpBomb: (n, w) => `💣 <b>Bomb</b> — ${n} or more. A ${w}×${w} blast.`,
-      helpStar: n => `🌟 <b>Star</b> — ${n} or more. Links one colour into a constellation and drops coins.`
+      helpBird: (n, p) => `🐦 <b>Sparrow</b> — left behind by popping ${n} or more. Flies off and pecks whatever is in the way. <b>+${p}</b> when it fires.`,
+      helpLine: (n, p) => `↔️ <b>Line</b> — ${n} or more. Clears a whole row or column. <b>+${p}</b> when it fires.`,
+      helpBomb: (n, w, p) => `💣 <b>Bomb</b> — ${n} or more. A ${w}×${w} blast. <b>+${p}</b> when it fires.`,
+      helpStar: (n, p) => `🌟 <b>Star</b> — ${n} or more. Links one colour into a constellation and drops coins. <b>+${p}</b> when it fires.`
       + "", helpItemFire: "An item goes off when you <b>tap it</b> — or on its own when <b>fruit pops right next to it</b>.",
       helpRun1: n => `Every stage has a <b>goal</b> and a <b>touch budget</b>. Reach the goal before the touches run out. ${n} stages make a round.`,
       helpRun2: "A <b>shop</b> opens between stages. Relics bought with coins last the rest of the run.",
@@ -3166,10 +3171,10 @@
       helpRule1: "空いたマスをタップしてフルーツを置きます。同じ色の隣(3×3)に置くと<b>つながった同色がすべて割れます</b>。",
       helpRule2: "一度に多く割るほど<b>かたまり</b>倍率が、連続で成功するほど<b>コンボ</b>倍率が上がります。",
       helpRule3: "盤面が埋まるとその場で終了です。",
-      helpBird: n => `🐦 <b>スズメ</b> — ${n}個以上割ると出ます。飛んでいって邪魔なものをついばみます。`,
-      helpLine: n => `↔️ <b>ライン</b> — ${n}個以上。縦か横を一列消します。`,
-      helpBomb: (n, w) => `💣 <b>爆弾</b> — ${n}個以上。${w}×${w} を吹き飛ばします。`,
-      helpStar: n => `🌟 <b>星</b> — ${n}個以上。同じ色を星座でつなぎ、コインを落とします。`
+      helpBird: (n, p) => `🐦 <b>スズメ</b> — ${n}個以上割ると出ます。飛んでいって邪魔なものをついばみます。発動時 <b>+${p}点</b>。`,
+      helpLine: (n, p) => `↔️ <b>ライン</b> — ${n}個以上。縦か横を一列消します。発動時 <b>+${p}点</b>。`,
+      helpBomb: (n, w, p) => `💣 <b>爆弾</b> — ${n}個以上。${w}×${w} を吹き飛ばします。発動時 <b>+${p}点</b>。`,
+      helpStar: (n, p) => `🌟 <b>星</b> — ${n}個以上。同じ色を星座でつなぎ、コインを落とします。発動時 <b>+${p}点</b>。`
       + "", helpItemFire: "アイテムは<b>タップ</b>するか、<b>すぐ隣でフルーツが割れた</b>ときにも発動します。",
       helpRun1: n => `ステージごとに<b>目標スコア</b>と<b>タッチ回数</b>があります。使い切る前に目標を達成しましょう。${n}ステージで1ラウンドです。`,
       helpRun2: "ステージの合間に<b>ショップ</b>が開きます。コインで買ったレリックはラン中ずっと効きます。",
@@ -3541,10 +3546,10 @@
       helpRule1: "点击空格放置水果。放在同色旁边(3×3)时，<b>相连的同色会全部消除</b>。",
       helpRule2: "一次消除越多，<b>成团</b>倍率越高；连续成功越久，<b>连击</b>倍率越高。",
       helpRule3: "棋盘填满就会立刻结束。",
-      helpBird: n => `🐦 <b>麻雀</b> — 消除 ${n} 个以上出现。飞出去啄掉挡路的东西。`,
-      helpLine: n => `↔️ <b>线道</b> — ${n} 个以上。清除一整行或一列。`,
-      helpBomb: (n, w) => `💣 <b>炸弹</b> — ${n} 个以上。炸开 ${w}×${w} 范围。`,
-      helpStar: n => `🌟 <b>星星</b> — ${n} 个以上。把同色连成星座并掉落金币。`
+      helpBird: (n, p) => `🐦 <b>麻雀</b> — 消除 ${n} 个以上出现。飞出去啄掉挡路的东西。发动时 <b>+${p}分</b>。`,
+      helpLine: (n, p) => `↔️ <b>线道</b> — ${n} 个以上。清除一整行或一列。发动时 <b>+${p}分</b>。`,
+      helpBomb: (n, w, p) => `💣 <b>炸弹</b> — ${n} 个以上。炸开 ${w}×${w} 范围。发动时 <b>+${p}分</b>。`,
+      helpStar: (n, p) => `🌟 <b>星星</b> — ${n} 个以上。把同色连成星座并掉落金币。发动时 <b>+${p}分</b>。`
       + "", helpItemFire: "道具会在你<b>点击</b>时发动，<b>旁边的水果被消除</b>时也会一起发动。",
       helpRun1: n => `每关都有<b>目标分数</b>和<b>触摸次数</b>。在用完之前达成目标。${n} 关为一轮。`,
       helpRun2: "关卡之间会开<b>商店</b>。用金币买的遗物整局有效。",
@@ -5274,7 +5279,9 @@
         const carried = takeCoin(r, c);
         if (carried) coined++;
         popped++;
-        if (cellColor >= 0) {
+        const asItem = sp && ITEM_SCORE[sp] != null;
+        if (asItem) addScore(ITEM_SCORE[sp]);        // flat, outside the fruit multipliers
+        else if (cellColor >= 0) {
           pointsPopped += fruitScoreAt(r, c, cellColor);
           if (zoneCoins && zoneAt(r, c)) addCoins(zoneCoins, r, c);   // 금맥: the cell itself pays
         }
@@ -5293,9 +5300,9 @@
           // blast's fruit colour
           burst(r, c, cellColor < 0 ? "#9aa0b5" : vis);
           if (cellColor === CRACKER && !crackerHeard.has(popAt)) { crackerHeard.add(popAt); SFX.play("cracker"); }
-          popScoreText(r, c, cellColor, fruitScoreAt(r, c, cellColor));
+          popScoreText(r, c, cellColor, asItem ? ITEM_SCORE[sp] : fruitScoreAt(r, c, cellColor));
           if (cellColor >= 0) SFX.play("pop", cellColor);
-          if (cellColor >= 0) notify("onFruitPop", { r, c, color: cellColor });
+          if (cellColor >= 0 && !asItem) notify("onFruitPop", { r, c, color: cellColor });
           if (carried) addCoins(1, r, c);        // its coin flies when the fruit actually pops
           glow[r][c] = { c: vis, t: 1 };
           if (mode === "color") flashBox(r, c, R, vis);   // ripple its 3x3 burst range
@@ -6170,10 +6177,10 @@
       sec("helpRules");
       par(d("helpRule1")); par(d("helpRule2")); par(d("helpRule3"));
       sec("helpItems");
-      par(d("helpBird", itemNeed(BIRD_THRESHOLD)));
-      par(d("helpLine", itemNeed(LINE_THRESHOLD)));
-      par(d("helpBomb", itemNeed(BOMB_THRESHOLD), bombRadius() * 2 + 1));
-      par(d("helpStar", itemNeed(STAR_THRESHOLD)));
+      par(d("helpBird", itemNeed(BIRD_THRESHOLD), ITEM_SCORE.bird));
+      par(d("helpLine", itemNeed(LINE_THRESHOLD), ITEM_SCORE.lineH));
+      par(d("helpBomb", itemNeed(BOMB_THRESHOLD), bombRadius() * 2 + 1, ITEM_SCORE.bomb));
+      par(d("helpStar", itemNeed(STAR_THRESHOLD), ITEM_SCORE.star));
       par(d("helpItemFire"));
       sec("helpRun");
       par(d("helpRun1", STAGES_PER_ROUND));
@@ -8046,6 +8053,7 @@
       get grid() { return grid; }, get special() { return special; },
       get hp() { return hp; }, get coinCell() { return coinCell; },
       BIRD_THRESHOLD, LINE_THRESHOLD, BOMB_THRESHOLD, STAR_THRESHOLD, BIRD_FLY_MS, STAR_NODE_MS,
+      ITEM_SCORE, BIRD_SCORE,
       CRACKER,
       get bombRadiusBonus() { return bombRadiusBonus; }, get itemEase() { return itemEase; },
       get STREAK_CAP() { return STREAK_CAP; }, get STREAK_STEP() { return STREAK_STEP; },
