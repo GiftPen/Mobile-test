@@ -64,10 +64,18 @@ window.addEventListener('load', () => setTimeout(async () => {
   }
   chk('every listed id renders as art, not emoji', Object.keys(built).filter(k => !built[k]), []);
 
-  // an id with no art must still render -- as its emoji, never as a blank square
-  const plain = F.relicIcon('stamina', 'of-ic');
+  // An id with no art must still render -- as its emoji, never as a blank square. The relic
+  // named here used to be 지구력, which then got art and broke the check for the happiest
+  // possible reason. Pick one that has none today, and if every relic has art by now, take
+  // one out of the set for the length of this check rather than losing it.
+  const artless = Object.keys(F.RELICS).find(id => !F.ART_IDS.has('relic_' + id));
+  const probe = artless || Object.keys(F.RELICS)[0];
+  const borrowed = !artless;
+  if (borrowed) F.ART_IDS.delete('relic_' + probe);
+  const plain = F.relicIcon(probe, 'of-ic');
   chk('a relic without art keeps its emoji', plain.textContent.length > 0, true);
   chk('and is not styled as art', plain.classList.contains('art-ic'), false);
+  if (borrowed) F.ART_IDS.add('relic_' + probe);
 
   // and the art must actually be in the shop, which is where you decide what to buy
   F.start('rush'); await sleep(150);
