@@ -615,7 +615,18 @@
   #pause button { width: 220px; }
 </style>
 </head>
-<body>
+<script>
+// installed before the game script: every spawn, shop roll and odds draw comes from here, so
+// two runs with the same seed see exactly the same board
+window.__seed = function (s) {
+  let x = (s || 1) >>> 0;
+  Math.random = function () {
+    x ^= x << 13; x >>>= 0; x ^= x >> 17; x ^= x << 5; x >>>= 0;
+    return x / 4294967296;
+  };
+};
+window.__seed(1);
+</script><body>
   <div id="pause" class="hidden">
     <h2 data-i18n="paused">일시정지</h2>
     <div class="set-row">
@@ -8136,5 +8147,97 @@
   requestAnimationFrame(draw);
 })();
 </script>
-</body>
+<script>window.__TOUCHES=60;window.__SEEDS=2;window.__WITH=["streak_amp", "chain_master"];window.__IDS=["trance", "chain_react", "streak_step", "bell", "first_step"];</script><script>
+const sleep = ms => new Promise(r => setTimeout(r, ms));
+window.addEventListener('load', () => setTimeout(async () => {
+ try {
+  const F = window.__fs, $ = id => document.getElementById(id), cv = $('game');
+  const TOUCHES = window.__TOUCHES, SEEDS = window.__SEEDS, IDS = window.__IDS;
+  const shown = id => !$(id).classList.contains('hidden');
+  const settle = async (max = 600) => {
+    for (let i = 0; i < max; i++) {
+      if (F.links.length || F.birds.length) F.draw();
+      if (!F.busy && !F.links.length && !F.birds.length) return true;
+      await sleep(32);
+    }
+    return false;
+  };
+  const bestCell = () => {
+    const want = F.nextColor, R = 2;
+    let best = null, bs = -1e9;
+    for (let r = 0; r < F.ROWS; r++) for (let c = 0; c < F.COLS; c++) {
+      if (F.grid[r][c] !== -1) continue;
+      let same = 0, near = 0;
+      for (let dr = -R; dr <= R; dr++) for (let dc = -R; dc <= R; dc++) {
+        const nr = r + dr, nc = c + dc;
+        if ((!dr && !dc) || nr < 0 || nr >= F.ROWS || nc < 0 || nc >= F.COLS) continue;
+        if (F.grid[nr][nc] !== want) continue;
+        if (Math.max(Math.abs(dr), Math.abs(dc)) <= 1) same += 2; else near++;
+      }
+      const s = same * 3 + near;
+      if (s > bs) { bs = s; best = [r, c]; }
+    }
+    return best;
+  };
+  // a small, deliberately bland base so multipliers have something to multiply and flat cards
+  // are not compared against zero
+  // --with adds to the baseline. Half the table only works in company: an odds relic on its
+  // own just makes you pop MORE of a cheap fruit, which measured 레몬 농장 at x0.73 -- it is
+  // not weak, it is one half of a pair. Measured beside its partner it says something true.
+  const BASE = ['pinch', 'breather', 'whetstone'].concat(window.__WITH || []);
+
+  const play = async (relics, seed) => {
+    F.mfxStop && F.mfxStop();
+    F.resetEffects && F.resetEffects();
+    window.__seed(seed);
+    F.start('rush');
+    await sleep(40); await settle();
+    F.relics = relics.slice(); F.traits = []; F.applyRelics();
+    let taps = 0, guard = 0;
+    while (F.running && taps < TOUCHES && guard++ < TOUCHES * 6) {
+      if (shown('traits')) { F.pickTrait(F.traitOffers[0]); await sleep(15); continue; }
+      if (shown('shop'))   { F.closeShop(); await sleep(20); await settle(); continue; }
+      if (shown('pause'))  { $('btn-resume').click(); await sleep(20); continue; }
+      const cell = bestCell();
+      if (!cell) break;
+      const was = F.touchCount;
+      const b = cv.getBoundingClientRect();
+      const x = b.left + (cell[1] + 0.5) * b.width / F.COLS;
+      const y = b.top + (cell[0] + 0.5) * b.height / F.ROWS;
+      cv.dispatchEvent(new PointerEvent('pointerdown', {clientX:x, clientY:y, bubbles:true}));
+      cv.dispatchEvent(new PointerEvent('pointerup',   {clientX:x, clientY:y, bubbles:true}));
+      await settle();
+      // No wait for the visuals here. It used to need one -- particles were drawn from the
+      // game's own RNG on a timer, so tapping while they were pending shifted the stream --
+      // but presentation has its own stream now, and 0.9s of virtual time per tap burned the
+      // whole budget before a sweep could finish.
+      if (F.touchCount > was) taps++;
+    }
+    const out = { score: F.score, coins: F.coins, stage: F.stage, taps };
+    // NOT showMenu(): the menu's background animation runs on a timer and eats random numbers
+    // between runs, which is the same leak by another route
+    F.gameOver('bench'); await sleep(30);
+    return out;
+  };
+
+  const rows = [];
+  const base = [];
+  for (let s = 1; s <= SEEDS; s++) base.push(await play(BASE, s));
+  const med = v => { const a = v.slice().sort((p, q) => p - q); return a[a.length >> 1]; };
+  const baseScore = med(base.map(r => r.score));
+  const baseCoins = med(base.map(r => r.coins));
+  rows.push({ id: '(기준선)', price: 0, score: baseScore, coins: baseCoins, gain: 1 });
+
+  for (const id of IDS) {
+    const runs = [];
+    for (let s = 1; s <= SEEDS; s++) runs.push(await play(BASE.concat([id]), s));
+    const sc = med(runs.map(r => r.score)), co = med(runs.map(r => r.coins));
+    rows.push({ id, price: F.priceOf(F.RELICS[id]), tier: F.relicTier(F.RELICS[id]),
+                score: sc, coins: co, gain: baseScore ? sc / baseScore : 0,
+                coinGain: co - baseCoins });
+  }
+  document.title = 'RESULT ' + JSON.stringify(rows);
+ } catch (e) { document.title = 'THREW ' + (e && e.message) + '|' + String(e && e.stack || '').slice(0, 200); }
+}, 700));
+</script></body>
 </html>
