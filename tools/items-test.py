@@ -607,6 +607,22 @@ window.addEventListener('load', async () => {
   chk('but the rule itself is rebuilt', F.stackOnPop[0], 1);
   // the other fruits are untouched by a cherry ledger
   chk('and only that fruit', F.fruitStack.filter((v, i) => i !== 0 && v !== 0), []);
+
+  // the ball you PLACE pops with the group, and is counted for the score and the item
+  // threshold -- so a ledger that says "터뜨릴 때마다" has to count it too. It banked 3 of 4.
+  F.mode = 'rush'; F.resetRun(); F.relics = []; F.traits = []; F.applyRelics();
+  F.pickTrait('lemon_ledger'); F.applyRelics();
+  clearBoard();
+  F.fruitStack[3] = 0; F.busy = false;
+  for (const [r, c] of [[3,5],[4,4],[4,5]]) F.grid[r][c] = 3;
+  F.nextColor = 3; F.nextColor2 = 3;
+  const rcL = cv.getBoundingClientRect();
+  const lx = rcL.left + 4.5 * rcL.width / F.COLS, ly = rcL.top + 3.5 * rcL.height / F.ROWS;
+  cv.dispatchEvent(new PointerEvent('pointerdown', {clientX:lx, clientY:ly, bubbles:true}));
+  cv.dispatchEvent(new PointerEvent('pointerup',   {clientX:lx, clientY:ly, bubbles:true}));
+  await settle();
+  chk('four lemons popped bank four, not three', F.fruitStack[3], 4);
+  F.traits = []; F.applyRelics(); F.resetRun(); F.resetEffects();
   F.traits = []; F.applyRelics(); F.resetRun(); F.resetEffects();
 
   // ---- crackers: one hit, 100 points, and a whole economy on top ----
@@ -790,6 +806,60 @@ window.addEventListener('load', async () => {
   await pumpWatch(wb, 140, 12);
   chk('가루 폭발 clears the 3x3 around the cracker', wb.seen.size, bystanders.length);
   F.relics = []; F.applyRelics(); F.resetEffects();
+
+  // ---- ...and every way a cracker can break has to PAY ----
+  // The sound was wired through all of these; the economy was not. A cracker swallowed whole
+  // by a bomb, a line, a star or 가루 폭발's own 3x3 went to the frontier and never touched
+  // hitCrackers, so it died for 12 points against the 311 the same cracker pays when a
+  // neighbour chips it -- no 소금통 coin and no 크래커 왕 growth either.
+  const breakBy = async (how) => {
+    F.mode = 'rush'; F.resetRun();
+    F.relics = ['cracker_king', 'cracker_coin']; F.traits = []; F.applyRelics();
+    clearBoard();
+    for (let r = 0; r < F.ROWS; r++) for (let c = 0; c < F.COLS; c++) F.coinCell[r][c] = 0;
+    F.score = 0; F.coins = 0; F.busy = false;
+    const worth = F.crackerValue();
+    F.grid[2][2] = F.CRACKER; F.hp[2][2] = 1;
+    if (how === 'bird') {
+      F.grid[7][7] = 1;
+      F.birds.push({ sr: 7, sc: 7, tr: 2, tc: 2, t: 0.5, curve: 1 });
+      await settle();
+    } else if (how === 'neighbour') {
+      // the one path that always worked: an adjacent colour pop chips it
+      clearBoard();
+      F.score = 0; F.coins = 0;
+      F.grid[2][4] = F.CRACKER; F.hp[2][4] = 1;
+      for (const [r, c] of [[3,5],[4,4],[4,5]]) F.grid[r][c] = 5;
+      F.nextColor = 5; F.nextColor2 = 5;
+      const b1 = cv.getBoundingClientRect();
+      const x1 = b1.left + 4.5 * b1.width / F.COLS, y1 = b1.top + 3.5 * b1.height / F.ROWS;
+      cv.dispatchEvent(new PointerEvent('pointerdown', {clientX:x1, clientY:y1, bubbles:true}));
+      cv.dispatchEvent(new PointerEvent('pointerup',   {clientX:x1, clientY:y1, bubbles:true}));
+      await settle();
+      return { gone: F.grid[2][4] === -1, paid: F.score >= worth, coins: F.coins, grew: F.crackerValue() > worth };
+    } else {
+      F.grid[4][4] = 0; F.special[4][4] = how;      // bomb / lineH / lineV / star on (4,4)
+      const b2 = cv.getBoundingClientRect();
+      const x2 = b2.left + 4.5 * b2.width / F.COLS, y2 = b2.top + 4.5 * b2.height / F.ROWS;
+      if (how === 'lineH') { F.grid[4][4] = 0; F.grid[2][2] = -1; F.grid[4][1] = F.CRACKER; F.hp[4][1] = 1; }
+      if (how === 'lineV') { F.grid[4][4] = 0; F.grid[2][2] = -1; F.grid[1][4] = F.CRACKER; F.hp[1][4] = 1; }
+      cv.dispatchEvent(new PointerEvent('pointerdown', {clientX:x2, clientY:y2, bubbles:true}));
+      cv.dispatchEvent(new PointerEvent('pointerup',   {clientX:x2, clientY:y2, bubbles:true}));
+      await settle();
+      const at = how === 'lineH' ? [4,1] : how === 'lineV' ? [1,4] : [2,2];
+      return { gone: F.grid[at[0]][at[1]] === -1, paid: F.score >= worth,
+               coins: F.coins, grew: F.crackerValue() > worth };
+    }
+    return { gone: F.grid[2][2] === -1, paid: F.score >= worth,
+             coins: F.coins, grew: F.crackerValue() > worth };
+  };
+  for (const how of ['neighbour', 'bomb', 'lineH', 'lineV', 'bird']) {
+    const r = await breakBy(how);
+    chk(`${how}: the cracker is gone`, r.gone, true);
+    chk(`${how}: it pays its score`, r.paid, true);
+    chk(`${how}: 소금통 pays its coins`, r.coins >= 2, true);
+    chk(`${how}: 크래커 왕 grows on it`, r.grew, true);
+  }
 
   // ---- every way a cracker can break has to make the cracker sound ----
   // A bird eating one was silent: that path mutates the grid directly instead of going

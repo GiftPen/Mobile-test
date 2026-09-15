@@ -5208,11 +5208,26 @@
     // to the frontier, which clears them without ever touching hitCrackers. So a cracker taken by
     // a bomb or a line made no sound at all. One per ring, so a wide blast is debris, not mush.
     const crackerHeard = new Set();
+    // ...and the sound was all that got fixed. The ECONOMY still ran on hitCrackers alone, so a
+    // cracker eaten by a bomb, a line, a star or 가루 폭발's own 3x3 died for nothing: measured
+    // at 12 points against the 311 the same cracker pays when a neighbour chips it, with no
+    // 소금통 coin and no 크래커 왕 growth. Whole-swallowed crackers are collected here and paid
+    // through the same place chipped ones are.
+    const blasted = [];
     let visualEnd = 0;             // timestamp the last staggered pop fires at
     function step() {
       if (!frontier.length) {
         let broke = 0, chipped = 0;
         const boom = [];
+        // consumed outright by the blast: no HP to take off, it is simply gone and owed for
+        for (const [br, bc] of blasted.splice(0)) {
+          broke++;
+          if (crackerBoom) {
+            flashBox(br, bc, 1, "#c79a5b"); addShake(6);
+            for (const [nr, nc, dd] of budsAround(br, bc, 1, visited))
+              boom.push({ r: nr, c: nc, d: dd, mode: "blast", color: grid[nr][nc] });
+          }
+        }
         hitCrackers.forEach((dmg, key) => {
           const br = (key / COLS) | 0, bc = key % COLS;
           if (grid[br][bc] !== CRACKER) return;   // already destroyed by a blast
@@ -5254,6 +5269,7 @@
         const sp = special[r][c];
         const vis = cellColor < 0 ? it.color : cellColor;
         grid[r][c] = -1; special[r][c] = null;   // logic clears immediately (game state stays correct)
+        if (cellColor === CRACKER) blasted.push([r, c]);   // swallowed whole -- still a break
         ghost[r][c] = vis;                       // ...but it stays on screen until its burst
         const carried = takeCoin(r, c);
         if (carried) coined++;
@@ -5532,6 +5548,10 @@
         const groupPts = (pointsPopped || 0) + fruitScoreAt(r0, c0, color);
         if (zoneCoins && zoneAt(r0, c0)) addCoins(zoneCoins, r0, c0);
         const gained = scorePop(groupPts, cleared, coined, color);
+        // The ball you placed popped too: it is in the score above and in the item threshold
+        // below, so a ledger that says "터뜨릴 때마다" has to count it as well. Four lemons
+        // banked three.
+        notify("onFruitPop", { r: r0, c: c0, color });
         notify("onPop", { r: r0, c: c0, color, cleared, chainCount, gained, placement: true });
         const sub = multLabel(chainBonus(color === 4 ? cleared + grapeBulk : cleared), streakMult(color));
         setTimeout(() => showGain(r0, c0, gained, POP_COLORS[color] || "#fff", sub), totalAt);
@@ -7286,15 +7306,25 @@
             tapItem(f.tr, f.tc);
           } else {                                // plain fruit / cracker -> eat it
             const col = grid[f.tr][f.tc];
-            const isCracker = col < 0;   // cracker or seed: grey, and no fruit score text
+            const isCracker = col === CRACKER;
+            const isJunk = col < 0;      // cracker or seed: grey, and no fruit score text
             const beak = takeCoin(f.tr, f.tc);
             grid[f.tr][f.tc] = -1; special[f.tr][f.tc] = null; hp[f.tr][f.tc] = 0;
             // a cracker broken by a bird is still a cracker breaking: this path never said so
             if (isCracker) SFX.play("cracker");
             if (beak) addCoins(1, f.tr, f.tc);
-            burst(f.tr, f.tc, isCracker ? "#9aa0b5" : col);   // crackers burst grey, as they do elsewhere
-            if (!isCracker) popScoreText(f.tr, f.tc, col);
-            addScore(BIRD_SCORE); dirty = true;
+            burst(f.tr, f.tc, isJunk ? "#9aa0b5" : col);   // crackers burst grey, as they do elsewhere
+            if (!isJunk) popScoreText(f.tr, f.tc, col);
+            // ...and saying so was all it did. A 크래커 왕 build that used its own bird lost the
+            // cracker's score, 소금통's coins and the growth -- 20 flat points for a 100+ piece.
+            if (isCracker) {
+              addScore(crackerValue());
+              if (crackerCoin) addCoins(crackerCoin, f.tr, f.tc);
+              crackerBroken();
+            } else {
+              addScore(BIRD_SCORE);
+            }
+            dirty = true;
             updateHUD();
           }
         } else if (!f.retried) {
