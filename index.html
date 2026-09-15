@@ -1651,6 +1651,18 @@
     shake = 0; flash = 0; dirty = true;
   }
   function randInt(n) { return Math.floor(Math.random() * n); }
+  // Presentation randomness runs on its own stream. Particles are made inside the staggered
+  // pop timers, so sharing Math.random with the game meant the BOARD depended on when a
+  // droplet happened to be created: pinning the seed still could not repeat a run, and a
+  // bench could not tell a relic's effect from that noise. Gameplay keeps Math.random;
+  // anything you can only look at draws from here.
+  let fxSeed = 0x9e3779b9 >>> 0;
+  function fxRnd() {
+    fxSeed ^= fxSeed << 13; fxSeed >>>= 0;
+    fxSeed ^= fxSeed >>> 17;
+    fxSeed ^= fxSeed << 5;  fxSeed >>>= 0;
+    return fxSeed / 4294967296;
+  }
   // staged difficulty: milestone m unlocks, in order, cracker / color / spawn (cycling)
   function milestone() { return Math.floor(score / MILESTONE_STEP); }
   function level() { return Math.min(MAX_LEVEL, milestone() + 1); }   // Lv.1 at score 0
@@ -4779,7 +4791,7 @@
       if (!noiseBuf) {
         noiseBuf = ctx.createBuffer(1, ctx.sampleRate * 0.4, ctx.sampleRate);
         const d = noiseBuf.getChannelData(0);
-        for (let i = 0; i < d.length; i++) d[i] = Math.random() * 2 - 1;
+        for (let i = 0; i < d.length; i++) d[i] = fxRnd() * 2 - 1;
       }
       const t0 = ctx.currentTime + (o.delay || 0);
       const src = ctx.createBufferSource(); src.buffer = noiseBuf;
@@ -6526,8 +6538,8 @@
       el.className = "cn";
       el.style.cssText = `width:${sz}px;height:${sz}px;font-size:${sz}px;` +
                          `left:${sx - sz / 2}px;top:${sy - sz / 2}px`;
-      const lift = cell * (0.8 + Math.random() * 1.0);      // how high the arc bows
-      const wob = (Math.random() - 0.5) * cell * 0.9;       // so a handful do not fly as one
+      const lift = cell * (0.8 + fxRnd() * 1.0);            // how high the arc bows
+      const wob = (fxRnd() - 0.5) * cell * 0.9;       // so a handful do not fly as one
       const frames = [];
       for (let k = 0; k <= 10; k++) {
         const e = k / 10, t = e * e * (3 - 2 * e);          // smoothstep along the path
@@ -6571,10 +6583,10 @@
     particles.push({ type: "ring", x: cx, y: cy, life: 1, color: col, rad: cell * 0.12 });
     // juice droplets (spray up, then gravity pulls them down)
     for (let i = 0; i < 14; i++) {
-      const a = Math.random() * PI2, sp = 1 + Math.random() * 3.2;
+      const a = fxRnd() * PI2, sp = 1 + fxRnd() * 3.2;
       particles.push({
         x: cx, y: cy, vx: Math.cos(a) * sp, vy: Math.sin(a) * sp - 1,
-        life: 0.8 + Math.random() * 0.4, color: col, r: cell * (0.04 + Math.random() * 0.09)
+        life: 0.8 + fxRnd() * 0.4, color: col, r: cell * (0.04 + fxRnd() * 0.09)
       });
     }
   }
@@ -6915,7 +6927,7 @@
 
     // screen shake
     let ox = 0, oy = 0;
-    if (shake > 0.3) { ox = (Math.random() - .5) * shake; oy = (Math.random() - .5) * shake; shake *= 0.86; }
+    if (shake > 0.3) { ox = (fxRnd() - .5) * shake; oy = (fxRnd() - .5) * shake; shake *= 0.86; }
     else shake = 0;
     ctx.save(); ctx.translate(ox, oy);
 
@@ -7391,24 +7403,24 @@
   }
   function mfxInit(f) {
     const slots = mfxLoadedSlots();
-    f.slot = slots.length ? slots[(slots.length * Math.random()) | 0] : ((Math.random() * COLORS.length) | 0);
+    f.slot = slots.length ? slots[(slots.length * fxRnd()) | 0] : ((fxRnd() * COLORS.length) | 0);
     // size spread heavily biased to small; big ones only occasionally (high exponent = rare large)
-    f.size = 20 + Math.pow(Math.random(), 3) * 122;    // ~20–142 px, mostly small, big is rare
-    f.x = Math.random() * mfxW;                        // anywhere on screen
-    f.y = Math.random() * mfxH;
-    const ang = Math.random() * PI2, spd = 0.65 + Math.random() * 1.05;  // gentler still: 0.65–1.7 px/frame
+    f.size = 20 + Math.pow(fxRnd(), 3) * 122;    // ~20–142 px, mostly small, big is rare
+    f.x = fxRnd() * mfxW;                        // anywhere on screen
+    f.y = fxRnd() * mfxH;
+    const ang = fxRnd() * PI2, spd = 0.65 + fxRnd() * 1.05;  // gentler still: 0.65–1.7 px/frame
     f.vx = Math.cos(ang) * spd; f.vy = Math.sin(ang) * spd;
-    f.rot = Math.random() * PI2; f.vr = (Math.random() - 0.5) * 0.05;
-    f.age = 0; f.life = 130 + (Math.random() * 150 | 0);   // ~2.2–4.7 s, then pop
+    f.rot = fxRnd() * PI2; f.vr = (fxRnd() - 0.5) * 0.05;
+    f.age = 0; f.life = 130 + (fxRnd() * 150 | 0);   // ~2.2–4.7 s, then pop
   }
   function mfxPop(f) {                                  // juice splash at fruit's spot
     const col = COLORS[f.slot] || "#fff";
     mfxParts.push({ type: "ring", x: f.x, y: f.y, life: 1, color: col, rad: f.size * 0.28 });
-    const n = 16 + (Math.random() * 6 | 0);
+    const n = 16 + (fxRnd() * 6 | 0);
     for (let i = 0; i < n; i++) {
-      const a = Math.random() * PI2, sp = 1.4 + Math.random() * 4.2;
+      const a = fxRnd() * PI2, sp = 1.4 + fxRnd() * 4.2;
       mfxParts.push({ x: f.x, y: f.y, vx: Math.cos(a) * sp, vy: Math.sin(a) * sp - 1.4,
-        life: 0.75 + Math.random() * 0.4, color: col, r: f.size * (0.05 + Math.random() * 0.10) });
+        life: 0.75 + fxRnd() * 0.4, color: col, r: f.size * (0.05 + fxRnd() * 0.10) });
     }
   }
   function mfxFrame(now) {
@@ -7436,7 +7448,7 @@
         mctx.drawImage(img, -s / 2, -s / 2, s, s);
         mctx.restore();
       }
-      if (f.age >= f.life) { mfxPop(f); mfxInit(f); f.age = -(Math.random() * 40 | 0); }  // pop → respawn (staggered)
+      if (f.age >= f.life) { mfxPop(f); mfxInit(f); f.age = -(fxRnd() * 40 | 0); }  // pop → respawn (staggered)
     }
     for (let i = mfxParts.length - 1; i >= 0; i--) {
       const p = mfxParts[i];
@@ -7948,8 +7960,9 @@
   // symbol declared below it had to be wrapped in a getter or the object literal died in
   // the TDZ -- four separate times. Down here everything is already initialised.
   // ?test=1 exposes the pure rule helpers so headless checks can assert the formulas
-  // directly. End-to-end replay can't verify them: draw() consumes Math.random() for
-  // screen-shake every frame, so a seeded run desyncs with frame timing.
+  // directly. Replay used to be impossible on top of that -- draw() spent Math.random() on
+  // screen shake and burst() on droplets, both from timers, so a seeded run desynced with
+  // frame timing. Presentation draws from fxRnd now, and Math.random is the game alone.
   if (TEST_MODE)
     window.__fs = {
       scorePop, fruitScore, chainBonus, streakMult, pickColor, addScore,
@@ -8000,6 +8013,7 @@
       resetEffects, get links() { return links; }, coinReady, drawCoin,
       updateStreakBadge,
       ART_IDS, iconEl, relicIcon, traitIcon,
+      fxRnd,
       COIN_FLY_MS, COIN_STAGGER_MS, flyCoins, clearCoinFly,
       get coinFlyPending() { return coinFlyPending; },
       saveRun, clearSave, loadSave, resumeSavedRun, SAVE_KEY,
