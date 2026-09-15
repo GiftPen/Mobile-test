@@ -776,10 +776,18 @@ window.addEventListener('load', async () => {
   freshRun(); buy('cherry_crown'); pile40(); const crownFirst = F.fruitScore(0);
   freshRun(); pile40(); buy('cherry_crown');
   chk('체리 왕관: 사는 순서가 결과를 바꾸지 않는다', F.fruitScore(0), crownFirst);
-  chk('...그리고 쌓아둔 더미까지 곱한다', crownFirst, Math.round(cherryBare * 2.5));
+  // Read the multipliers off the cards rather than pinning 2.5 and 2 here: both have already
+  // been retuned once, and a test that has to be edited every time a number moves is a test
+  // people edit without reading.
+  // desc is a resolved STRING at runtime -- the () => d(...) thunks are unwrapped when the
+  // language pack is applied -- so read it, do not call it
+  const multOf = id => parseFloat((String(F.RELICS[id].desc).match(/[×x]\s*([\d.]+)/) || [])[1]);
+  const crownMult = multOf('cherry_crown'), hornMult = multOf('cornucopia');
+  chk('체리 왕관의 배율을 카드에서 읽을 수 있다', [crownMult > 1, hornMult > 1], [true, true]);
+  chk('...그리고 쌓아둔 더미까지 곱한다', crownFirst, Math.round(cherryBare * crownMult));
   freshRun(); pile40(); buy('cherry_crown'); buy('cornucopia');
-  // x2.5 and x2 must land on x5 -- not x6.25 (squared) and not x2 (one overwriting the other)
-  chk('배율 둘은 곱해진다 (제곱도 덮어쓰기도 아님)', F.fruitScore(0), cherryBare * 5);
+  // two multipliers must land on their PRODUCT -- not squared, and not one overwriting the other
+  chk('배율 둘은 곱해진다 (제곱도 덮어쓰기도 아님)', F.fruitScore(0), Math.round(cherryBare * crownMult * hornMult));
 
   // and the sweep: EVERY relic, against every kind of pile, bought before vs after. This is
   // the standing guard -- a relic that writes ACCUMULATED state from apply() instead of its
