@@ -261,13 +261,23 @@ window.addEventListener('load', async () => {
     F.nextColor = col; F.nextColor2 = col;
   };
 
-  // 물렁 복숭아 — takes the ring, whatever colour it is
-  const ring = [[2,3],[2,4],[2,5],[3,3]];
+  // 돌복숭아 — the card says 3x3, so check the whole 3x3. The old check named four cells of
+  // the eight and passed on a relic that took half a ring.
+  // The group that pops is the placed (3,4) plus the trio at (3,5),(4,4),(4,5); every cell
+  // within one step of ANY of those is the blast the description promises.
+  const popped = [[3,4],[3,5],[4,4],[4,5]];
+  const ring = [];
+  for (let r = 2; r <= 5; r++) for (let c = 2; c <= 6; c++) {
+    if (popped.some(([pr, pc]) => pr === r && pc === c)) continue;
+    if (!popped.some(([pr, pc]) => Math.abs(pr - r) <= 1 && Math.abs(pc - c) <= 1)) continue;
+    ring.push([r, c]);
+  }
   const peachBuild = () => { trio(5)(); for (const [r,c] of ring) F.grid[r][c] = 6; };
   const plainRing = await place([], peachBuild, ring);
   chk('a plain peach leaves its neighbours', [...plainRing], []);
   const burstRing = await place(['peach_stone'], peachBuild, ring);
-  chk('물렁 복숭아 takes the ring with it', burstRing.size, ring.length);
+  chk('돌복숭아 takes every cell around each popped peach', burstRing.size, ring.length);
+  chk('...and that is a full 3x3 per peach, not a handful of cells', ring.length >= 10, true);
 
   // 감귤 한 접시 — orange and lemon are one colour to the chain
   const lemons = [[3,6],[4,6]];
@@ -408,17 +418,34 @@ window.addEventListener('load', async () => {
       for (let c = fld.c0; c < fld.c0 + 3; c++) if (F.grid[r][c] === 6) n++;
     return n;
   };
-  const before = inPatch();
+  // The turn's own spawns can fill all nine cells, and then there is nowhere left to grow --
+  // which made this check fail about one run in six for a reason that had nothing to do with
+  // the relic. Empty the patch before each touch so the only thing that can put a banana in
+  // it is the patch itself.
+  const clearPatch = () => {
+    for (let r = fld.r0; r < fld.r0 + 3; r++)
+      for (let c = fld.c0; c < fld.c0 + 3; c++) { F.grid[r][c] = -1; F.special[r][c] = null; }
+  };
   const rcF = cv.getBoundingClientRect();
-  for (let i = 0; i < F.FIELD_EVERY; i++) {
-    const [r, c] = far[i];
+  let grownInPatch = 0, planted = 0;
+  // A tap on a cell the turn's spawns have since filled does nothing and does not advance the
+  // touch count, so counting TAPS instead of PLANTS could miss the one touch that was a
+  // multiple of FIELD_EVERY. Clear the target first and confirm the touch landed.
+  for (let tries = 0; tries < 12 && planted < F.FIELD_EVERY; tries++) {
+    clearPatch();
+    const [r, c] = far[tries % far.length];
+    F.grid[r][c] = -1; F.special[r][c] = null;
+    const was = F.touchCount;
     const fx = rcF.left + (c + 0.5) * rcF.width / F.COLS;
     const fy = rcF.top + (r + 0.5) * rcF.height / F.ROWS;
     cv.dispatchEvent(new PointerEvent('pointerdown', {clientX:fx, clientY:fy, bubbles:true}));
     cv.dispatchEvent(new PointerEvent('pointerup',   {clientX:fx, clientY:fy, bubbles:true}));
     await settle();
+    if (F.touchCount > was) planted++;
+    grownInPatch += inPatch();
   }
-  chk('a banana grows in the patch on the clock', inPatch() > before, true);
+  chk('the touches the patch is clocked on actually happened', planted, F.FIELD_EVERY);
+  chk("a banana grows in the patch on the clock", grownInPatch > 0, true);
   // and it is DERIVED: dropping the relic takes the patch away on the next roll
   F.relics = []; F.applyRelics(); F.rollField();
   chk('drop the relic and the patch goes', F.bananaField, null);

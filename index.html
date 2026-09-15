@@ -2377,7 +2377,7 @@
       richSoil:  (a, b) => `보너스 영역에서 터뜨린 과일 점수 ×${n1(a)}, 코인 +${b}`,
       lemonFree: () => "레몬은 콤보 상한이 없습니다",
       grapeBulk: n => `포도 덩어리를 ${n}만큼 크게 계산합니다`,
-      peachBurst: () => "복숭아는 터질 때 주변 1칸을 함께 터뜨립니다",
+      peachBurst: () => "복숭아가 터지면 주변 3×3이 색과 상관없이 함께 터집니다",
       bananaSpread: n => `바나나를 터뜨리면 인접한 과일 ${n}개가 바나나로 변합니다`,
       coinFruitMult: n => `코인 달린 과일의 점수 ×${n}`,
       crackerEvery: () => "터치마다 크래커가 1개 생깁니다",
@@ -2753,7 +2753,7 @@
       richSoil:  (a, b) => `Fruit popped in a bonus zone scores ×${n1(a)} and pays ${b} coin`,
       lemonFree: () => "Lemon has no combo cap",
       grapeBulk: n => `A grape cluster counts ${n} larger`,
-      peachBurst: () => "A peach takes the ring around it with it",
+      peachBurst: () => "A popped peach blows a 3×3, whatever colour is in it",
       bananaSpread: n => `A popped banana turns ${n} neighbours into bananas`,
       coinFruitMult: n => `Coin-carrying fruit scores ×${n}`,
       crackerEvery: () => "A cracker appears on every touch",
@@ -3128,7 +3128,7 @@
       richSoil:  (a, b) => `ボーナス領域で割ったフルーツのスコア ×${n1(a)}、コイン +${b}`,
       lemonFree: () => "レモンはコンボ上限がありません",
       grapeBulk: n => `ぶどうの塊を ${n} 大きく数えます`,
-      peachBurst: () => "ももは割れるとき周囲1マスも一緒に割ります",
+      peachBurst: () => "ももが割れると色に関係なく周囲 3×3 が一緒に弾けます",
       bananaSpread: n => `バナナを割ると隣接するフルーツ ${n} 個がバナナになります`,
       coinFruitMult: n => `コイン付きフルーツのスコア ×${n}`,
       crackerEvery: () => "タッチごとにクラッカーが1個出ます",
@@ -3503,7 +3503,7 @@
       richSoil:  (a, b) => `在奖励区域内消除的水果分数 ×${n1(a)}，金币 +${b}`,
       lemonFree: () => "柠檬没有连击上限",
       grapeBulk: n => `葡萄团块按大 ${n} 计算`,
-      peachBurst: () => "桃子消除时连带周围一圈",
+      peachBurst: () => "桃子消除时不分颜色引发 3×3 爆炸",
       bananaSpread: n => `消除香蕉时，相邻 ${n} 个水果变成香蕉`,
       coinFruitMult: n => `带金币水果分数 ×${n}`,
       crackerEvery: () => "每次触碰出现 1 块饼干",
@@ -5169,7 +5169,7 @@
   // to the chain next, so a blast lands in order and scores through the same path.
   function fruitSignature(r, c, colorIdx, visited, out) {
     if (colorIdx === 0 && cherryPile) stageStack[0] += cherryPile;
-    if (colorIdx === 5 && peachBurst) {           // 물렁 복숭아: takes the ring, any colour
+    if (colorIdx === 5 && peachBurst) {           // 돌복숭아: the whole 3x3, any colour
       for (const [nr, nc, dd] of budsAround(r, c, 1, visited))
         out.push({ r: nr, c: nc, d: dd, mode: "blast", color: grid[nr][nc] });
     }
