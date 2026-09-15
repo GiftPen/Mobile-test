@@ -22,7 +22,9 @@ def opt(n, d, cast=int): return cast(A[A.index(n) + 1]) if n in A else d
 TOUCHES = opt('--touches', 60)
 SEEDS   = opt('--seeds', 3)
 OUT     = A[A.index('--out') + 1] if '--out' in A else '/tmp/price.json'
-ONLY    = [a for a in A if not a.startswith('--') and not a.isdigit() and a != OUT]
+WITH    = A[A.index('--with') + 1].split(',') if '--with' in A else []
+_consumed = {OUT} | set(WITH) | ({A[A.index('--with') + 1]} if '--with' in A else set())
+ONLY    = [a for a in A if not a.startswith('--') and not a.isdigit() and a not in _consumed]
 
 SEED_JS = """<script>
 // installed before the game script: every spawn, shop roll and odds draw comes from here, so
@@ -71,7 +73,10 @@ window.addEventListener('load', () => setTimeout(async () => {
   };
   // a small, deliberately bland base so multipliers have something to multiply and flat cards
   // are not compared against zero
-  const BASE = ['pinch', 'breather', 'whetstone'];
+  // --with adds to the baseline. Half the table only works in company: an odds relic on its
+  // own just makes you pop MORE of a cheap fruit, which measured 레몬 농장 at x0.73 -- it is
+  // not weak, it is one half of a pair. Measured beside its partner it says something true.
+  const BASE = ['pinch', 'breather', 'whetstone'].concat(window.__WITH || []);
 
   const play = async (relics, seed) => {
     F.mfxStop && F.mfxStop();
@@ -94,11 +99,10 @@ window.addEventListener('load', () => setTimeout(async () => {
       cv.dispatchEvent(new PointerEvent('pointerdown', {clientX:x, clientY:y, bubbles:true}));
       cv.dispatchEvent(new PointerEvent('pointerup',   {clientX:x, clientY:y, bubbles:true}));
       await settle();
-      // settle() only waits for the CHAIN. The staggered visual pops are still queued on
-      // timers, and burst() draws its particles with Math.random -- so a tap fired while those
-      // were pending interleaved with them and shifted the shared RNG stream. Same seed, two
-      // different games. Let the visuals finish before touching anything.
-      await sleep(900);
+      // No wait for the visuals here. It used to need one -- particles were drawn from the
+      // game's own RNG on a timer, so tapping while they were pending shifted the stream --
+      // but presentation has its own stream now, and 0.9s of virtual time per tap burned the
+      // whole budget before a sweep could finish.
       if (F.touchCount > was) taps++;
     }
     const out = { score: F.score, coins: F.coins, stage: F.stage, taps };
@@ -134,7 +138,7 @@ def run(ids):
     page = f'_price-{os.getpid()}.html'
     src = open('index.html', encoding='utf-8').read()
     head = (f"<script>window.__TOUCHES={TOUCHES};window.__SEEDS={SEEDS};"
-            f"window.__IDS={json.dumps(ids)};</script>")
+            f"window.__WITH={json.dumps(WITH)};window.__IDS={json.dumps(ids)};</script>")
     # the seed has to be installed BEFORE the game's own script tag, not appended after it
     src = src.replace('<body', SEED_JS + '<body', 1)
     open(page, 'w', encoding='utf-8').write(src.replace('</body>', head + TEST + '</body>'))
@@ -142,7 +146,7 @@ def run(ids):
         out = subprocess.run(['/Applications/Google Chrome.app/Contents/MacOS/Google Chrome',
             '--headless', '--disable-gpu', '--no-first-run', '--window-size=430,932',
             '--disable-backgrounding-occluded-windows', '--disable-renderer-backgrounding',
-            '--virtual-time-budget=2400000', '--dump-dom',
+            '--virtual-time-budget=60000000', '--dump-dom',
             f'http://localhost:8899/{page}?test=1'],
             capture_output=True, text=True, timeout=2700).stdout
     finally:
@@ -157,9 +161,21 @@ def run(ids):
 
 ids = ONLY
 if not ids:
-    sys.exit('유물 id 를 인자로 주세요 (또는 tools/price-all.sh 를 쓰세요)')
-rows = run(ids)
-json.dump(rows, open(OUT, 'w'), ensure_ascii=False)
+    sys.exit('유물 id 를 인자로 주세요')
+# One Chrome for the whole list loses the whole list when it runs long: 45 relics timed out at
+# 45 minutes and came back with nothing. Small batches, written out as they land.
+BATCH = opt('--batch', 8)
+rows, base_seen = [], None
+for i in range(0, len(ids), BATCH):
+    part = run(ids[i:i + BATCH])
+    # the baseline is deterministic, so every batch must report the same one -- if it drifts,
+    # something is leaking state between runs and the numbers cannot be compared
+    if base_seen is None: base_seen = part[0]['score']; rows.append(part[0])
+    elif part[0]['score'] != base_seen:
+        print(f"  ! 기준선이 흔들립니다 {base_seen} -> {part[0]['score']} (배치 {i//BATCH})")
+    rows += part[1:]
+    json.dump(rows, open(OUT, 'w'), ensure_ascii=False)
+    print(f"  {min(i+BATCH, len(ids))}/{len(ids)}", flush=True)
 print(f"씨앗 {SEEDS}개 × {TOUCHES}터치 · 기준선 {rows[0]['score']:,}점")
 print(f"\n{'유물':<18}{'등급':>7}{'가격':>5}{'점수':>11}{'배수':>7}{'코인':>6}")
 for r in sorted(rows[1:], key=lambda r: -r['gain']):
