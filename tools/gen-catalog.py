@@ -91,6 +91,7 @@ if _stale_cols:
 # that is ABOUT a fruit says which colour that fruit is here -- and the odd ones say so twice.
 ODD = {6: 'BLUE (not yellow)', 2: 'green', 5: 'soft coral'}
 OWN_COLOUR = set(ST.get('own_colour', []))   # art whose concept overrides the fruit colour
+WITH_FACE  = set(ST.get('with_face', []))    # the few subjects that are SUPPOSED to have one
 PALETTE = ', use this game\'s fruit palette: ' + ', '.join(
     f'{FRUIT_EN[i]} {GAME_COLORS[i]}' + (f' ({ODD[i]})' if i in ODD else '') for i in range(7))
 # "a fruit" in a prompt, not the word orange used as a colour. 십자로 is "glossy golden-orange"
@@ -101,6 +102,18 @@ PALETTE = ', use this game\'s fruit palette: ' + ', '.join(
 # colour oranges are. An orange-only prompt is caught by its effect instead.
 GENERIC = re.compile(r'\bfruits?\b|\bcherr(y|ies)\b|\bkiwis?\b|\blemons?\b'
                      r'|\bgrapes?\b|\bpeach(es)?\b|\bbananas?\b', re.I)
+# Which fruit the PICTURE contains, which is not the same as which fruit the effect touches.
+# 바나나 군락 converts anything into banana, so its effect lists all seven -- and the prompt
+# then carried all seven colours for a drawing of one bunch of bananas, which is exactly the
+# noise that makes a generator start adding fruit nobody asked for.
+FRUIT_WORD = [re.compile(r'\bcherr(y|ies)\b', re.I), re.compile(r'\boranges?\b', re.I),
+              re.compile(r'\bkiwis?\b', re.I), re.compile(r'\blemons?\b', re.I),
+              re.compile(r'\bgrapes?\b', re.I), re.compile(r'\bpeach(es)?\b', re.I),
+              re.compile(r'\bbananas?\b', re.I)]
+def fruits_drawn(subject, fruits):
+    # 'orange' is a colour word as often as a fruit, so it counts only when the effect agrees
+    return [i for i, rx in enumerate(FRUIT_WORD)
+            if rx.search(subject or '') and (i != 1 or 1 in (fruits or []))]
 
 def _emit_traits(ts, L):
     for tr in ts:
@@ -109,21 +122,43 @@ def _emit_traits(ts, L):
         if not tr['scalable']: notes.append('2배 불가')
         L.append(f"| {tr['icon']} | {tr['name']} | {art_mark('trait_' + tr['id'])} | {tr['desc']} | "
                  f"{tr['doubled'] or '—'} | {' · '.join(notes) or ''} | "
-                 f"`{(lambda pr: pr + colour_clause(tr['fruits'], tr['id'], pr))(PROMPTS['traits'].get(tr['id'], '—'))}` |")
+                 f"`{full_prompt('traits', tr['id'], tr['fruits'])}` |")
 
 
 def colour_clause(fruits, rid, prompt):
     """What to tell the generator about colour. Named fruit gets named colours; a picture of
-    fruit in general gets the palette; anything else gets nothing."""
+    fruit in general gets the palette; anything else gets nothing.
+
+    Phrased as a correction to a default the generator already has, and fenced so it cannot be
+    read as a list of things to draw -- appending a bare palette made it add fruit that the
+    subject never mentioned."""
     if rid in OWN_COLOUR: return ''
-    if fruits and len(fruits) <= 3:
-        return ', ' + ', '.join(
-            f'{FRUIT_EN[i]} in this game is ' + (f'{ODD[i]} ' if i in ODD else '') + GAME_COLORS[i]
-            for i in fruits)
-    # 4+ fruits means "all of them", which is about the EFFECT, not necessarily the picture:
-    # 한 줌 and 설탕 폭발 raise every fruit but draw sugar. Only palette what draws fruit.
-    if GENERIC.search(prompt or ''): return PALETTE
+    named = fruits_drawn(prompt, fruits)
+    if named:
+        return ' Colour: ' + ', '.join(
+            f'the {FRUIT_EN[i]} here is ' + (f'{ODD[i]} ' if i in ODD else '') + GAME_COLORS[i]
+            for i in named) + '.'
+    # nothing named but the picture is "fruit" in general -- then the whole palette is the
+    # point, and it is fenced so it cannot be read as a shopping list
+    if GENERIC.search(prompt or ''):
+        return (' Colour (this is the palette to pick from, do not add every fruit listed): '
+                + ', '.join(f'{FRUIT_EN[i]} ' + (f'{ODD[i]} ' if i in ODD else '')
+                            + GAME_COLORS[i] for i in range(7)) + '.')
     return ''
+
+
+def full_prompt(kind, rid, fruits):
+    """The whole thing, ready to paste once.
+
+    The subject and the style used to live in two places and every image cost two copies. They
+    are one string now, in the order a generator reads best: what to draw, then what colour it
+    is, then how to draw it."""
+    subject = (PROMPTS[kind].get(rid) or '').strip().rstrip('.')
+    if not subject: return '—'
+    key = rid if kind == 'relics' else 'trait_' + rid
+    style = ST['trait_suffix' if kind == 'traits' else 'suffix'].lstrip(', ')
+    face = '' if key in WITH_FACE else ' ' + ST['no_face'] + ','
+    return f"{subject}.{colour_clause(fruits, rid, subject)} Style:{face} {style}."
 
 # A relic added without an art prompt would silently print "—" in the catalogue and be
 # forgotten, so the generator refuses instead.
@@ -165,6 +200,24 @@ if _hexed:
     print('과일 색은 게임에서 붙습니다 — 프롬프트에 직접 쓴 색을 지우세요:', ', '.join(_hexed))
     sys.exit(1)
 
+# A subject that talks about a face while the no-face line is being appended to it is a
+# contradiction the generator resolves at random, so it is an error here rather than a surprise
+# in the image.
+_FACEWORD = re.compile(r'\b(face|eyes?|eyebrows?|mouth|smil\w*|beak|muzzle)\b', re.I)
+_face_bad = ([k for k, v in PROMPTS['relics'].items()
+              if _FACEWORD.search(v) and k not in WITH_FACE] +
+             ['trait_' + k for k, v in PROMPTS['traits'].items()
+              if _FACEWORD.search(v) and 'trait_' + k not in WITH_FACE])
+if _face_bad:
+    print('프롬프트가 얼굴을 말하는데 _style.with_face 에 없습니다 (얼굴 금지 문구와 충돌):',
+          ', '.join(_face_bad))
+    sys.exit(1)
+_face_unused = [k for k in WITH_FACE
+                if k not in PROMPTS['relics'] and k.replace('trait_', '', 1) not in PROMPTS['traits']]
+if _face_unused:
+    print('_style.with_face 에 존재하지 않는 항목:', ', '.join(_face_unused))
+    sys.exit(1)
+
 _own_bad = [k for k in OWN_COLOUR
             if not (_byid.get(k, {}).get('fruits') or _tbyid.get(k, {}).get('fruits'))]
 if _own_bad:
@@ -186,8 +239,11 @@ for t in d['tiers']:
 L.append('')
 
 L.append('## AI 이미지 프롬프트 사용법\n')
-L.append('아래 표의 프롬프트는 **주제 부분만** 적혀 있습니다. 실제로 생성할 때는 뒤에 공통 스타일을')
-L.append('반드시 붙이세요 — 그래야 기존 과일·아이템 에셋과 한 세트로 보입니다.\n')
+L.append('아래 표의 프롬프트 칸은 **그대로 한 번만 복사**하면 되는 완성된 프롬프트입니다.')
+L.append('주제 → 색 지시 → 스타일이 이미 하나로 합쳐져 있으니 **접미사를 따로 붙이지 마세요.**\n')
+L.append('대부분의 유물은 물건이라 얼굴이 있으면 안 되므로 "눈·코·입을 그리지 말라"가 자동으로 붙습니다.')
+L.append('얼굴이 주제인 것들(`_style.with_face`: ' + ', '.join(sorted(WITH_FACE)) + ')만 예외입니다.\n')
+L.append('아래 두 블록은 무엇이 붙는지 확인용입니다 — 복사할 필요 없습니다.\n')
 L.append('**유물용 접미사**\n')
 L.append('```')
 L.append(ST['suffix'].lstrip(', '))
@@ -219,7 +275,7 @@ for t in d['tiers']:
     for r in rs:
         L.append(f"| {r['icon']} | {r['name']} | {art_mark('relic_' + r['id'])} | {r['price']} | "
                  f"{r['life'] or '영구'} | {r['desc']} | "
-                 f"`{(lambda pr: pr + colour_clause(r['fruits'], r['id'], pr))(PROMPTS['relics'].get(r['id'], '—'))}` |")
+                 f"`{full_prompt('relics', r['id'], r['fruits'])}` |")
     L.append('')
 
 L.append('## 특성\n')

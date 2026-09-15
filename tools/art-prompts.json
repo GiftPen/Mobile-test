@@ -1,7 +1,7 @@
 {
   "_style": {
-    "suffix": ", cute chibi cartoon mobile game icon, thick dark navy outline, glossy 2.5D cel-shading, soft specular highlights, bold simple silhouette, centered single object, isolated on a plain flat pure white background, no shadow, no gradient, no text, no checkerboard, square 1:1",
-    "trait_suffix": ", cute chibi cartoon emblem badge icon, thick dark navy outline, glossy 2.5D cel-shading, soft inner glow, bold simple silhouette, centered single emblem, isolated on a plain flat pure white background, no shadow, no gradient, no text, no checkerboard, square 1:1",
+    "suffix": "cute cartoon mobile game icon, thick dark navy outline, glossy 2.5D cel-shading, soft specular highlights, bold simple silhouette, one single centred object, isolated on a plain flat pure white background, no shadow, no gradient, no text, no checkerboard, square 1:1",
+    "trait_suffix": "cute cartoon emblem badge icon, thick dark navy outline, glossy 2.5D cel-shading, soft inner glow, bold simple silhouette, one single centred emblem, isolated on a plain flat pure white background, no shadow, no gradient, no text, no checkerboard, square 1:1",
     "colors": {
       "cherry": "#ff5a7a",
       "orange": "#f45b00",
@@ -11,11 +11,22 @@
       "peach": "#ffab8f",
       "banana": "#00b4d8"
     },
-    "note": "과일이 등장하는 프롬프트에는 게임 색이 자동으로 붙습니다 (유물.md의 프롬프트 컬럼을 그대로 복사해서 쓰세요). 바나나는 파랑(#00b4d8), 키위는 초록(#43d17a), 복숭아는 연한 산호색(#ffab8f)이라 생성기가 기본값으로 그리면 틀립니다. _style.colors 는 게임의 COLORS 와 반드시 같아야 하며, 다르면 gen-catalog.py 가 거부합니다.",
+    "note": "표의 프롬프트 칸은 **그대로 한 번만 복사**하면 되는 완성된 프롬프트입니다. 주제 → 색 지시 → 스타일 순서로 이미 합쳐져 있으니 접미사를 따로 붙이지 마세요. 아래 접미사 블록은 무엇이 붙는지 확인용입니다. 바나나는 파랑(#00b4d8), 키위는 초록(#43d17a), 복숭아는 연한 산호색(#ffab8f)이라 생성기가 기본값으로 그리면 틀립니다. _style.colors 는 게임의 COLORS 와 반드시 같아야 하며, 다르면 gen-catalog.py 가 거부합니다.",
     "bg_note": "이미지 생성 모델은 알파 채널을 만들지 못합니다. 'transparent background'라고 쓰면 투명을 표현하는 체크무늬를 그림으로 그려버리므로, 대신 **단색 흰 배경**을 요구하고 받은 뒤에 `python3 tools/cutout.py 원본.png 결과.png` 로 배경을 지우세요. 주제가 대부분 흰색이면(설탕·클로버 등) 배경을 `flat solid magenta background`로 바꾸고 `--bg FF00FF` 를 주면 됩니다.",
     "own_colour": [
       "golden_banana",
       "orange_gold"
+    ],
+    "no_face": "do not give the object a face: no eyes, no nose, no mouth, no eyebrows, it is an object and not a character or a mascot",
+    "with_face": [
+      "rich_eye",
+      "trance",
+      "flock",
+      "piggy_cherry",
+      "trait_keen_eye",
+      "trait_sharp_eye",
+      "trait_feed",
+      "trait_nest_egg"
     ]
   },
   "relics": {
@@ -116,7 +127,7 @@
     "peach_crown": "a small jewelled crown resting on a peach",
     "banana_crown": "a small jewelled crown resting on a banana",
     "midas": "a hand with gilded fingertips, everything it has touched turned to gold, coins beneath",
-    "cornucopia": "a woven horn of plenty tipped on its side, fruit and light pouring out of its mouth",
+    "cornucopia": "a woven horn of plenty tipped on its side, fruit and light pouring out of its wide opening",
     "crumb_tin": "a small round tin of crackers with the lid tipped off, crumbs spilling",
     "cracker_score": "a square cracker with one bite taken out, crumbs flying, sparkles around it",
     "cracker_coin": "a broken cracker with gold coins tumbling out of the break",
@@ -169,7 +180,7 @@
     "stardust": "a golden star trailing glittering dust on a circular badge",
     "leisure": "a relaxed pointing finger emblem with a soft glow ring",
     "keen_eye": "a wide open eye emblem with a glinting highlight and radiating lashes",
-    "big_pocket": "an open pouch emblem with its mouth stretched wide, two dots inside",
+    "big_pocket": "an open pouch emblem with its opening stretched wide, two dots inside",
     "concentrate": "a swirling purple orb emblem condensing into a bright dense core",
     "distill": "a laboratory flask emblem with a single glowing drop falling from it",
     "graft": "two plant stems bound together with twine, a bright spark where they join, badge framed",
