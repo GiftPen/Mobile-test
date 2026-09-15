@@ -95,7 +95,14 @@ window.addEventListener('load', () => setTimeout(async () => {
   const BUILD_TAGS = { '체리': 'fruit0', '오렌지': 'fruit1', '키위': 'fruit2', '레몬': 'fruit3',
                        '포도': 'fruit4', '복숭아': 'fruit5', '바나나': 'fruit6',
                        '크래커': 'risk', '코인': 'coin', '콤보': 'combo', '보드': 'board',
-                       '점수': 'score', '없음': null };
+                       '점수': 'score', '없음': null,
+    // 보드 and 콤보 are support trees by design -- meant to be picked up early or mixed into a
+    // fruit build, not to carry a run alone. Measuring them as solo builds asks the wrong
+    // question and answers "dead by round 5", which is simply what a support tree does on its
+    // own. These mixes ask the right one: does giving up three fruit slots for them PAY?
+                       '체리+보드': ['fruit0', 'board'], '체리+콤보': ['fruit0', 'combo'],
+                       '포도+보드': ['fruit4', 'board'], '포도+콤보': ['fruit4', 'combo'] };
+  const MIX_KEEP = 3;   // how many of the eight slots the support tree takes
 
   // ---- the same greedy placement bot.py uses, so the play policy is not a variable -----
   // Every poll costs 8ms of Chrome's VIRTUAL time budget, so patience is not free: at 1500
@@ -142,11 +149,27 @@ window.addEventListener('load', () => setTimeout(async () => {
     F.start('rush');
     await sleep(60); await settle();
     // hand over the whole build at once -- this is a ceiling, not a progression
-    const want = tag ? forTag(tag, /^fruit/.test(tag)) : [];
+    let want;
+    if (Array.isArray(tag)) {
+      const [main, aid] = tag;
+      const core = forTag(main, /^fruit/.test(main));
+      const help = forTag(aid, false).filter(id => !core.includes(id)).slice(0, MIX_KEEP);
+      // the support cards REPLACE fruit slots rather than being added on top, or the mix
+      // would just be a bigger build and the comparison would mean nothing
+      // relicCap() is 8, so slicing a ten-long list swapped exactly one card. Build the
+      // eight directly: five from the main tree, three from the support one.
+      want = core.slice(0, 8 - help.length).concat(help);
+    } else want = tag ? forTag(tag, /^fruit/.test(tag)) : [];
     F.relics = want.slice(0, 10); F.applyRelics();
     F.relics = want.slice(0, F.relicCap()); F.applyRelics();
     const held = F.relics.slice();
-    const traitPool = tag ? traitsFor(tag) : [];
+    // A mix keeps the MAIN tree's traits: someone splashing board relics into a grape build
+    // still takes grape traits. Passing the pair straight to traitsFor() matched nothing, so
+    // only the mixes fell back to "whatever is offered first" -- which is what made them look
+    // 34x worse than the pure builds. The relics differed by one card; the traits differed by
+    // all nine.
+    const mainTag = Array.isArray(tag) ? tag[0] : tag;
+    const traitPool = mainTag ? traitsFor(mainTag) : [];
     let traitN = 0;
     const rows = [];
     let seenStage = F.stage, best = 0, taps = 0, guard = 0, spin = 0, stuck = null;
@@ -228,7 +251,8 @@ def play(build, stages):
 
 
 BUILDS = ['체리', '오렌지', '키위', '레몬', '포도', '복숭아', '바나나',
-          '크래커', '코인', '콤보', '보드', '점수', '없음']
+          '크래커', '코인', '콤보', '보드', '점수', '없음',
+          '체리+보드', '체리+콤보', '포도+보드', '포도+콤보']
 
 if '--report' in ARGS:                      # 병렬로 돌린 결과 파일들을 한 표로
     import glob
