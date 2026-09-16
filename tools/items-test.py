@@ -812,6 +812,38 @@ window.addEventListener('load', async () => {
   // 가루 폭발 SHELVED — its 3x3 checks are out with the relic; everything below is the
   // item and cracker-payment work, which is live and was switched off with it by mistake.
 
+  // ---- hold-to-explain, and the chrome that was taken away ----
+  // A phone has no hover, so an icon nobody can name is a button nobody presses.
+  {
+    const tip = $('tiptop') || document.createElement('div');
+    // a missing panel must FAIL the checks below, not throw and take the suite with it
+    chk('설명 패널이 있다', !!$('tiptop'), true);
+    const hold = async (el) => {
+      el.dispatchEvent(new PointerEvent('pointerdown', {bubbles:true}));
+      await sleep(700);
+      const shown = !tip.classList.contains('hidden') && tip.textContent.trim().length > 0;
+      el.dispatchEvent(new PointerEvent('pointerup', {bubbles:true}));
+      await sleep(40);
+      return { shown, gone: tip.classList.contains('hidden'), text: tip.textContent.trim() };
+    };
+    const coin = await hold($('st-coin'));
+    chk('코인을 꾹 누르면 설명이 뜬다', coin.shown, true);
+    chk('...그리고 손을 떼면 사라진다', coin.gone, true);
+    const seenText = [];
+    for (const b of document.querySelectorAll('#ishop .ib')) {
+      const r = await hold(b);
+      if (!r.shown) seenText.push(b.dataset.item + ' (설명 없음)');
+      else if (!r.text.includes(String(F.itemPrice(b.dataset.item))))
+        seenText.push(b.dataset.item + ' (가격이 안 적힘)');
+    }
+    chk('모든 아이템이 꾹 누르면 가격과 함께 설명된다', seenText, []);
+    // the two bits of chrome that were removed have to stay removed
+    chk('판 채움 게이지는 없어졌다', !!$('fillgauge'), false);
+    chk('스타 러시 버튼에 아이콘이 없다', /^[가-힣A-Za-z぀-ヿ一-鿿 ]+$/.test(
+        $('btn-challenge').textContent.trim()), true);
+    chk('확률 버튼은 글자다', $('info-btn').textContent.trim().length > 1, true);
+  }
+
   // ---- every coin you spend counts as spent ----
   // 탕진 pays per coin spent, and the trait reroll counted while the SHOP reroll did not --
   // the same act, charged the same way, on two different ledgers.

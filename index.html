@@ -6,6 +6,11 @@
 <title>Fruit Star</title>
 <style>
   :root {
+    /* One theme colour, named once. Kiwi green is the only fruit colour not already carrying a
+       meaning somewhere else: blue is 고급, purple is 에픽, gold is 유니크 AND money, mint is
+       전설, red is danger. It also has the most contrast against this background. */
+    --brand: #43d17a;
+    --brand-dark: #2fae60;
     --bg: #0f1018;
     --panel: #171a26;
     --cell: #1e2130;
@@ -155,18 +160,21 @@
   #danger-label { margin-left: auto; font-size: 12px; font-weight: 800; color: #ff5a5f; }
   #danger-label.hidden { display: none; }
   /* segmented board-fill / danger gauge (merges 남은블록 + 위기) */
-  #fillgauge {
-    width: 100%; max-width: 520px; height: 18px; margin: 6px auto 0;
-    display: flex; gap: 2px; padding: 3px; background: #14151d; border-radius: 8px;
+  /* Hold-to-explain. A phone has no hover, so the only way to ask "what is this" without
+     adding a second button per icon is to press and wait. */
+  #tiptop {
+    position: fixed; left: 50%; transform: translateX(-50%);
+    max-width: min(86vw, 360px); z-index: 40; pointer-events: none;
+    background: #10131f; color: var(--text); border: 1px solid #2b3148;
+    border-radius: 12px; padding: 9px 13px; font-size: 13px; line-height: 1.45;
+    box-shadow: 0 10px 30px rgba(0,0,0,.5);
   }
-  #fillgauge .seg {
-    flex: 1; border-radius: 3px; background: #24273a;
-    transition: background .15s ease, box-shadow .15s ease;
-  }
-  #fillgauge .seg.on { box-shadow: inset 0 0 3px rgba(255,255,255,.35); }
-  @keyframes segShake { 0%,100%{transform:translateY(0)} 25%{transform:translateY(-2.5px)} 75%{transform:translateY(2.5px)} }
-  #fillgauge.danger { box-shadow: 0 0 0 1px rgba(255,70,70,.55); }
-  #fillgauge.danger .seg.frontier { animation: segShake .28s ease-in-out infinite; }
+  #tiptop.hidden { display: none; }
+  #tiptop b { color: var(--brand); }
+  /* a stroke, not an emoji: 🔄 renders as a filled coloured badge on most phones and read as
+     a second button inside the button */
+  .rr { font-size: 17px; font-weight: 900; line-height: 1; display: inline-block;
+        transform: translateY(1px); }
   #stage-wrap { position: relative; margin-top: 8px; }
   canvas { display: block; border-radius: 18px; touch-action: none; }
   .gain-pop {
@@ -198,7 +206,7 @@
      was enough to nudge the board and the dock every time it unlocked */
   #rush-next { margin-top: 8px; height: 44px; padding: 0 22px; font-size: 15px; border-radius: 999px;
     display: inline-flex; align-items: center; justify-content: center; line-height: 1;
-    background: linear-gradient(90deg,#ffc93c,#43d17a); }
+    background: var(--brand); }
   #rush-next.hidden { display: none; }
   #rush-next:disabled { background: #232842; color: #6a7089; cursor: default; }
   #rush-next span { font-weight: 900; opacity: .75; margin-left: 4px; }
@@ -243,7 +251,7 @@
   /* the lesson is the board. Quota, touch budget, the item bar and the next-stage button all
      belong to a game that has not started yet, and reading them is not the thing being taught */
   body.tut-on #rush, body.tut-on #stats, body.tut-on #ishop,
-  body.tut-on #rush-next, body.tut-on #fillgauge { visibility: hidden; }
+  body.tut-on #rush-next { visibility: hidden; }
   #tut { position: fixed; left: 0; right: 0; bottom: 0; z-index: 26; pointer-events: none;
     display: flex; flex-direction: column; align-items: center; gap: 10px; padding: 0 16px 18px; }
   #tut.hidden { display: none; }
@@ -285,7 +293,7 @@
   }
   .dock-btn.fruit { padding: 4px; }
   .dock-btn.fruit img { width: 26px; height: 26px; display: block; }
-  .dock-btn.sel { background: linear-gradient(90deg,#ffc93c,#43d17a); color: #12131a; transform: scale(1.08); }
+  .dock-btn.sel { background: var(--brand); color: #12131a; transform: scale(1.08); }
   #overlay {
     position: fixed; inset: 0;
     background: radial-gradient(120% 90% at 50% 0%, #1a1d2e 0%, #0f1018 62%);
@@ -299,8 +307,8 @@
   button {
     margin-top: 8px; padding: 14px 34px; font-size: 17px; font-weight: 800;
     border: none; border-radius: 999px; color: #12131a; cursor: pointer;
-    background: linear-gradient(90deg,#ffc93c,#43d17a);
-    box-shadow: 0 8px 24px rgba(67,209,122,.35);
+    background: var(--brand);
+    box-shadow: 0 6px 18px rgba(67,209,122,.28);
   }
   button:active { transform: scale(.97); }
 
@@ -648,7 +656,7 @@
         <span class="chip coin"><i class="cn"></i> <b id="tr-coin">0</b></span>
         <span>
           <button id="tr-info" class="ghost-btn">📜</button>
-          <button id="tr-reroll" class="ghost-btn">🔄 <i class="cn"></i><b id="tr-reroll-cost">3</b></button>
+          <button id="tr-reroll" class="ghost-btn"><span class="rr">↻</span> <i class="cn"></i><b id="tr-reroll-cost">3</b></button>
           <button id="tr-double" class="ghost-btn hidden"><span data-i18n="doubleChip">✨ 2배</span> <b id="tr-double-n">1</b></button>
         </span>
       </div>
@@ -664,7 +672,7 @@
       <div id="sh-offers" class="offer-grid"></div>
       <div class="shop-actions">
         <button id="sh-info" class="ghost-btn"><span data-i18n="myRelics">📜 내 유물</span> <b id="sh-slots">0/5</b></button>
-        <button id="sh-reroll" class="ghost-btn">🔄 <i class="cn"></i><b id="sh-reroll-cost">3</b></button>
+        <button id="sh-reroll" class="ghost-btn"><span class="rr">↻</span> <i class="cn"></i><b id="sh-reroll-cost">3</b></button>
         <button id="sh-next" data-i18n="btnClose">닫기</button>
       </div>
     </div>
@@ -672,7 +680,7 @@
   <div id="top">
     <div class="top-left">
       <button id="pause-btn" data-i18n-aria="paused" aria-label="일시정지">⏸</button>
-      <button id="info-btn" aria-label="유물과 과일 확률">📜</button>
+      <button id="info-btn" data-i18n="tabOddsShort" aria-label="유물과 과일 확률">확률</button>
     </div>
     <div class="score-box center" id="arcade-box">
       <span class="score-val" id="score">0</span>
@@ -710,7 +718,6 @@
     </div>
     <div id="rs-timed"></div>
   </div>
-  <div id="fillgauge" aria-label="판 채움/위험도"></div>
 
   <div id="coinfx" aria-hidden="true"></div>
   <div id="banner" class="hidden">AD</div>
@@ -725,6 +732,7 @@
     <button class="ib" data-item="bomb"><span class="ib-ic">💣</span><span class="ib-p"><i class="cn"></i>30</span></button>
     <button class="ib" data-item="star"><span class="ib-ic">🌟</span><span class="ib-p"><i class="cn"></i>70</span></button>
   </div>
+  <div id="tiptop" class="hidden"></div>
   <div id="hint" data-i18n="hintPlace">빈 칸을 탭해 과일을 놓으세요</div>
   <button id="rush-next" class="hidden"><span data-i18n="nextStage">다음 스테이지 ▶</span> <span id="rn-coin"><i class="cn"></i> +0</span></button>
 
@@ -816,7 +824,7 @@
         <p class="tagline" data-i18n="appTag">톡! 터뜨리는 상큼한 과일</p>
       </div>
       <button id="btn-arcade" class="mode-btn arcade" data-i18n="modeArcade">아케이드 모드</button>
-      <button id="btn-challenge" class="mode-btn challenge" data-i18n="modeRush">⭐ 스타 러시</button>
+      <button id="btn-challenge" class="mode-btn challenge" data-i18n="modeRush">스타 러시</button>
       <button id="btn-book" class="mode-btn book" data-i18n="btnBook">📖 도감</button>
       <div class="menu-icons">
         <button class="icon-btn" id="btn-settings"><span class="ic">⚙️</span><span class="lb" data-i18n="btnSettings">설정</span></button>
@@ -866,7 +874,6 @@
   //   cracker unlock -> +1 color -> +1 spawn -> cracker unlock -> ...
   const MILESTONE_STEP = 1000; // TEST value (now); SHIP = 5000 points per difficulty step
   let MAX_LEVEL = 10;          // auto-computed at boot from where every difficulty knob caps
-  const FILL_SEGS = 16;        // segments in the board-fill / danger gauge
   const WAVE_STEP_MS = 83;     // time between chain steps (rings)
   const POP_STAGGER_MS = 38;   // delay per unit of DISTANCE from the blast (not per cell):
                                // cells at the same radius pop together, so a bomb reads as
@@ -2331,12 +2338,20 @@
 
       // --- UI ---
       appTag: "톡! 터뜨리는 상큼한 과일",
-      modeArcade: "아케이드 모드", modeRush: "⭐ 스타 러시",
+      modeArcade: "아케이드 모드", modeRush: "스타 러시",
       btnStart: "시작하기", btnSettings: "설정", btnRanking: "랭킹",
       btnClose: "닫기", btnResume: "계속하기", btnToMain: "메인으로", btnRetry: "다시 하기",
       paused: "일시정지", gameOver: "게임 오버",
       soundOn: "소리 켬", soundOff: "소리 끔", volume: "음량", language: "언어",
-      tabOdds: "🍊 확률", tabRelics: "📜 유물", tabTraits: "✨ 특성",
+      tabOdds: "🍊 확률",
+      tabOddsShort: "확률",
+      tipCoin: "<b>코인</b><br>과일을 터뜨리거나 스테이지를 넘길 때 모입니다. 상점의 유물과 아래 아이템을 사는 데 씁니다.",
+      tipItem_bird: (p, sc) => `<b>참새</b> · ${p}코인<br>빈 칸에 놓고 탭하면 날아가 방해물을 쪼아냅니다. 발동 시 +${sc}점.`,
+      tipItem_lineH: (p, sc) => `<b>가로줄</b> · ${p}코인<br>놓고 탭하면 그 가로줄을 전부 청소합니다. 발동 시 +${sc}점.`,
+      tipItem_lineV: (p, sc) => `<b>세로줄</b> · ${p}코인<br>놓고 탭하면 그 세로줄을 전부 청소합니다. 발동 시 +${sc}점.`,
+      tipItem_basket: (p) => `<b>과일 바구니</b> · ${p}코인<br>판에 과일을 한 번에 채웁니다. 판이 비어 다음 수가 없을 때 쓰세요.`,
+      tipItem_bomb: (p, sc) => `<b>폭탄</b> · ${p}코인<br>놓고 탭하면 주변을 통째로 날립니다. 발동 시 +${sc}점.`,
+      tipItem_star: (p, sc) => `<b>별</b> · ${p}코인<br>놓고 탭하면 같은 색을 별자리로 이어 정리하고 코인을 떨굽니다. 발동 시 +${sc}점.`, tabRelics: "📜 유물", tabTraits: "✨ 특성",
       traitPick: "특성 선택", doubleChip: "✨ 2배", myRelics: "📜 내 유물", prep: "준비",
       best: "최고", stage: "스테이지", score: "점수", scoreBest: (a, b) => `점수 ${a} · 최고 ${b}`,
       touchChip: "👆 터치", spawnChip: "➕ 매턴", danger: "⚠️ 위험!",
@@ -2708,12 +2723,20 @@
 
       // --- UI ---
       appTag: "Pop the juiciest fruit",
-      modeArcade: "Arcade", modeRush: "⭐ Star Rush",
+      modeArcade: "Arcade", modeRush: "Star Rush",
       btnStart: "Play", btnSettings: "Settings", btnRanking: "Ranking",
       btnClose: "Close", btnResume: "Resume", btnToMain: "Main menu", btnRetry: "Play again",
       paused: "Paused", gameOver: "Game Over",
       soundOn: "Sound on", soundOff: "Sound off", volume: "Volume", language: "Language",
-      tabOdds: "🍊 Odds", tabRelics: "📜 Relics", tabTraits: "✨ Traits",
+      tabOdds: "🍊 Odds",
+      tabOddsShort: "Odds",
+      tipCoin: "<b>Coins</b><br>Earned by popping fruit and clearing stages. They buy relics in the shop and the items below.",
+      tipItem_bird: (p, sc) => `<b>Sparrow</b> · ${p} coins<br>Place it, tap it, and it flies off to peck whatever is in the way. +${sc} when it fires.`,
+      tipItem_lineH: (p, sc) => `<b>Row</b> · ${p} coins<br>Place it and tap to clear its whole row. +${sc} when it fires.`,
+      tipItem_lineV: (p, sc) => `<b>Column</b> · ${p} coins<br>Place it and tap to clear its whole column. +${sc} when it fires.`,
+      tipItem_basket: (p) => `<b>Fruit Basket</b> · ${p} coins<br>Fills the board with fruit at once. For when there is nothing left to play.`,
+      tipItem_bomb: (p, sc) => `<b>Bomb</b> · ${p} coins<br>Place it and tap to blow the area around it. +${sc} when it fires.`,
+      tipItem_star: (p, sc) => `<b>Star</b> · ${p} coins<br>Place it and tap to link one colour into a constellation and drop coins. +${sc} when it fires.`, tabRelics: "📜 Relics", tabTraits: "✨ Traits",
       traitPick: "Pick a trait", doubleChip: "✨ ×2", myRelics: "📜 My relics", prep: "",
       best: "Best", stage: "Stage", score: "Score", scoreBest: (a, b) => `Score ${a} · Best ${b}`,
       touchChip: "👆 Touches", spawnChip: "➕ Per turn", danger: "⚠️ Danger!",
@@ -3083,12 +3106,20 @@
         whetstone: "砥石",
       },
       appTag: "パチンとはじける みずみずしいフルーツ",
-      modeArcade: "アーケード", modeRush: "⭐ スターラッシュ",
+      modeArcade: "アーケード", modeRush: "スターラッシュ",
       btnStart: "はじめる", btnSettings: "設定", btnRanking: "ランキング",
       btnClose: "閉じる", btnResume: "つづける", btnToMain: "メインへ", btnRetry: "もう一度",
       paused: "一時停止", gameOver: "ゲームオーバー",
       soundOn: "サウンド オン", soundOff: "サウンド オフ", volume: "音量", language: "言語",
-      tabOdds: "🍊 確率", tabRelics: "📜 レリック", tabTraits: "✨ 特性",
+      tabOdds: "🍊 確率",
+      tabOddsShort: "確率",
+      tipCoin: "<b>コイン</b><br>フルーツを割る・ステージを越えると貯まります。ショップのレリックと下のアイテムに使います。",
+      tipItem_bird: (p, sc) => `<b>スズメ</b> · ${p}コイン<br>置いてタップすると飛んでいって邪魔なものをついばみます。発動時 +${sc}点。`,
+      tipItem_lineH: (p, sc) => `<b>横ライン</b> · ${p}コイン<br>置いてタップするとその横一列を消します。発動時 +${sc}点。`,
+      tipItem_lineV: (p, sc) => `<b>縦ライン</b> · ${p}コイン<br>置いてタップするとその縦一列を消します。発動時 +${sc}点。`,
+      tipItem_basket: (p) => `<b>フルーツバスケット</b> · ${p}コイン<br>盤面にフルーツを一度に補充します。打つ手がないときに。`,
+      tipItem_bomb: (p, sc) => `<b>爆弾</b> · ${p}コイン<br>置いてタップすると周囲を吹き飛ばします。発動時 +${sc}点。`,
+      tipItem_star: (p, sc) => `<b>星</b> · ${p}コイン<br>置いてタップすると同じ色を星座でつなぎ、コインを落とします。発動時 +${sc}点。`, tabRelics: "📜 レリック", tabTraits: "✨ 特性",
       traitPick: "特性を選ぶ", doubleChip: "✨ ×2", myRelics: "📜 所持レリック", prep: "準備",
       best: "ベスト", stage: "ステージ", score: "スコア",
       scoreBest: (a, b) => `スコア ${a} · ベスト ${b}`,
@@ -3459,12 +3490,20 @@
         whetstone: "磨刀石",
       },
       appTag: "清爽多汁 一戳就爆",
-      modeArcade: "街机模式", modeRush: "⭐ 星辰冲刺",
+      modeArcade: "街机模式", modeRush: "星辰冲刺",
       btnStart: "开始", btnSettings: "设置", btnRanking: "排行榜",
       btnClose: "关闭", btnResume: "继续", btnToMain: "回主菜单", btnRetry: "再来一次",
       paused: "暂停", gameOver: "游戏结束",
       soundOn: "音效 开", soundOff: "音效 关", volume: "音量", language: "语言",
-      tabOdds: "🍊 概率", tabRelics: "📜 遗物", tabTraits: "✨ 特性",
+      tabOdds: "🍊 概率",
+      tabOddsShort: "概率",
+      tipCoin: "<b>金币</b><br>消除水果和通关阶段时获得。用来购买商店的遗物和下方的道具。",
+      tipItem_bird: (p, sc) => `<b>麻雀</b> · ${p}金币<br>放置后点击，它会飞出去啄掉挡路的东西。发动时 +${sc}分。`,
+      tipItem_lineH: (p, sc) => `<b>横线</b> · ${p}金币<br>放置后点击，清除整行。发动时 +${sc}分。`,
+      tipItem_lineV: (p, sc) => `<b>竖线</b> · ${p}金币<br>放置后点击，清除整列。发动时 +${sc}分。`,
+      tipItem_basket: (p) => `<b>水果篮</b> · ${p}金币<br>一次性把水果补满棋盘。没有可下之处时使用。`,
+      tipItem_bomb: (p, sc) => `<b>炸弹</b> · ${p}金币<br>放置后点击，炸开周围一片。发动时 +${sc}分。`,
+      tipItem_star: (p, sc) => `<b>星星</b> · ${p}金币<br>放置后点击，把同色连成星座并掉落金币。发动时 +${sc}分。`, tabRelics: "📜 遗物", tabTraits: "✨ 特性",
       traitPick: "选择特性", doubleChip: "✨ ×2", myRelics: "📜 我的遗物", prep: "准备",
       best: "最高", stage: "关卡", score: "分数",
       scoreBest: (a, b) => `分数 ${a} · 最高 ${b}`,
@@ -4589,20 +4628,6 @@
   }
 
   // build the segmented gauge once
-  let gaugeSegs = [];
-  function buildGauge() {
-    const g = document.getElementById("fillgauge");
-    if (gaugeSegs.length) return;
-    for (let i = 0; i < FILL_SEGS; i++) {
-      const s = document.createElement("div");
-      s.className = "seg";
-      g.appendChild(s); gaugeSegs.push(s);
-    }
-  }
-  function segColor(i) {                 // left=blue(safe) -> right=red(danger)
-    const hue = 220 - (i / (FILL_SEGS - 1)) * 230;   // 220(blue) .. -10(red)
-    return `hsl(${(hue + 360) % 360} 85% 58%)`;
-  }
   // the counter ticks up toward `coins` instead of snapping, so the flying coins look like
   // they are what is filling it
   let coinBumpTimer = null;
@@ -4697,20 +4722,13 @@
     document.getElementById("st-spawn").textContent = spawnCount();
 
     renderItemShop();                      // affordability moves with every coin
-    // segmented board-fill / danger gauge
-    buildGauge();
+    // The segmented fill/danger gauge is gone: sixteen coloured bars are the first thing a new
+    // player sees and the last thing they can name. The board itself already shows how full it
+    // is. The danger WARNING stays -- that one is a sentence, not a chart.
     const ratio = filledCount() / (ROWS * COLS);          // fill vs the whole board
-    const lit = Math.round(ratio * FILL_SEGS);
-    for (let i = 0; i < FILL_SEGS; i++) {
-      const on = i < lit;
-      gaugeSegs[i].classList.toggle("on", on);
-      gaugeSegs[i].classList.toggle("frontier", on && i === lit - 1);
-      gaugeSegs[i].style.background = on ? segColor(i) : "";
-    }
     const danger = ratio >= 0.85;
     if (danger && !wasDanger) SFX.play("danger");   // only on the way in, not every frame
     wasDanger = danger;
-    document.getElementById("fillgauge").classList.toggle("danger", danger);
     document.getElementById("danger-label").classList.toggle("hidden", !danger || rush);
     document.getElementById("danger-label2").classList.toggle("hidden", !danger || !rush);
   }
@@ -7991,6 +8009,41 @@
     renderTraits();
   });
   document.getElementById("info-btn").addEventListener("click", () => openInfo());
+
+  // ---- hold to explain -------------------------------------------------------------------
+  // There is no hover on a phone, and an icon nobody can name is a button nobody presses. Hold
+  // one for half a second and it says what it is; let go and it goes away. Mouse users get the
+  // same thing on right-click-less long press, and the title attribute still covers desktop.
+  const HOLD_MS = 450;
+  let holdTimer = null;
+  function showTip(el, html) {
+    const tip = document.getElementById("tiptop");
+    tip.innerHTML = html;
+    tip.classList.remove("hidden");
+    const r = el.getBoundingClientRect(), th = tip.getBoundingClientRect().height;
+    // above the thing being held, unless there is no room up there
+    const top = r.top - th - 10;
+    tip.style.top = (top < 8 ? Math.min(window.innerHeight - th - 8, r.bottom + 10) : top) + "px";
+  }
+  function hideTip() {
+    clearTimeout(holdTimer); holdTimer = null;
+    document.getElementById("tiptop").classList.add("hidden");
+  }
+  function holdable(el, text) {
+    if (!el) return;
+    const start = () => {
+      clearTimeout(holdTimer);
+      holdTimer = setTimeout(() => { buzz(10); showTip(el, text()); }, HOLD_MS);
+    };
+    el.addEventListener("pointerdown", start);
+    for (const ev of ["pointerup", "pointerleave", "pointercancel"]) el.addEventListener(ev, hideTip);
+    el.addEventListener("contextmenu", e => e.preventDefault());   // no OS menu on a long press
+  }
+  for (const id of ["st-coin", "rs-coin"])
+    holdable(document.getElementById(id), () => d("tipCoin"));
+  for (const b of document.querySelectorAll("#ishop .ib"))
+    holdable(b, () => d("tipItem_" + b.dataset.item, itemPrice(b.dataset.item),
+                        ITEM_SCORE[b.dataset.item] || 0));
   document.getElementById("info-close").addEventListener("click", closeInfo);
   document.getElementById("info-body").addEventListener("scroll", syncInfoFade, { passive: true });
   for (const b of document.querySelectorAll(".itab"))
