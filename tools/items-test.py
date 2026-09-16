@@ -845,9 +845,45 @@ window.addEventListener('load', async () => {
       }
       if (ratio(sheet, card) > 12) bad.push(`${t}: 카드가 판과 너무 동떨어짐`);
     }
+    // ---- and the shell: the menu, the HUD and the board plate wear the theme too ----
+    // A theme that dresses only the shop leaves a paper shop hanging over a black game. These
+    // check the other half of the contract, plus the one rule the canvas imposes: every fruit,
+    // seed and sparkle is drawn for a DARK tray, so no theme may hand it a pale one.
+    const SHELL = ['--bg','--bg-hi','--burst','--panel','--cell','--chip','--chip-edge',
+                   '--slot','--slot-edge','--slot-on','--board','--board-cell','--scrim',
+                   '--gold','--gold-b','--gold-bg','--t2-hi','--t2-lo','--text','--muted'];
+    const shell = [];
+    for (const t of F.THEMES) {
+      F.setTheme(t);
+      const cs = getComputedStyle(document.documentElement);
+      for (const v of SHELL)
+        if (!cs.getPropertyValue(v).trim()) shell.push(`${t}: ${v} 비어 있음`);
+      const bg = readVar('--bg'), panel = readVar('--panel'), chip = readVar('--chip');
+      const pairs = [['--text', bg], ['--text', panel], ['--text', chip],
+                     ['--ink', readVar('--slot')], ['--gold', panel], ['--t2-hi', bg]];
+      for (const [fg, b] of pairs) {
+        const r = ratio(readVar(fg), b);
+        if (r < 3.0) shell.push(`${t}:${fg} on ${b} ${r.toFixed(1)}:1`);
+      }
+      // muted is meant to recede, but it still has to be legible
+      const rm = ratio(readVar('--muted'), bg);
+      if (rm < 2.4) shell.push(`${t}:--muted ${rm.toFixed(1)}:1`);
+      // the tray: dark enough for the art, and its cells still tell apart from the plate
+      const plate = lum(readVar('--board')), rc = ratio(readVar('--board'), readVar('--board-cell'));
+      if (plate > 0.16) shell.push(`${t}: 판이 밝음 (휘도 ${plate.toFixed(2)}) -- 캔버스 아트는 어두운 판 기준`);
+      if (rc < 1.06 || rc > 2.2) shell.push(`${t}: 빈 칸 대비 ${rc.toFixed(2)}`);
+      // a small control must not vanish into the surface it sits on
+      if (ratio(chip, readVar('--sheet')) < 1.04 && ratio(readVar('--chip-edge'), chip) < 1.3)
+        shell.push(`${t}: 칩이 판과 같은 색인데 테두리도 없음`);
+      // the canvas cannot read a variable, so draw() holds a copy -- it must be this theme's
+      probe.style.color = F.PLATE.bg;
+      const held = getComputedStyle(probe).color;
+      if (held !== readVar('--board')) shell.push(`${t}: 판 색이 갱신되지 않음 (${held})`);
+    }
     probe.remove();
     F.setTheme(was);
     chk('모든 테마에서 글자가 읽힌다 (대비 3:1 이상)', bad, []);
+    chk('테마가 메뉴·HUD·판까지 입혀진다', shell.slice(0, 8), []);
     chk('기본 테마가 목록에 남아 있다', F.THEMES.includes('dark'), true);
     chk('테마는 저장된다', (() => { F.setTheme('shore');
       const ok = localStorage.getItem('fs_theme') === 'shore'; F.setTheme(was); return ok; })(), true);

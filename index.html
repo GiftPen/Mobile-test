@@ -26,9 +26,31 @@
     --awn-b: transparent;
     --head: #161926;         /* the header bar itself */
     --head-ink: #e8eaf2;
+    /* THE SHELL. The eight above dress the between-stage screens; these dress everything
+       the game is playing on -- the page wash, the menu, the HUD, the board plate. A theme
+       that sets only the sheet leaves a light shop hanging over a black game, which is the
+       exact seam this closes. */
     --bg: #0f1018;
+    --bg-hi: #1a1d2e;        /* top of the page wash */
+    --burst: #242838;        /* the star behind the menu title */
     --panel: #171a26;
     --cell: #1e2130;
+    --chip: #1e2130;         /* a small raised control: icon circle, ghost button, toggle */
+    --chip-edge: #161a2c;    /* the 6px block-shadow under one */
+    --slot: #1c2032;         /* a slot that holds a thing: item button, book cell, tab */
+    --slot-edge: #2b3048;
+    --slot-on: #2a2f4d;      /* that slot, selected */
+    --board: #171a26;        /* the canvas plate under the grid (read by draw(), not CSS) */
+    --board-cell: #262a3d;
+    --scrim: rgba(8,9,15,.94);
+    --gold: #ffd23e;         /* coins and records. On paper a bright gold vanishes, so the
+                                light themes darken it rather than lose it */
+    --gold-b: #ffe9a0;       /* the number itself, one step brighter */
+    --gold-bg: #3a3316;      /* behind an armed/selected gold control */
+    --coin-bg: rgba(255,190,40,.12);
+    --coin-edge: rgba(255,190,60,.35);
+    --t2-hi: #ffffff;        /* the STAR half of the title */
+    --t2-lo: #c9cede;
     --text: #e8eaf2;
     --muted: #8b90a6;
   }
@@ -40,7 +62,7 @@
   html, body {
     margin: 0; height: 100%;
     box-sizing: border-box;
-    background: radial-gradient(120% 100% at 50% 0%, #1a1d2e 0%, var(--bg) 60%);
+    background: radial-gradient(120% 100% at 50% 0%, var(--bg-hi) 0%, var(--bg) 60%);
     color: var(--text);
     font-family: 'Maplestory', -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
     overflow: hidden; user-select: none;
@@ -70,7 +92,7 @@
   #adstub-x { margin: 0; padding: 11px 22px; font-size: 14px; }
   /* banner: menu and shop only, never over the board */
   #banner { width: 100%; max-width: 520px; height: 50px; margin-top: 10px; display: flex;
-    align-items: center; justify-content: center; border: 1px dashed #2b3048; border-radius: 10px;
+    align-items: center; justify-content: center; border: 1px dashed var(--slot-edge); border-radius: 10px;
     color: #5b6178; font-size: 11px; font-weight: 800; letter-spacing: 3px; flex: none; }
   #banner.hidden { display: none; }
   #btn-revive { background: linear-gradient(100deg, #ffd23e, #ffa62e); color: #201a05;
@@ -104,7 +126,7 @@
     font-size: 12px; color: var(--muted); white-space: nowrap;
   }
   .chip b { color: var(--text); font-weight: 800; }
-  .chip.lvl { color: var(--text); font-weight: 800; background: #232744; }
+  .chip.lvl { color: var(--text); font-weight: 800; background: var(--chip); }
   /* One coin everywhere. The emoji is the fallback; once coin.png loads, body.coin-art
      swaps every .cn over to the art in one go, so no site can be left behind. */
   .cn { display: inline-block; font-style: normal; line-height: 1; }
@@ -117,11 +139,11 @@
   body.coin-art .cn { width: 1.15em; height: 1.15em; vertical-align: -.22em;
                       background: var(--coin-url) center/contain no-repeat; }
   body.coin-art .cn::before { content: ""; }
-  .chip.coin { color: #ffd23e; background: rgba(255,190,40,.12); border: 1px solid rgba(255,190,60,.35); }
-  .chip.coin b { color: #ffe9a0; }
+  .chip.coin { color: var(--gold); background: var(--coin-bg); border: 1px solid var(--coin-edge); }
+  .chip.coin b { color: var(--gold-b); }
   .chip.coin.bump { animation: coinBump .22s ease-out; }
   @keyframes coinBump { 0% { transform: scale(1); } 45% { transform: scale(1.22); } 100% { transform: scale(1); } }
-  .chip.lvl .lvmax { color: #ffd23e; margin-left: 4px; font-size: 10px; letter-spacing: 1px; }
+  .chip.lvl .lvmax { color: var(--gold); margin-left: 4px; font-size: 10px; letter-spacing: 1px; }
   .chip.lvl .lvmax.hidden { display: none; }
   #stats.hidden { display: none; }
   /* ---- Star Rush contract band ----
@@ -151,7 +173,7 @@
      whole band by 2px the moment the quota was met, nudging the board and dock */
   .rb-lab { font-size: 10px; color: var(--muted); letter-spacing: 1px; margin-top: 3px;
     white-space: nowrap; line-height: 13px; height: 13px; }
-  .rb-div { width: 1px; align-self: stretch; margin: 3px 0 6px; background: #2b3048; }
+  .rb-div { width: 1px; align-self: stretch; margin: 3px 0 6px; background: var(--slot-edge); }
   .rb-chips { margin-left: auto; display: flex; align-items: center; gap: 6px; }
   /* timed relics have to be readable without opening a panel -- they are gone in a stage or
      two and that is exactly when you need to know */
@@ -165,9 +187,9 @@
     border-color: rgba(255,110,130,.55); animation: lastPulse 1s ease-in-out infinite; }
   @keyframes lastPulse { 0%,100% { opacity: 1; } 50% { opacity: .55; } }
   .rb-stage { font-size: 15px; font-weight: 800; color: var(--text); letter-spacing: .3px; }
-  .rb-stage b { color: #ffd23e; }
-  #rb-quota-cell.met .rb-val { color: #ffd23e; }
-  #rb-quota-cell.met .rb-lab { color: #ffd23e; opacity: .9; }
+  .rb-stage b { color: var(--gold); }
+  #rb-quota-cell.met .rb-val { color: var(--gold); }
+  #rb-quota-cell.met .rb-lab { color: var(--gold); opacity: .9; }
   #rb-touch-cell.warn .rb-val, #rb-touch-cell.warn .rb-lab { color: #ffab3d; }
   #rb-touch-cell.low  .rb-val, #rb-touch-cell.low  .rb-lab { color: #ff5a5f; }
   #danger-label2 { font-size: 12px; font-weight: 800; color: #ff5a5f; }
@@ -223,7 +245,7 @@
     display: inline-flex; align-items: center; justify-content: center; line-height: 1;
     background: var(--brand); }
   #rush-next.hidden { display: none; }
-  #rush-next:disabled { background: #232842; color: #6a7089; cursor: default; }
+  #rush-next:disabled { background: var(--slot); color: var(--muted); cursor: default; }
   #rush-next span { font-weight: 900; opacity: .75; margin-left: 4px; }
   #rush-next:disabled span { opacity: .5; }
   /* height is fixed and the row is always present: this sits directly under the board, and
@@ -233,15 +255,15 @@
   #ishop.hidden { display: none; }
   .ib { margin: 0; flex: 1 1 0; min-width: 0; max-width: 62px;
     display: flex; flex-direction: column; align-items: center;
-    justify-content: center; gap: 2px; padding: 0; border-radius: 13px; border: 1px solid #2b3048;
-    background: #1c2032; color: var(--text); box-shadow: none; font-family: inherit; }
+    justify-content: center; gap: 2px; padding: 0; border-radius: 13px; border: 1px solid var(--slot-edge);
+    background: var(--slot); color: var(--ink); box-shadow: none; font-family: inherit; }
   .ib-ic { font-size: 21px; line-height: 1; }
   .ib-ic.art-ic { width: 26px; height: 26px; display: inline-block; }
   .ib-ic.turn90 { transform: rotate(90deg); }
-  .ib-p  { font-size: 11px; font-weight: 800; color: #ffd23e; line-height: 1; }
+  .ib-p  { font-size: 11px; font-weight: 800; color: var(--gold); line-height: 1; }
   .ib:disabled { opacity: .38; }
   .ib:disabled .ib-p { color: #8a93ad; }
-  .ib.armed { border-color: #ffd23e; background: #3a3316; }
+  .ib.armed { border-color: var(--gold); background: var(--gold-bg); }
   .ib.armed .ib-ic { transform: scale(1.12); }
   /* A portrait game cannot force rotation from the web, so it says so. Keyed on HEIGHT, not
      orientation: a tablet in landscape (820 tall) plays fine, a phone in landscape (390) does
@@ -251,16 +273,18 @@
   .set-row { display: flex; align-items: center; gap: 10px; width: 100%; max-width: 280px;
     margin: 0 auto 8px; flex-wrap: wrap; }
   .set-toggle { flex: 1; margin: 0; padding: 12px; font-size: 15px; font-weight: 800;
-    background: #1e2130; color: var(--text); border-radius: 12px; box-shadow: none; }
+    background: var(--chip); color: var(--ink); border: 1px solid var(--chip-edge);
+    border-radius: 12px; box-shadow: none; }
   .set-toggle.off { color: var(--muted); }
   .set-lab { font-size: 13px; color: var(--muted); min-width: 46px; text-align: left;
     white-space: nowrap; }
   .lang-picker { flex: 1 1 100%; display: flex; gap: 6px; flex-wrap: wrap; }
   .lang-btn { flex: 1 1 calc(50% - 3px); margin: 0; padding: 9px 6px; font-size: 13px; font-weight: 800;
-    background: #1e2130; color: var(--muted); border-radius: 10px; box-shadow: none; }
-  .lang-btn.on { background: #3a3316; color: #ffd23e; }
+    background: var(--chip); color: var(--muted); border: 1px solid var(--chip-edge);
+    border-radius: 10px; box-shadow: none; }
+  .lang-btn.on { background: var(--gold-bg); color: var(--gold); }
   .set-val { font-size: 13px; color: var(--muted); width: 28px; text-align: right; }
-  #vol, #s-vol { flex: 1; accent-color: #ffd23e; }
+  #vol, #s-vol { flex: 1; accent-color: var(--gold); }
   #vol-row.off, #s-vol-row.off { opacity: .35; }
   /* The tutorial does NOT cover the board -- it has to be tapped. Only the bubble and the
      skip button are real elements; the dimming and the ring around the cell you may touch are
@@ -273,26 +297,26 @@
     display: flex; flex-direction: column; align-items: center; gap: 10px; padding: 0 16px 18px; }
   #tut.hidden { display: none; }
   #tut-bubble { pointer-events: none; max-width: 360px; width: 100%;
-    background: rgba(22,25,38,.96); border: 1px solid #2b3048; border-radius: 16px;
+    background: var(--sheet); border: 1px solid var(--sheet-edge); border-radius: 16px;
     padding: 14px 16px; box-shadow: 0 8px 30px rgba(0,0,0,.5); }
-  #tut-text { margin: 0; font-size: 15px; font-weight: 700; line-height: 1.5; color: var(--text);
+  #tut-text { margin: 0; font-size: 15px; font-weight: 700; line-height: 1.5; color: var(--ink);
     text-align: center; }
   #tut-skip { pointer-events: auto; margin: 0; padding: 9px 18px; font-size: 13px; }
-  #settings { position: fixed; inset: 0; z-index: 30; background: rgba(8,9,15,.92);
+  #settings { position: fixed; inset: 0; z-index: 30; background: var(--scrim);
     backdrop-filter: blur(6px); display: flex; align-items: center; justify-content: center;
     padding: 18px; }
   #settings.hidden { display: none; }
   .set-card { width: 100%; max-width: 340px; max-height: 92vh; overflow-y: auto;
     scrollbar-width: none; -ms-overflow-style: none;
-    background: #161926; border-radius: 20px; padding: 18px; border: 1px solid #262b40;
-    text-align: center; }
+    background: var(--sheet); color: var(--ink); border-radius: 20px; padding: 18px;
+    border: 1px solid var(--sheet-edge); text-align: center; }
   .set-card h2 { margin: 0 0 14px; font-size: 22px; font-weight: 900; }
   .set-card .ghost-btn.wide { width: 100%; max-width: 280px; margin: 0 auto; }
   .set-ver { font-size: 11px; color: var(--muted); margin: 12px 0 10px; letter-spacing: .5px; }
   .set-toggle.off { color: var(--muted); }
   #rotate { position: fixed; inset: 0; z-index: 40; display: none;
     flex-direction: column; align-items: center; justify-content: center; gap: 10px;
-    background: #0b0d16; text-align: center; padding: 20px; }
+    background: var(--bg); text-align: center; padding: 20px; }
   #rotate.on { display: flex; }
   .rot-ic { font-size: 44px; transform: rotate(90deg); }
   .rot-t { font-size: 19px; font-weight: 800; color: var(--text); }
@@ -306,14 +330,15 @@
   .dock-label { font-size: 11px; color: var(--muted); margin-right: 2px; width: 100%; text-align: center; }
   .dock-btn {
     margin: 0; padding: 5px 9px; font-size: 20px; line-height: 1;
-    background: #1e2130; color: #fff; border-radius: 10px; box-shadow: none;
+    background: var(--chip); color: var(--ink); border: 1px solid var(--chip-edge);
+    border-radius: 10px; box-shadow: none;
   }
   .dock-btn.fruit { padding: 4px; }
   .dock-btn.fruit img { width: 26px; height: 26px; display: block; }
   .dock-btn.sel { background: var(--brand); color: #12131a; transform: scale(1.08); }
   #overlay {
     position: fixed; inset: 0;
-    background: radial-gradient(120% 90% at 50% 0%, #1a1d2e 0%, #0f1018 62%);
+    background: radial-gradient(120% 90% at 50% 0%, var(--bg-hi) 0%, var(--bg) 62%);
     display: flex; flex-direction: column; align-items: center; justify-content: center;
     gap: 14px; text-align: center; padding: 24px; z-index: 10; overflow: hidden;
     font-family: 'Maplestory', -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
@@ -335,6 +360,8 @@
     display: flex; flex-direction: column; align-items: center; justify-content: center; }
   .burst { position: absolute; left: 4%; top: 3%; width: 92%; height: 94%; z-index: 0;
     filter: drop-shadow(0 12px 26px rgba(0,0,0,.45)); }
+  /* the fill lives here, not on the polygon: a presentation attribute cannot read a var */
+  .burst polygon { fill: var(--burst); }
   /* layering inside #menu: burst(0) < fruits(1) < title & buttons(2). fruits float in FRONT of the burst backdrop */
   #menufx { position: fixed; inset: 0; z-index: 1; pointer-events: none; }
   #menu > .mode-btn, #menu > .menu-icons, #menu > #menu-msg, #menu > .ver { position: relative; z-index: 2; }
@@ -350,7 +377,7 @@
       linear-gradient(90deg,#f5325b,#ff8a1f,#ffc93c,#43d17a,#4d8bff,#a66cff);
     -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent; }
   .title .t2 { letter-spacing: 5px;
-    background: linear-gradient(180deg,#ffffff 0%,#ffffff 46%,#c9cede 100%);
+    background: linear-gradient(180deg,var(--t2-hi) 0%,var(--t2-hi) 46%,var(--t2-lo) 100%);
     -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent; }
   .tagline { position: relative; z-index: 2; color: var(--muted); font-size: 14px; margin: 16px 0 0; }
   .mode-btn { width: 100%; max-width: 320px; margin-top: 14px; padding: 18px; font-size: 20px; font-weight: 800;
@@ -359,30 +386,30 @@
   .mode-btn.challenge { background: #7c5cff; box-shadow: 0 6px 0 #503aa8; }
   .mode-btn:active { transform: translateY(3px); box-shadow: none; }
   /* quieter than the two modes: it is a place to look, not a place to play */
-  .mode-btn.book { background: #232842; box-shadow: 0 6px 0 #161a2c; color: #c9cede;
+  .mode-btn.book { background: var(--chip); box-shadow: 0 6px 0 var(--chip-edge); color: var(--muted);
     font-size: 17px; padding: 14px; margin-top: 18px; }
   .menu-icons { display: flex; gap: 34px; margin-top: 30px; }
 
   /* ---- collection ---- */
-  #book { position: fixed; inset: 0; z-index: 31; background: rgba(8,9,15,.96);
+  #book { position: fixed; inset: 0; z-index: 31; background: var(--scrim);
     display: flex; flex-direction: column; padding: 14px 12px; gap: 10px; }
   /* an id beats .hidden on specificity, so the overlay needs its own hiding rule -- without
      it the collection was simply always on screen */
   #book.hidden { display: none; }
   #book h2 { margin: 0; font-size: 20px; text-align: center; }
   #bk-prog { text-align: center; font-size: 13px; color: var(--muted); font-weight: 700; }
-  #bk-prog b { color: #ffd23e; }
+  #bk-prog b { color: var(--gold); }
   #bk-tabs { display: flex; gap: 4px; }
   .bktab { flex: 1 1 0; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
-    background: #1c2032; color: var(--muted); border: none; border-radius: 10px;
+    background: var(--slot); color: var(--muted); border: 1px solid var(--slot-edge); border-radius: 10px;
     padding: 9px 2px; font-size: 12px; font-weight: 800; box-shadow: none; margin: 0; }
-  .bktab.on { background: #2a2f4d; color: var(--text); }
+  .bktab.on { background: var(--slot-on); color: var(--ink); }
   #bk-body { flex: 1; min-height: 0; overflow-y: auto; -webkit-overflow-scrolling: touch;
     display: grid; grid-template-columns: repeat(auto-fill, minmax(96px, 1fr));
     gap: 8px; align-content: start; padding-bottom: 6px; }
   #bk-body::-webkit-scrollbar { display: none; }
   #bk-body { scrollbar-width: none; }
-  .bk-cell { background: #171a28; border: 1px solid #262b40; border-radius: 12px;
+  .bk-cell { background: var(--slot); border: 1px solid var(--slot-edge); border-radius: 12px;
     padding: 9px 6px; display: flex; flex-direction: column; align-items: center; gap: 5px;
     text-align: center; }
   .bk-ic { font-size: 30px; line-height: 1.1; }
@@ -397,15 +424,16 @@
   #bk-close { margin-top: 2px; }
   .icon-btn { background: none; box-shadow: none; margin: 0; padding: 0; display: flex; flex-direction: column;
     align-items: center; gap: 6px; color: var(--muted); }
-  .icon-btn .ic { width: 56px; height: 56px; border-radius: 50%; background: #1e2130; font-size: 24px;
+  .icon-btn .ic { width: 56px; height: 56px; border-radius: 50%; background: var(--chip);
+    border: 1px solid var(--chip-edge); font-size: 24px;
     display: flex; align-items: center; justify-content: center; }
   .icon-btn .lb { font-size: 12px; }
-  #menu-msg { min-height: 18px; margin-top: 16px; color: #ffd23e; font-size: 13px; font-weight: 700; }
-  .ver { position: fixed; bottom: 14px; left: 0; right: 0; color: #555; font-size: 12px; }
+  #menu-msg { min-height: 18px; margin-top: 16px; color: var(--gold); font-size: 13px; font-weight: 700; }
+  .ver { position: fixed; bottom: 14px; left: 0; right: 0; color: var(--muted); opacity: .7; font-size: 12px; }
   /* ---- game over ---- */
   #gameover { display: flex; flex-direction: column; align-items: center; gap: 12px; }
-  .ov-best { font-size: 15px; color: #ffd23e; }
-  .ov-best b { color: #ffe9a0; }
+  .ov-best { font-size: 15px; color: var(--gold); }
+  .ov-best b { color: var(--gold-b); }
   .ov-why { font-size: 14px; opacity: .7; }
   .go-title { font-size: 40px; margin: 0; font-weight: 900;
     background: linear-gradient(90deg,#ff5a7a,#ffc93c,#43d17a,#4d8bff);
@@ -417,7 +445,21 @@
     --card-lift: 0 2px 0 #e3d5bb, 0 6px 12px rgba(80,58,28,.14);
     --ink: #24262f;   --ink-soft: #6a6252; --ink-coin: #8a5a12;
     --awn-a: #f4ead6; --awn-b: #43d17a;
-    --head: #f4ead6;  --head-ink: #2a1d10;
+    --head: #f4ead6;  --head-ink: #2a1d10;    /* the stall itself: kraft paper and warm wood. The board stays a dark tray -- every
+       fruit, seed and sparkle on the canvas was drawn to sit on one, and a pale plate
+       washes all of them out. A dark tray on a light counter is what a real stall looks
+       like anyway. */
+    --bg: #e3d2b2; --bg-hi: #f4e8d0;
+    --burst: #f7eed9;
+    --panel: #f4ead6; --cell: #f4ead6;
+    --chip: #fdf6e6; --chip-edge: #cfbc99;
+    --slot: #fffaf0; --slot-edge: #e0d2b8; --slot-on: #efdcb4;
+    --board: #4a3826; --board-cell: #5e4a35;
+    --scrim: rgba(52,36,18,.74);
+    --gold: #8a5a12; --gold-b: #5e3c08; --gold-bg: #f2dfb2;
+    --coin-bg: rgba(170,115,20,.14); --coin-edge: rgba(130,88,14,.42);
+    --t2-hi: #3b2a14; --t2-lo: #6f5527;
+    --text: #2a1d10; --muted: #7a6a52;
   }
   html[data-theme="shore"] {          /* 바닷가 -- wet sand and sea, cream and blue canvas */
     --sheet: #eaf4f7; --sheet-edge: #bcd7e0;
@@ -425,7 +467,17 @@
     --card-lift: 0 2px 0 #d9e9ef, 0 6px 12px rgba(20,70,90,.14);
     --ink: #15323d;   --ink-soft: #5c7784; --ink-coin: #0f6c8a;
     --awn-a: #f7fbfc; --awn-b: #3fb0d6;
-    --head: #f7fbfc;  --head-ink: #10323f;
+    --head: #f7fbfc;  --head-ink: #10323f;    --bg: #a8d4e1; --bg-hi: #edf8fb;
+    --burst: #f6edd6;        /* sand, not surf -- this is the one that tells it from 눈 */
+    --panel: #f7fbfc; --cell: #f7fbfc;
+    --chip: #ffffff; --chip-edge: #b5d1db;
+    --slot: #ffffff; --slot-edge: #cfe3ea; --slot-on: #d6eef6;
+    --board: #14485c; --board-cell: #1e5c73;
+    --scrim: rgba(10,45,60,.74);
+    --gold: #0f6c8a; --gold-b: #084e63; --gold-bg: #d2ecf5;
+    --coin-bg: rgba(15,108,138,.12); --coin-edge: rgba(15,108,138,.38);
+    --t2-hi: #10323f; --t2-lo: #3c6474;
+    --text: #15323d; --muted: #5c7784;
   }
   /* 눈: the other two are striped canvas, so this one is NOT -- a plain white board with the
      hem reading as snow piled along its edge. Colder sheet, blue-grey shadows, and the coin
@@ -436,7 +488,17 @@
     --card-lift: 0 2px 0 #dde4f1, 0 8px 16px rgba(30,50,95,.16);
     --ink: #17202f;   --ink-soft: #5d6a85; --ink-coin: #b4761a;
     --awn-a: #ffffff; --awn-b: #ffffff;
-    --head: #ffffff;  --head-ink: #17202f;
+    --head: #ffffff;  --head-ink: #17202f;    --bg: #c0cee6; --bg-hi: #ffffff;
+    --burst: #ffffff;
+    --panel: #ffffff; --cell: #ffffff;
+    --chip: #ffffff; --chip-edge: #b9c4da;
+    --slot: #ffffff; --slot-edge: #d3dced; --slot-on: #dce6f7;
+    --board: #2c3a56; --board-cell: #3c4d6e;
+    --scrim: rgba(20,32,56,.74);
+    --gold: #b4761a; --gold-b: #8a5a12; --gold-bg: #f2e2c4;
+    --coin-bg: rgba(180,118,26,.13); --coin-edge: rgba(140,92,20,.40);
+    --t2-hi: #17202f; --t2-lo: #4a5877;
+    --text: #17202f; --muted: #5d6a85;
   }
   /* the hem under a snow board is a drift, not a scallop: deeper, softer, and it catches a
      blue shadow from the sheet below it */
@@ -449,13 +511,15 @@
     filter: drop-shadow(0 4px 3px rgba(40,70,130,.28));
   }
   html[data-theme="snow"] .shop-head { margin-bottom: 26px; }
-  .ghost-btn { background: #1e2130 !important; color: var(--text) !important; box-shadow: none !important; }
+  .ghost-btn { background: var(--chip) !important; color: var(--ink) !important;
+    border: 1px solid var(--chip-edge) !important; box-shadow: none !important; }
   /* inside the paper counter the ghost buttons have to be paper too, or they read as holes */
   .shop-card .ghost-btn { background: var(--card) !important; color: var(--ink) !important;
     border: 1px solid var(--card-edge); }
   /* ---- in-game pause ---- */
   #pause-btn, #info-btn { height: 42px;
-    margin: 0; padding: 0; border-radius: 12px; background: #1e2130; color: var(--text);
+    margin: 0; padding: 0; border-radius: 12px; background: var(--chip); color: var(--ink);
+    border: 1px solid var(--chip-edge);
     font-size: 18px; box-shadow: none; }
   #pause-btn { width: 42px; }
   /* the word is the point of this button, so it gets room for it rather than wrapping to
@@ -471,8 +535,8 @@
     display: flex; align-items: center; justify-content: center; padding: 18px; }
   #traits.hidden { display: none; }
   .trait-row { display: flex; align-items: center; gap: 11px; width: 100%; text-align: left;
-    margin: 0 0 8px; padding: 12px; border: 1px solid #2b3048; border-radius: 14px;
-    background: #1c2032; color: var(--text); box-shadow: none; font-family: inherit; cursor: pointer; }
+    margin: 0 0 8px; padding: 12px; border: 1px solid var(--slot-edge); border-radius: 14px;
+    background: var(--slot); color: var(--ink); box-shadow: none; font-family: inherit; cursor: pointer; }
   .trait-row .tr-ic { font-size: 26px; line-height: 1; }
   .trait-row .tr-body { display: flex; flex-direction: column; gap: 3px; flex: 1; min-width: 0; }
   .trait-row .tr-body b { font-size: 14px; font-weight: 800; }
@@ -585,7 +649,7 @@
   .offer.sold.shine::after { animation: none; }
   .offer.sold.shine-epic, .offer.sold.shine-top { box-shadow: none; animation: none; }
   /* sold is sold: grayscale alone left the coloured body and the moving parts alive */
-  .offer.sold.shine-top { background: #1c2032; border-width: 1px; }
+  .offer.sold.shine-top { background: var(--card); border-width: 1px; }
   .offer.sold.shine-top .of-ic { animation: none; }
   .offer.sold.shine-top .of-tier { animation: none; -webkit-text-fill-color: currentColor; }
   @keyframes sheen { 0% { transform: translateX(-120%); } 55%, 100% { transform: translateX(120%); } }
@@ -638,21 +702,22 @@
      every time you changed tab -- the odds table is seven rows and the help is three screens. */
   .info-card { width: 100%; max-width: 380px; height: min(86vh, 620px);
     display: flex; flex-direction: column;
-    background: #161926; border-radius: 20px; padding: 14px; border: 1px solid #262b40; }
+    background: var(--sheet); color: var(--ink); border-radius: 20px; padding: 14px;
+    border: 1px solid var(--sheet-edge); }
   .info-tabs { display: flex; gap: 6px; margin-bottom: 10px; flex: none; }
   /* min-width:0 is what actually makes them equal: without it the longest label sets the
      basis and that one tab grows wider than the rest */
   .itab { flex: 1 1 0; min-width: 0; white-space: nowrap; overflow: hidden;
     margin: 0; padding: 9px 4px; font-size: 12px; font-weight: 800; border-radius: 12px;
-    background: #1c2032; color: var(--muted); box-shadow: none; font-family: inherit; }
-  .itab.on { background: #2a2f4d; color: var(--text); }
+    background: var(--slot); color: var(--muted); box-shadow: none; font-family: inherit; }
+  .itab.on { background: var(--slot-on); color: var(--ink); }
   .inf-row { display: flex; align-items: center; gap: 10px; padding: 9px 10px; margin-bottom: 6px;
-    background: #1c2032; border-radius: 12px; }
+    background: var(--slot); border-radius: 12px; }
   .inf-row.inert { opacity: .38; }
   .inf-ic { font-size: 24px; }
   .inf-fruit { width: 30px; height: 30px; display: block; flex: none; }
   .ftab-row { display: grid; grid-template-columns: 30px 1fr 68px 60px; align-items: center;
-    gap: 10px; padding: 8px 12px; margin-bottom: 5px; background: #1c2032; border-radius: 12px; }
+    gap: 10px; padding: 8px 12px; margin-bottom: 5px; background: var(--slot); border-radius: 12px; }
   .ftab-row.ftab-head { background: none; padding: 0 12px 4px; margin-bottom: 2px;
     font-size: 10px; color: var(--muted); letter-spacing: 1px; }
   .ftab-head span:nth-child(3), .ftab-head span:nth-child(4) { text-align: right; }
@@ -660,7 +725,7 @@
   .ft-score, .ft-odds { font-size: 14px; font-weight: 800; text-align: right; }
   .ft-score { color: var(--text); }
   .ft-score.up { color: #7ee0a0; }        /* a relic or trait raised it */
-  .ft-odds { color: #ffd23e; }
+  .ft-odds { color: var(--gold); }
   .ft-odds.up { color: #ffa94d; }
   /* the obstacle sits under the fruit and must not be mistaken for one */
   .ftab-row.ftab-obst { background: #241d15; border: 1px solid #4a3a22; margin-top: 10px; }
@@ -670,16 +735,16 @@
   /* every other number a relic can move, in one place, with what it started from */
   .st-head { padding: 14px 2px 6px; font-size: 12px; font-weight: 800; color: var(--muted); }
   .st-row { display: flex; align-items: baseline; gap: 8px; padding: 6px 12px; margin-bottom: 4px;
-    background: #171a28; border-radius: 10px; font-size: 13px; }
-  .st-lab { flex: 1 1 auto; min-width: 0; color: var(--text); font-weight: 700; }
+    background: var(--slot); border-radius: 10px; font-size: 13px; }
+  .st-lab { flex: 1 1 auto; min-width: 0; color: var(--ink); font-weight: 700; }
   .st-was { color: #6b7189; font-weight: 700; font-size: 11px; }
   .st-arrow { color: #4d5470; font-size: 11px; }
-  .st-now { color: #ffd23e; font-weight: 800; white-space: nowrap; }
+  .st-now { color: var(--gold); font-weight: 800; white-space: nowrap; }
   .st-row.up .st-now { color: #ffa94d; }
   .inf-body { flex: 1; min-width: 0; }
   .inf-body b { display: block; font-size: 13px; font-weight: 800; color: var(--text); }
   .inf-body span { font-size: 11px; color: var(--muted); line-height: 1.35; }
-  .inf-num { font-size: 13px; font-weight: 800; color: #ffd23e; white-space: nowrap; }
+  .inf-num { font-size: 13px; font-weight: 800; color: var(--gold); white-space: nowrap; }
   /* green, and a plus sign: this hands coins back, it does not charge for them */
   /* armed to sell: the second tap is the one that does it, so it has to look different */
   .inf-drop.armed { background: #e5484d !important; color: #fff !important; }
@@ -693,11 +758,11 @@
   .inf-empty { padding: 16px; text-align: center; color: var(--muted); font-size: 13px; }
   .inf-count { padding: 2px 2px 8px; font-size: 12px; font-weight: 800; color: var(--muted);
     letter-spacing: .5px; }
-  .help-h { font-size: 12px; font-weight: 800; color: #ffd23e; letter-spacing: 1px;
+  .help-h { font-size: 12px; font-weight: 800; color: var(--gold); letter-spacing: 1px;
     margin: 14px 2px 6px; }
   .help-h:first-child { margin-top: 2px; }
-  .help-p { font-size: 13px; line-height: 1.6; color: var(--text); margin: 0 2px 7px; }
-  .help-p b { color: #ffd23e; }
+  .help-p { font-size: 13px; line-height: 1.6; color: var(--ink); margin: 0 2px 7px; }
+  .help-p b { color: var(--gold); }
   /* hold the taller tab's height (7 fruit rows) so switching tabs doesn't resize the card
      under your thumb -- it jumped 537px -> 177px before */
   /* A scrollbar sitting in a help panel looks like a document, not a game. The bar is hidden
@@ -984,6 +1049,16 @@
                                // is unchanged.
   const SPAWN_SETTLE_MS = 130; // beat between the last pop firing and the turn's new fruits
   const PI2 = Math.PI * 2;
+  // A canvas fill takes a colour string, not var(--board), so the two plate colours are read
+  // out of the stylesheet whenever the theme changes and held here. Seeded with the dark
+  // theme's values so the first frame is right even if it lands before applyTheme().
+  const PLATE = { bg: "#171a26", cell: "#262a3d" };
+  function readPlate() {
+    const cs = getComputedStyle(document.documentElement);
+    const b = cs.getPropertyValue("--board").trim(), c = cs.getPropertyValue("--board-cell").trim();
+    if (b) PLATE.bg = b;
+    if (c) PLATE.cell = c;
+  }
   const SHAKE_MAX = 16;        // screen-shake cap (px)
   const BURST_RADIUS = 1;      // 1 = 3x3 burst (Chebyshev). items can raise this later
   // streak multiplier: +0.2 per consecutive success, capped at ×2.0 (1.2/1.4/1.6/1.8/2.0)
@@ -5167,7 +5242,8 @@
           b.textContent = styles[k].name;
           b.style.cssText = "font:800 13px/1 inherit;padding:10px 12px;border-radius:11px;" +
             "border:1px solid " + (on ? "#ffd23e" : "#2b3048") + ";" +
-            "background:" + (on ? "#3a3316" : "#1c2032") + ";color:" + (on ? "#ffd23e" : "#8a93ad");
+            "background:" + (on ? "var(--gold-bg)" : "var(--slot)") +
+            ";color:" + (on ? "var(--gold)" : "var(--muted)");
           b.addEventListener("click", () => { SFX.unlock(); set(k); paint(); preview(); });
           bar.appendChild(b);
         }
@@ -7165,7 +7241,7 @@
     ctx.save(); ctx.translate(ox, oy);
 
     // board bg
-    ctx.fillStyle = "#171a26";
+    ctx.fillStyle = PLATE.bg;
     roundRect(0, 0, boardPx, boardH, 18); ctx.fill();
 
     for (let r = 0; r < ROWS; r++) {
@@ -7173,7 +7249,7 @@
         const x = pad + c * cell, y = pad + r * cell;
         const g = boardPx * 0.006;
         // empty cell
-        ctx.fillStyle = "#262a3d";
+        ctx.fillStyle = PLATE.cell;
         roundRect(x + g, y + g, cell - g*2, cell - g*2, cell*0.22); ctx.fill();
 
         // the banana patch, in banana blue so it cannot be read as the (green/gold) bonus zone
@@ -8018,6 +8094,7 @@
   function applyTheme() {
     if (theme === "dark") document.documentElement.removeAttribute("data-theme");
     else document.documentElement.setAttribute("data-theme", theme);
+    readPlate();
   }
   function setTheme(t) {
     if (!THEMES.includes(t)) return;
@@ -8323,7 +8400,7 @@
       start, showMenu, gameOver,
       set revivedThisRun(v) { revivedThisRun = v; },
       renderSettings, openTraits, openInfo, openSettings, closeSettings, renderMenuSettings,
-      THEMES, setTheme, get theme() { return theme; },
+      THEMES, setTheme, get theme() { return theme; }, PLATE,
       renderStats,
       mfxStart, mfxStop, mfxFrame, MFX_STEP_MS, MFX_MAX_K, get mfxOn() { return mfxOn; },
       get mfxFruits() { return mfxFruits; }, get mfxParts() { return mfxParts; },
