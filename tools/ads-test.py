@@ -130,6 +130,21 @@ window.addEventListener('load', () => setTimeout(async () => {
   chk('closing it resolves', r2.ok, true);
   chk('and it goes away', shown('adstub'), false);
 
+  const link = document.getElementById('s-privacy');
+  chk('설정에 개인정보처리방침이 있다', !!link, true);
+  let doc = '';
+  try { doc = await (await fetch('privacy.html')).text(); } catch (e) { doc = 'FETCH FAILED ' + e.message; }
+  chk('그 문서가 실제로 열린다', doc.length > 2000, true);
+  const topics = [['광고 식별자', /광고 식별자/], ['AdMob', /AdMob/], ['처리위탁', /위탁/],
+                  ['보유·파기', /파기/], ['이용자 권리', /권리/], ['아동', /아동/],
+                  ['문의처', /문의|Contact/], ['시행일', /시행일/],
+                  ['영문본', /Privacy Policy/]];
+  chk('필수 항목을 모두 다룬다', topics.filter(([, re_]) => !re_.test(doc)).map(([n_]) => n_), []);
+  // marked TODO rather than merely bracketed: the page is also CSS and script, and [hidden]
+  // is not something anyone has to fill in
+  chk('아직 채워야 할 자리', (doc.match(/\[TODO[^\]]{0,30}\]/g) || []).sort(),
+      ['[TODO contact email]', '[TODO name]', '[TODO 담당자 이름]', '[TODO 문의 이메일]'].sort());
+
   try { localStorage.removeItem('fs_noads'); localStorage.removeItem('fs_games'); } catch (e) {}
   document.title = 'RESULT ' + JSON.stringify({ fails, free: A.FREE_GAMES, every: A.RETRY_EVERY });
  } catch (e) { document.title = 'THREW ' + e.message; }

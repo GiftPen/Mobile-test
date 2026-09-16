@@ -991,6 +991,9 @@
       <div class="set-row">
         <button id="s-reset" class="ghost-btn wide" data-i18n="resetRecords">기록 초기화</button>
       </div>
+      <div class="set-row">
+        <button id="s-privacy" class="ghost-btn wide" data-i18n="privacy">개인정보처리방침</button>
+      </div>
       <div class="set-ver" id="s-ver"></div>
       <button id="s-close" data-i18n="btnClose">닫기</button>
     </div>
@@ -2692,6 +2695,7 @@
       adClose: "닫기",
       doubleCoins: "▶ 광고 보고 코인 2배",
       removeAds: "광고 제거",
+      privacy: "개인정보처리방침",
       adsRemoved: "광고가 제거되었습니다",
       tierCommon: "일반", tierUncommon: "고급", tierEpic: "에픽", tierUnique: "유니크", tierLegend: "전설",
       soonSettings: "⚙️ 설정은 준비 중이에요", soonRanking: "🏆 랭킹은 준비 중이에요",
@@ -3084,6 +3088,7 @@
       adClose: "Close",
       doubleCoins: "▶ Watch an ad to double coins",
       removeAds: "Remove ads",
+      privacy: "Privacy Policy",
       adsRemoved: "Ads removed",
       tierCommon: "Common", tierUncommon: "Uncommon", tierEpic: "Epic", tierUnique: "Unique", tierLegend: "Legendary",
       soonSettings: "⚙️ Settings are on the way", soonRanking: "🏆 Ranking is on the way",
@@ -3475,6 +3480,7 @@
       adClose: "閉じる",
       doubleCoins: "▶ 広告を見てコイン2倍",
       removeAds: "広告を非表示",
+      privacy: "プライバシーポリシー",
       adsRemoved: "広告は非表示です",
       tierCommon: "コモン", tierUncommon: "アンコモン", tierEpic: "エピック", tierUnique: "ユニーク", tierLegend: "レジェンド",
       soonSettings: "⚙️ 設定は準備中です", soonRanking: "🏆 ランキングは準備中です",
@@ -3866,6 +3872,7 @@
       adClose: "关闭",
       doubleCoins: "▶ 看广告金币翻倍",
       removeAds: "移除广告",
+      privacy: "隐私政策",
       adsRemoved: "广告已移除",
       tierCommon: "普通", tierUncommon: "优良", tierEpic: "史诗", tierUnique: "独特", tierLegend: "传说",
       soonSettings: "⚙️ 设置正在准备中", soonRanking: "🏆 排行榜正在准备中",
@@ -7959,6 +7966,12 @@
     Ads.setRemoved(true);
     renderMenuSettings(); syncBanner();
     SFX.play("buy");
+  });
+  // opened in the browser rather than in the game: it is a document, and a player who opens it
+  // must be able to come straight back to the run they left
+  document.getElementById("s-privacy").addEventListener("click", () => {
+    SFX.play("tap");
+    window.open("privacy.html?lang=" + (LANG === "ko" ? "ko" : "en"), "_blank", "noopener");
   });
   document.getElementById("s-replay").addEventListener("click", () => {
     closeSettings();
