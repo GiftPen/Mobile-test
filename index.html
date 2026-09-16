@@ -1875,7 +1875,7 @@
     nextColor = null; nextColor2 = null;   // null queue -> pickNext refills both slots
     score = 0; streak = 0; touchCount = 0;
     stage = 1; stageScore = 0; touchesLeft = RUSH_TOUCHES;
-    touchBonus = 0; spawnBonus = 0; slotBonus = 0; crackerChance = 0; crackerFloor = 0; offerBonus = 0;
+    touchBonus = 0; spawnBonus = 0; slotBonus = 0; crackerChance = 0; offerBonus = 0;
     chainStep = 0; coinFruitBonus = 0; starCoinMult = 1; payoutMult = 1;
     coinFlat = 0; coinToScore = 0; coinFlatPer = COIN_FLAT_PER; interestPer = 0; interestPct = 0; interestCap = INTEREST_CAP;
     crackerBonus = 0; crackerMult = 1; crackerCoin = 0; crackerBoom = false; crackerDouble = false; crackerEvery = false;
@@ -2073,8 +2073,6 @@
   let relicLife = {};                      // id -> charges left, for the ones that expire
   // derived from the owned relics -- never written directly, always recomputed by applyRelics()
   let touchBonus = 0, spawnBonus = 0, slotBonus = 0, crackerChance = 0, offerBonus = 0;
-  // the lowest cracker rate a payoff relic guarantees; never added to a real spawner's rate
-  let crackerFloor = 0;
   // more knobs for relics to turn. All derived: applyRelics() resets them every recompute.
   // ---- coin economy ----
   // Coins are currency AND, with these, score. That is a hoarding incentive, so interest is
@@ -2765,7 +2763,7 @@
       bananaSpread: n => `바나나를 터뜨리면 인접한 과일 ${n}개가 바나나로 변합니다`,
       coinFruitMult: n => `코인 달린 과일의 점수 ×${n}`,
       crackerEvery: () => "터치마다 크래커가 1개 생깁니다",
-      ckSpawn: p => ` · 크래커 최소 ${p}% 등장`,
+      ckSpawn: p => ` · 크래커 확률 +${p}%p`,
       crackerScore: n => `크래커를 부수면 점수 +${n}`,
       crackerCoin: n => `크래커를 부수면 코인 +${n}`,
       crackerBoom: () => "크래커가 부서질 때 3×3 영역이 같이 터집니다",
@@ -3164,7 +3162,7 @@
       bananaSpread: n => `A popped banana turns ${n} neighbours into bananas`,
       coinFruitMult: n => `Coin-carrying fruit scores ×${n}`,
       crackerEvery: () => "A cracker appears on every touch",
-      ckSpawn: p => ` · crackers appear, ${p}% minimum`,
+      ckSpawn: p => ` · cracker chance +${p}%p`,
       crackerScore: n => `Breaking a cracker scores +${n}`,
       crackerCoin: n => `Breaking a cracker pays +${n} coins`,
       crackerBoom: () => "A breaking cracker blows the 3×3 around it",
@@ -3562,7 +3560,7 @@
       bananaSpread: n => `バナナを割ると隣接するフルーツ ${n} 個がバナナになります`,
       coinFruitMult: n => `コイン付きフルーツのスコア ×${n}`,
       crackerEvery: () => "タッチごとにクラッカーが1個出ます",
-      ckSpawn: p => ` · クラッカー最低 ${p}% 出現`,
+      ckSpawn: p => ` · クラッカー確率 +${p}%p`,
       crackerScore: n => `クラッカーを割ると スコア +${n}`,
       crackerCoin: n => `クラッカーを割ると コイン +${n}`,
       crackerBoom: () => "クラッカーが割れるとき周囲 3×3 が一緒に弾けます",
@@ -3960,7 +3958,7 @@
       bananaSpread: n => `消除香蕉时，相邻 ${n} 个水果变成香蕉`,
       coinFruitMult: n => `带金币水果分数 ×${n}`,
       crackerEvery: () => "每次触碰出现 1 块饼干",
-      ckSpawn: p => ` · 饼干至少 ${p}% 出现`,
+      ckSpawn: p => ` · 饼干概率 +${p}%p`,
       crackerScore: n => `打碎饼干得分 +${n}`,
       crackerCoin: n => `打碎饼干获得金币 +${n}`,
       crackerBoom: () => "饼干碎裂时周围 3×3 一起爆炸",
@@ -4334,8 +4332,8 @@
     },
     brick_deal: {                                               // D. risk
       icon: "🧱", price: 19,
-      desc: () => d("crackerDeal", 30, 18),
-      apply() { crackerChance += 0.18; },
+      desc: () => d("crackerDeal", 30, 12),
+      apply() { crackerChance += 0.12; },
       modify: { pop: v => v * 1.3 },
     },
     // ---- A. odds ----
@@ -4380,10 +4378,10 @@
       desc: () => d("crackerEvery"), apply() { crackerEvery = true; } },
     cracker_score: { icon: "🍪", price: 11,
       desc: () => d("crackerScore", 1000) + d("ckSpawn", 3),
-      apply() { crackerBonus += 1000; crackerFloor = Math.max(crackerFloor, 0.03); } },
+      apply() { crackerBonus += 1000; crackerChance += 0.03; } },
     cracker_coin: { icon: "🪙", price: 17,
       desc: () => d("crackerCoin", 2) + d("ckSpawn", 4),
-      apply() { crackerCoin += 2; crackerFloor = Math.max(crackerFloor, 0.04); } },
+      apply() { crackerCoin += 2; crackerChance += 0.04; } },
     // The cracker build is meant to be a pair of legendaries: one makes them, the other makes
     // breaking them matter. They share the "risk" identity, so 공명 leans the shop toward the
     // second once you hold the first.
@@ -4396,7 +4394,7 @@
     // ...which leaves the 유니크 rung empty, so the ladder gets one that is not the 3x3
     oven: { icon: "🔥", price: 26,
       desc: () => d("crackerMult", 2) + d("ckSpawn", 5),
-      apply() { crackerMult *= 2; crackerFloor = Math.max(crackerFloor, 0.05); } },
+      apply() { crackerMult *= 2; crackerChance += 0.05; } },
     cracker_king: { icon: "👑", price: 50,
       desc: () => d("crackerKing", CRACKER_KING_STEP),
       apply() { crackerEvery = true; crackerDouble = true; } },
@@ -4512,8 +4510,8 @@
     // The name has been 제과 공장 in every language for a while; the pickaxe was left over
     // from when it was 채석장, as was its art prompt.
     quarry: { icon: "🍘", price: 28,
-      desc: () => d("crackerDeal", 60, 30),
-      apply() { crackerChance += 0.30; }, modify: { pop: v => v * 1.6 } },
+      desc: () => d("crackerDeal", 60, 20),
+      apply() { crackerChance += 0.20; }, modify: { pop: v => v * 1.6 } },
 
     // ---- cheap enough for the very first shop ----
     pinch: { icon: "🥄", price: 5,
@@ -4680,10 +4678,10 @@
     // ---- 크래커: seven cards, and nothing under 11 that lasts ----
     crumb_plate: { icon: "🍽️", price: 6,
       desc: () => d("crackerScore", 300) + d("ckSpawn", 2),
-      apply() { crackerBonus += 300; crackerFloor = Math.max(crackerFloor, 0.02); } },
+      apply() { crackerBonus += 300; crackerChance += 0.02; } },
     mill: { icon: "🏭", price: 16,
       desc: () => d("crackerTouch", 1, MILL_CAP) + d("ckSpawn", 4),
-      apply() { crackerTouch += 1; crackerFloor = Math.max(crackerFloor, 0.04); } },
+      apply() { crackerTouch += 1; crackerChance += 0.04; } },
 
     // ---- 보드: zoneOn() is zoneMult > 1 || zoneCoins, and the cheapest card that could turn
     // it on cost 14. The whole tree was unreachable in the first three shops -- measured, one
@@ -4842,7 +4840,7 @@
     fruitFlat = [0, 0, 0, 0, 0, 0, 0];
     fruitCrown = [1, 1, 1, 1, 1, 1, 1];
     stackOnPop = [0, 0, 0, 0, 0, 0, 0];
-    touchBonus = 0; spawnBonus = 0; crackerChance = 0; crackerFloor = 0; offerBonus = 0;
+    touchBonus = 0; spawnBonus = 0; crackerChance = 0; offerBonus = 0;
     chainStep = 0; coinFruitBonus = 0; starCoinMult = 1; payoutMult = 1;
     coinFlat = 0; coinToScore = 0; coinFlatPer = COIN_FLAT_PER; interestPer = 0; interestPct = 0; interestCap = INTEREST_CAP;
     crackerBonus = 0; crackerMult = 1; crackerCoin = 0; crackerBoom = false; crackerDouble = false; crackerEvery = false;
@@ -4897,8 +4895,6 @@
         else if (!TRAIT_META_STATS.includes(e.stat)) unknownTraitStats.add(e.stat);
       }
     }
-    // applied last, over everything: a guarantee, not a contribution
-    if (crackerFloor > crackerChance) crackerChance = crackerFloor;
   }
   // The carry limit is circular: which relics are active depends on the cap, and a relic can
   // raise the cap. Resolving it in the same pass made a satchel in the last slot cut itself

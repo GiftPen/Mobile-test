@@ -93,35 +93,32 @@ window.addEventListener('load', () => setTimeout(() => {
     if (!pays) continue;
     const makes = F.crackerChance > 0 || F.crackerEvery;
     if (!makes) report.inert.push(id + ': 크래커 보상만 있고 등장이 없음');
-    // and the card must not lie about the number. Changing the two together is two edits, and
-    // the first pass at 2/3/4/5 moved the descriptions and left the values at 4/5/6/8 -- every
-    // card promising a rate it did not deliver, and nothing to notice it.
-    const said = String(F.RELICS[id].desc).match(/(\d+)\s*%/);
-    if (said) {
-      const promised = +said[1] / 100;
-      if (Math.abs(promised - F.crackerChance) > 1e-9)
-        report.inert.push(`${id}: 카드는 ${said[1]}%, 실제 ${(F.crackerChance*100).toFixed(0)}%`);
-    }
-    // ...and the guarantee is a FLOOR, not a contribution. Summed, the forced cracker build
-    // hit a 77% spawn rate, filled the board with pieces nothing could clear, and a tree that
-    // ran to stage 31 died at stage 4. Owning every payoff card must not raise the rate above
-    // what the single most generous one promises.
-    if (makes && !F.crackerEvery) {
-      fresh();
-      F.relics = ['crumb_plate','cracker_score','mill','cracker_coin','oven'].filter(x => F.RELICS[x]);
-      F.applyRelics();
-      const all = F.crackerChance;
-      let solo = 0;
-      for (const one of F.relics.slice()) {
-        fresh(); F.relics = [one]; F.applyRelics();
-        if (F.crackerChance > solo) solo = F.crackerChance;
-      }
-      if (all > solo + 1e-9 && !report.inert.some(x => x.startsWith('합산')))
-        report.inert.push(`합산됨: 보상 카드 전부 = ${(all*100).toFixed(0)}%, 가장 큰 한 장 = ${(solo*100).toFixed(0)}%`);
-    }
+    // and the card must not lie about the number. Changing the value and the wording are two
+    // edits, and one pass moved every description and left the values behind -- each card
+    // promising a rate it did not deliver. Language-agnostic: the real figure has to appear in
+    // the text, whatever sentence it is wrapped in.
+    const pct = Math.round(F.crackerChance * 100);
+    if (pct > 0 && !new RegExp('(^|[^0-9])' + pct + '([^0-9]|$)').test(String(F.RELICS[id].desc)))
+      report.inert.push(`${id}: 실제 ${pct}%가 설명에 없음 -- "${String(F.RELICS[id].desc)}"`);
   }
 
-  // relics with identical descriptions at different prices are confusing, not broken
+  // ---- and the tree as a whole has to leave room to play ----
+  // Crackers are not linearly good: measured, a board spawning them at 48% is playable (if
+  // swingy, 6-31 stages) and one at 77% filled up and killed the run at stage 4. Every cracker
+  // relic owned at once is the worst case a player can build, so that is what is capped.
+  {
+    const CK_CAP = 0.52;
+    fresh();
+    F.relics = Object.keys(F.RELICS).filter(id => {
+      fresh(); F.relics = [id]; F.applyRelics();
+      return F.crackerChance > 0;
+    });
+    F.applyRelics();
+    if (F.crackerChance > CK_CAP)
+      report.inert.push(`크래커 유물 전부 = ${(F.crackerChance*100).toFixed(0)}%, 상한 ${CK_CAP*100}%`);
+  }
+
+    // relics with identical descriptions at different prices are confusing, not broken
   const byDesc = {};
   for (const id of Object.keys(F.RELICS)) {
     const d2 = F.RELICS[id].desc;
