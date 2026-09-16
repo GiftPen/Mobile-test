@@ -851,7 +851,7 @@ window.addEventListener('load', async () => {
     // seed and sparkle is drawn for a DARK tray, so no theme may hand it a pale one.
     const SHELL = ['--bg','--bg-hi','--burst','--panel','--cell','--chip','--chip-edge',
                    '--slot','--slot-edge','--slot-on','--board','--board-cell','--scrim',
-                   '--gold','--gold-b','--gold-bg','--t2-hi','--t2-lo','--text','--muted'];
+                   '--gold','--gold-b','--gold-bg','--met','--t2-hi','--t2-lo','--text','--muted'];
     const shell = [];
     for (const t of F.THEMES) {
       F.setTheme(t);
@@ -860,7 +860,9 @@ window.addEventListener('load', async () => {
         if (!cs.getPropertyValue(v).trim()) shell.push(`${t}: ${v} 비어 있음`);
       const bg = readVar('--bg'), panel = readVar('--panel'), chip = readVar('--chip');
       const pairs = [['--text', bg], ['--text', panel], ['--text', chip],
-                     ['--ink', readVar('--slot')], ['--gold', panel], ['--t2-hi', bg]];
+                     ['--ink', readVar('--slot')], ['--gold', panel], ['--t2-hi', bg],
+                     // 목표 달성 is the one state the player looks up mid-swipe to check
+                     ['--met', bg], ['--met', panel]];
       for (const [fg, b] of pairs) {
         const r = ratio(readVar(fg), b);
         if (r < 3.0) shell.push(`${t}:${fg} on ${b} ${r.toFixed(1)}:1`);
@@ -887,6 +889,26 @@ window.addEventListener('load', async () => {
     chk('기본 테마가 목록에 남아 있다', F.THEMES.includes('dark'), true);
     chk('테마는 저장된다', (() => { F.setTheme('shore');
       const ok = localStorage.getItem('fs_theme') === 'shore'; F.setTheme(was); return ok; })(), true);
+  }
+
+  // ---- the emoji waits for the art instead of flashing ahead of it ----
+  // A 60KB icon does not arrive in the frame that builds the card, so the emoji it replaces
+  // was on screen long enough to read -- every relic flashed its old icon on first sight.
+  // Whatever state the file is in, what must NEVER be on screen first is the emoji.
+  {
+    const ids = [...F.ART_IDS];
+    const flashed = [];
+    let waited = 0, cached = 0;
+    for (const key of ids.slice(0, 40)) {
+      const el = F.iconEl(key, '🍒', 'of-ic');
+      if (el.textContent !== '') flashed.push(key);
+      if (el.classList.contains('art-wait')) waited++;
+      else if (el.style.backgroundImage) cached++;
+    }
+    chk('아트를 기다리는 동안 이모지가 먼저 보이지 않는다', flashed.slice(0, 5), []);
+    // and the waiting state is real, not a branch that never runs: at this point in the run
+    // most of the 131 icons have never been requested
+    chk('기다리는 상태가 실제로 쓰인다', waited + cached, 40);
   }
 
   // ---- hold-to-explain, and the chrome that was taken away ----
@@ -1211,6 +1233,14 @@ window.addEventListener('load', async () => {
   chk('stale target: retargeted, still flying', F.birds.length, 1);
   const b = F.birds[0];
   chk('stale target: aimed at a real cell', b && F.grid[b.tr][b.tc] !== -1, true);
+  // and it re-aims from WHERE IT IS. The second hop used to start at t=0.45, but the eased
+  // curve is already ~40% along by then, so the bird jumped that far the frame it re-aimed --
+  // which is what read as the flight stuttering. Continuity is: the new leg starts at the old
+  // target's cell, at t=0, and is shortened with speed instead.
+  chk('stale target: the new leg starts where the old one ended',
+      b && b.sr === 0 && b.sc === 0, true);
+  chk('stale target: no jump into the middle of the new curve', b && b.t < 0.3, true);
+  chk('stale target: the second hop is quicker instead', b && b.speed > 1, true);
 
   // ---- star: a PLACEMENT that sets off a star must not spawn into the constellation ----
   // (it has to be a placement -- a bare tapItem never spawns, so it cannot show the fault)

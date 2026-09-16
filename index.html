@@ -47,6 +47,7 @@
                                 light themes darken it rather than lose it */
     --gold-b: #ffe9a0;       /* the number itself, one step brighter */
     --gold-bg: #3a3316;      /* behind an armed/selected gold control */
+    --met: #43d17a;          /* quota met -- the one green that is not a fruit colour here */
     --t2-hi: #ffffff;        /* the STAR half of the title */
     --t2-lo: #c9cede;
     --text: #e8eaf2;
@@ -186,8 +187,16 @@
   @keyframes lastPulse { 0%,100% { opacity: 1; } 50% { opacity: .55; } }
   .rb-stage { font-size: 15px; font-weight: 800; color: var(--text); letter-spacing: .3px; }
   .rb-stage b { color: var(--gold); }
-  #rb-quota-cell.met .rb-val { color: var(--gold); }
-  #rb-quota-cell.met .rb-lab { color: var(--gold); opacity: .9; }
+  /* the goal is the thing you are measured against, so it stays quiet and the score is what
+     moves. Met or not, the pair now has contrast INSIDE it. */
+  #rb-quota .q-sep, #rb-quota .q-goal { color: var(--muted); font-weight: 700; }
+  #rb-quota-cell.met .q-cur { color: var(--met); }
+  #rb-quota-cell.met .q-sep, #rb-quota-cell.met .q-goal { opacity: .65; }
+  #rb-quota-cell.met .rb-lab { color: var(--met); opacity: 1; font-weight: 800; }
+  /* one pulse when it flips, so the moment is seen even if you are looking at the board */
+  #rb-quota-cell.met { animation: metPop .42s ease-out 1; }
+  @keyframes metPop { 0% { transform: scale(1); } 40% { transform: scale(1.09); }
+                      100% { transform: scale(1); } }
   #rb-touch-cell.warn .rb-val, #rb-touch-cell.warn .rb-lab { color: #ffab3d; }
   #rb-touch-cell.low  .rb-val, #rb-touch-cell.low  .rb-lab { color: #ff5a5f; }
   #danger-label2 { font-size: 12px; font-weight: 800; color: #ff5a5f; }
@@ -243,6 +252,15 @@
     display: inline-flex; align-items: center; justify-content: center; line-height: 1;
     background: var(--brand); }
   #rush-next.hidden { display: none; }
+  /* enabled is a state change, not a permanent decoration: the ring beats three times when the
+     quota is met and then leaves a steady glow behind it */
+  #rush-next:not(:disabled) {
+    box-shadow: 0 6px 18px rgba(67,209,122,.45);
+    animation: nextReady 1.25s ease-out 3; }
+  @keyframes nextReady {
+    0%   { box-shadow: 0 6px 18px rgba(67,209,122,.45), 0 0 0 0 rgba(67,209,122,.55); }
+    70%  { box-shadow: 0 6px 18px rgba(67,209,122,.45), 0 0 0 16px rgba(67,209,122,0); }
+    100% { box-shadow: 0 6px 18px rgba(67,209,122,.45), 0 0 0 0 rgba(67,209,122,0); } }
   #rush-next:disabled { background: var(--slot); color: var(--muted); cursor: default; }
   #rush-next span { font-weight: 900; opacity: .75; margin-left: 4px; }
   #rush-next:disabled span { opacity: .5; }
@@ -455,6 +473,7 @@
     --board: #4a3826; --board-cell: #5e4a35;
     --scrim: rgba(52,36,18,.74);
     --gold: #8a5a12; --gold-b: #5e3c08; --gold-bg: #f2dfb2;
+    --met: #1c7a45;
     --t2-hi: #3b2a14; --t2-lo: #6f5527;
     --text: #2a1d10; --muted: #7a6a52;
   }
@@ -472,6 +491,7 @@
     --board: #14485c; --board-cell: #1e5c73;
     --scrim: rgba(10,45,60,.74);
     --gold: #0f6c8a; --gold-b: #084e63; --gold-bg: #d2ecf5;
+    --met: #0f7a4b;
     --t2-hi: #10323f; --t2-lo: #3c6474;
     --text: #15323d; --muted: #5c7784;
   }
@@ -492,6 +512,7 @@
     --board: #2c3a56; --board-cell: #3c4d6e;
     --scrim: rgba(20,32,56,.74);
     --gold: #b4761a; --gold-b: #8a5a12; --gold-bg: #f2e2c4;
+    --met: #17713f;
     --t2-hi: #17202f; --t2-lo: #4a5877;
     --text: #17202f; --muted: #5d6a85;
   }
@@ -672,6 +693,8 @@
   .of-ic { font-size: 40px; line-height: 1.1; }
   /* a relic/trait icon that has real art: the emoji is replaced, not overlaid */
   .art-ic { background: center/contain no-repeat; display: inline-block; }
+  /* art on its way: the box is already the right size, just empty */
+  .art-ic.art-wait { background-image: none; }
   .of-ic.art-ic  { width: 48px; height: 48px; }
   .inf-ic.art-ic { width: 30px; height: 30px; vertical-align: -7px; }
   .chip.timed .art-ic { width: 15px; height: 15px; vertical-align: -2px; margin-right: 1px; }
@@ -2208,15 +2231,25 @@
     el.textContent = bigText(n);
     fitVal(el, floor);         // and shrink anyway if the container is genuinely tight
   }
+  // Two numbers in one colour is one number as far as the eye is concerned, which is why
+  // meeting the quota did not announce itself: both halves simply went gold together. They
+  // are separate elements now, so the score can be lit while the goal it passed goes quiet.
+  function writeQuota(el, cur, goal) {
+    el.textContent = "";
+    const a = document.createElement("b"); a.className = "q-cur"; a.textContent = cur;
+    const sl = document.createElement("span"); sl.className = "q-sep"; sl.textContent = "/";
+    const b = document.createElement("span"); b.className = "q-goal"; b.textContent = goal;
+    el.append(a, sl, b);
+  }
   function setQuota(el, cur, goal) {
-    el.textContent = `${fmtNum(cur)}/${fmtNum(goal)}`;
+    writeQuota(el, fmtNum(cur), fmtNum(goal));
     if (fitVal(el, QUOTA_MIN_PX)) return;
-    el.textContent = `${fmtShort(cur)}/${fmtShort(goal)}`;
+    writeQuota(el, fmtShort(cur), fmtShort(goal));
     if (fitVal(el, QUOTA_MIN_PX) || !compactFmt0) return;
     // last resort, and it is a real case: round 10 on a 320px phone. Dropping the decimal
     // buys back more width than any font step can -- 248.9만/401.5만 -> 249만/402만.
     const c0 = n => Math.abs(n) >= COMPACT_FROM ? compactFmt0.format(Math.round(n)) : fmtNum(n);
-    el.textContent = `${c0(cur)}/${c0(goal)}`;
+    writeQuota(el, c0(cur), c0(goal));
     fitVal(el, 13);
   }
 
@@ -7108,6 +7141,29 @@
                            "relic_trance", "relic_tycoon", "relic_vault",
                            "relic_whetstone"]);
   const artImgs = {};
+  const ART_WAIT_MS = 600;      // past this a missing file is likelier than a slow one
+  // 131 relic icons means the first sight of each one is a network round trip, which is what
+  // the wait above is papering over. This takes the round trips out of the way instead: once
+  // the board is up and nothing is competing for bandwidth, pull them all, three at a time,
+  // so the first shop opens with its art already decoded.
+  let warmed = false;
+  function warmArt() {
+    if (warmed) return;
+    warmed = true;
+    const ids = [...ART_IDS];
+    let i = 0;
+    const next = () => {
+      while (i < ids.length) {
+        const key = ids[i++];
+        const img = artImgs[key] || (artImgs[key] = loadArtImg(key + ".png", null, null));
+        if (img.complete) continue;            // cached already -- take the next one
+        img.addEventListener("load", next, { once: true });
+        img.addEventListener("error", next, { once: true });
+        return;
+      }
+    };
+    for (let k = 0; k < 3; k++) next();
+  }
   // An icon that shows the emoji until its art is PROVEN to load. Anything else -- swapping
   // on the strength of the list alone -- leaves a blank square when a file is missing.
   function iconEl(key, emoji, cls) {
@@ -7116,13 +7172,25 @@
     el.textContent = emoji;
     if (!ART_IDS.has(key)) return el;
     const img = artImgs[key] || (artImgs[key] = loadArtImg(key + ".png", null, null));
+    let late = 0;
     const apply = () => {
       if (!(img.complete && img.naturalWidth)) return;
+      clearTimeout(late);
       el.textContent = "";
       el.classList.add("art-ic");
+      el.classList.remove("art-wait");
       el.style.backgroundImage = `url("${img.src}")`;
     };
-    if (img.complete) apply(); else img.addEventListener("load", apply, { once: true });
+    if (img.complete) { apply(); return el; }
+    // A 60KB icon does not arrive in the frame that builds the card, so the emoji it replaces
+    // was on screen long enough to read: every relic flashed its old icon before showing its
+    // art. The emoji is still the fallback -- it just WAITS. The box holds its size, empty,
+    // and the emoji only appears if the file is slow or never comes.
+    el.textContent = "";
+    el.classList.add("art-ic", "art-wait");
+    late = setTimeout(() => { el.classList.remove("art-ic", "art-wait"); el.textContent = emoji; },
+                      ART_WAIT_MS);
+    img.addEventListener("load", apply, { once: true });
     return el;
   }
   const relicIcon = (id, cls) => iconEl("relic_" + id, RELICS[id].icon, cls);
@@ -7138,15 +7206,24 @@
       const span = b.querySelector(".ib-ic");
       if (!span || span.dataset.art) continue;
       const img = artImgs[file] || (artImgs[file] = loadArtImg(file + ".png", null, null));
+      let late = 0;
       const apply = () => {
         if (!(img.complete && img.naturalWidth)) return;
+        clearTimeout(late);
         span.dataset.art = "1";
         span.textContent = "";
         span.classList.add("art-ic");
+        span.classList.remove("art-wait");
         span.style.backgroundImage = `url("${img.src}")`;
         if (b.dataset.item === "lineV") span.classList.add("turn90");
       };
-      if (img.complete) apply(); else img.addEventListener("load", apply, { once: true });
+      if (img.complete) { apply(); continue; }
+      const fallback = span.textContent;      // the emoji the markup shipped with
+      span.textContent = "";
+      span.classList.add("art-ic", "art-wait");
+      late = setTimeout(() => { span.classList.remove("art-ic", "art-wait");
+                                span.textContent = fallback; }, ART_WAIT_MS);
+      img.addEventListener("load", apply, { once: true });
     }
   }
   const traitIcon = (id, cls) => iconEl("trait_" + id, TRAITS[id].icon, cls);
@@ -7623,7 +7700,7 @@
       // graceful swoop, on a wall clock: t is still the progress, but what advances it is
       // elapsed time, so the swoop lasts BIRD_FLY_MS on a 60Hz phone and on a 120Hz one alike
       const now = performance.now();
-      f.t += (now - (f.last || now)) / BIRD_FLY_MS;
+      f.t += (now - (f.last || now)) / BIRD_FLY_MS * (f.speed || 1);
       f.last = now;
       const tt = Math.min(1, f.t);
       const [sx, sy] = cellCenter(f.sr, f.sc);
@@ -7697,8 +7774,13 @@
           for (const o of birds) if (o !== f) taken[o.tr * COLS + o.tc] = true;
           const t2 = chooseBirdTarget(taken);
           if (t2) {
+            // It starts the new leg where it is -- at the old target's centre -- so the flight
+            // is continuous. It used to start at t=0.45 to make the second hop quick, but the
+            // eased curve is already 40% along by then, so the bird JUMPED that far the frame
+            // it re-aimed. The hop is shortened with speed now, not by skipping into it, and
+            // the swoop keeps turning the same way rather than snapping to the other side.
             f.sr = f.tr; f.sc = f.tc; f.tr = t2[0]; f.tc = t2[1];
-            f.t = 0.45; f.retried = true; f.curve = -f.curve; dirty = true;
+            f.t = 0; f.speed = 1.7; f.retried = true; dirty = true;
             continue;
           }
         }
@@ -8362,6 +8444,11 @@
   checkViewport();  // a landscape phone or a half-folded flip is told before it sees a board
   resetRun();       // init the board layers so the render loop is safe before "시작하기"
   loadFruitArt();   // load custom SVG art -> sprite cache
+  // the board's own art first, and only then the 131 icons -- a warm-up that raced the game
+  // for bandwidth would trade a flashing icon for a late fruit
+  // Not under test: 131 downloads landing in the middle of a timed pump is exactly the kind
+  // of noise that makes a suite flaky, and the tests that care about art load it themselves.
+  if (!TEST_MODE) setTimeout(warmArt, 2500);
   updateHUD();
   mfxStart();       // menu is visible on boot -> start ambient fruit FX
   // a run that was interrupted comes straight back, paused, instead of the menu
@@ -8423,7 +8510,7 @@
       get revivedThisRun() { return revivedThisRun; },
       resetEffects, get links() { return links; }, coinReady, drawCoin,
       updateStreakBadge,
-      ART_IDS, iconEl, relicIcon, traitIcon,
+      ART_IDS, iconEl, relicIcon, traitIcon, warmArt,
       ITEM_ART, paintItemIcons,
       fxRnd,
       COIN_FLY_MS, COIN_STAGGER_MS, flyCoins, clearCoinFly,

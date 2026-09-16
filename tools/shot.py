@@ -11,6 +11,7 @@ SCREENS = {
   'menu':  "",
   'game':  "D.getElementById('btn-challenge').click();",
   'arcade':"D.getElementById('btn-arcade').click();",
+  'met':   "D.getElementById('btn-challenge').click(); F.score = 1840; F.stageScore = 1840; F.updateHUD();",
   'shop':  "D.getElementById('btn-challenge').click(); F.coins = 40; F.openShop();",
   'set':   "D.getElementById('btn-settings').click();",
 }
