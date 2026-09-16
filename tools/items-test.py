@@ -839,8 +839,11 @@ window.addEventListener('load', async () => {
     chk('모든 아이템이 꾹 누르면 가격과 함께 설명된다', seenText, []);
     // the two bits of chrome that were removed have to stay removed
     chk('판 채움 게이지는 없어졌다', !!$('fillgauge'), false);
-    chk('스타 러시 버튼에 아이콘이 없다', /^[가-힣A-Za-z぀-ヿ一-鿿 ]+$/.test(
-        $('btn-challenge').textContent.trim()), true);
+    // the three menu buttons are words, not pictures
+    const wordy = /^[가-힣A-Za-z぀-ヿ一-鿿 ]+$/;
+    chk('메인 버튼들이 전부 글자다',
+        ['btn-arcade', 'btn-challenge', 'btn-book']
+          .filter(id => !wordy.test($(id).textContent.trim())), []);
     chk('확률 버튼은 글자다', $('info-btn').textContent.trim().length > 1, true);
   }
 
