@@ -812,6 +812,52 @@ window.addEventListener('load', async () => {
   // 가루 폭발 SHELVED — its 3x3 checks are out with the relic; everything below is the
   // item and cracker-payment work, which is live and was switched off with it by mistake.
 
+  // ---- every coin you spend counts as spent ----
+  // 탕진 pays per coin spent, and the trait reroll counted while the SHOP reroll did not --
+  // the same act, charged the same way, on two different ledgers.
+  F.mode = 'rush'; F.resetRun(); F.relics = []; F.traits = []; F.applyRelics();
+  F.coins = 999; F.coinsSpent = 0;
+  F.shopOffers = ['pinch']; F.shopSold = new Set();
+  F.buyRelic('pinch');
+  const afterBuy = F.coinsSpent;
+  chk('유물을 사면 쓴 코인에 잡힌다', afterBuy > 0, true);
+  F.openShop();                      // a fresh shelf, so the reroll button is live
+  const beforeRoll = F.coinsSpent, coinsBefore = F.coins;
+  document.getElementById('sh-reroll').click();
+  chk('상점 리롤도 코인을 쓴다', F.coins < coinsBefore, true);
+  chk('...그리고 쓴 코인에 잡힌다', F.coinsSpent - beforeRoll, coinsBefore - F.coins);
+  F.closeShop();
+  F.mode = 'rush'; F.resetRun(); F.relics = []; F.traits = []; F.applyRelics();
+
+  // ---- buying a relic and selling it again must leave nothing behind ----
+  // Reported from a real run: 지구력 raised the stage's touches, was sold in the same shop,
+  // and the touches stayed. Buying writes to live state (touchesLeft, ROWS) that applyRelics
+  // does not own, so anything the purchase pushed has to be pulled back by the sale.
+  F.mode = 'rush'; F.resetRun(); F.relics = []; F.traits = []; F.applyRelics();
+  $('shop').classList.remove('hidden');
+  const snapshot = () => [F.stageTouches(), F.touchesLeft, F.ROWS, F.relicCap(), F.shelfSize(),
+                          F.spawnCount(0), F.bombRadius(), F.STREAK_CAP, F.crackerValue(),
+                          F.fruitScore(0), F.fruitScore(6), F.zoneCount(), F.coins];
+  const churn = [];
+  for (const id of Object.keys(F.RELICS)) {
+    F.mode = 'rush'; F.resetRun(); F.relics = []; F.traits = []; F.applyRelics();
+    F.coins = 999; F.shopOffers = [id]; F.shopSold = new Set();
+    const before = snapshot();
+    F.buyRelic(id);
+    if (!F.relics.includes(id)) continue;          // could not afford / no room: nothing to test
+    F.dropArmed = null;
+    F.discardRelic(0); F.discardRelic(0);          // arm, then confirm
+    const after = snapshot();
+    // coins are SUPPOSED to differ -- you get half back, that is the sale
+    const diff = before.map((v, k) => (k === before.length - 1 ? null : (v === after[k] ? null : k)))
+                       .filter(k => k !== null);
+    if (F.relics.includes(id)) churn.push(id + ' (팔리지 않음)');
+    else if (diff.length) churn.push(id + ' 남은칸:' + diff.join(','));
+  }
+  chk('샀다 되팔면 모든 파생 수치가 제자리로 돌아온다', churn.slice(0, 8), []);
+  $('shop').classList.add('hidden');
+  F.mode = 'rush'; F.resetRun(); F.relics = []; F.traits = []; F.applyRelics();
+
   // ---- 참새떼: a bird's meal feeds that fruit for the rest of the run ----
   // The card used to be three birds and nothing else, which measured BELOW the baseline: a
   // bird eats a fruit for a flat 20 and that is less than the fruit was worth, so more birds
@@ -904,7 +950,8 @@ window.addEventListener('load', async () => {
       cv.dispatchEvent(new PointerEvent('pointerdown', {clientX:x1, clientY:y1, bubbles:true}));
       cv.dispatchEvent(new PointerEvent('pointerup',   {clientX:x1, clientY:y1, bubbles:true}));
       await settle();
-      return { gone: F.grid[2][4] === -1, paid: F.score >= worth, coins: F.coins, grew: F.crackerValue() > worth };
+      // not "the cell is empty": the turn's spawn can drop a fresh fruit into the hole
+      return { gone: F.grid[2][4] !== F.CRACKER, paid: F.score >= worth, coins: F.coins, grew: F.crackerValue() > worth };
     } else {
       F.grid[4][4] = 0; F.special[4][4] = how;      // bomb / lineH / lineV / star on (4,4)
       const b2 = cv.getBoundingClientRect();
@@ -915,10 +962,10 @@ window.addEventListener('load', async () => {
       cv.dispatchEvent(new PointerEvent('pointerup',   {clientX:x2, clientY:y2, bubbles:true}));
       await settle();
       const at = how === 'lineH' ? [4,1] : how === 'lineV' ? [1,4] : [2,2];
-      return { gone: F.grid[at[0]][at[1]] === -1, paid: F.score >= worth,
+      return { gone: F.grid[at[0]][at[1]] !== F.CRACKER, paid: F.score >= worth,
                coins: F.coins, grew: F.crackerValue() > worth };
     }
-    return { gone: F.grid[2][2] === -1, paid: F.score >= worth,
+    return { gone: F.grid[2][2] !== F.CRACKER, paid: F.score >= worth,
              coins: F.coins, grew: F.crackerValue() > worth };
   };
   for (const how of ['neighbour', 'bomb', 'lineH', 'lineV', 'bird']) {

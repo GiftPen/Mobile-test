@@ -935,9 +935,16 @@ window.addEventListener('load', () => setTimeout(() => {
     const grown = F.ROWS;
     F.applyRelics(); F.applyRelics();
     schk('recomputing does not grow it again', F.ROWS, grown);
-    // losing the relic to the slot cap must not delete the rows it bought
+    // Losing the relic gives the ground back. It used to be kept -- selling 개간 returned
+    // half the price AND left the row, which is a purchase you could make twice over.
+    F.grid[F.ROWS - 1][1] = 3;                 // something standing on the row about to go
     F.relics = []; F.applyRelics();
-    schk('the board never shrinks', F.ROWS, grown);
+    schk('selling the relic takes the row back', F.ROWS, F.ROWS_BASE);
+    schk('every layer shrank with it', rowsOf(),
+         [F.ROWS_BASE, F.ROWS_BASE, F.ROWS_BASE, F.ROWS_BASE, F.ROWS_BASE]);
+    schk('what was on the rows that stayed is untouched', [F.grid[0][0]], [5]);
+    schk('and it never goes below the base', (() => {
+      F.relics = []; F.applyRelics(); F.applyRelics(); return F.ROWS; })(), F.ROWS_BASE);
     F.resetRun();
     schk('but a new run starts over', F.ROWS, F.ROWS_BASE);
     F.relics.push('reclaim'); F.relics.push('big_reclaim'); F.applyRelics();

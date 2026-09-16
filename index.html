@@ -2107,7 +2107,7 @@
       offers:     n => `상점 진열 +${n}`,
       // 한 줄 / 두 줄, not 1줄 / 2줄 -- Korean counts small numbers of things with native
       // numerals, and the board can only ever grow by four
-      rows:       n => `판이 ${["", "한", "두", "세", "네"][n] || n} 줄 넓어집니다`,
+      rows:       n => `판이 ${["", "한", "두", "세", "네"][n] || n} 줄 넓어집니다 (되팔면 되돌아갑니다)`,
       startFruit: n => `스테이지를 시작할 때 과일 ${n}개가 더 놓입니다`,
       bombRadius: n => `폭탄 폭발 범위 +${n}`,
       bombSize:   n => `폭탄이 ${n}×${n}로 터집니다`,
@@ -2486,7 +2486,7 @@
       comboCap:   (add) => `Combo cap +${n1(add)}`,
       slots:      n => `+${n} relic slot${n > 1 ? "s" : ""}`,
       offers:     n => `+${n} shop card${n > 1 ? "s" : ""}`,
-      rows:       n => `Board grows ${n} row${n > 1 ? "s" : ""}`,
+      rows:       n => `Board grows ${n} row${n > 1 ? "s" : ""} (sold, it shrinks back)`,
       startFruit: n => `${n} extra fruit at the start of each stage`,
       bombRadius: n => `Bomb blast radius +${n}`,
       bombSize:   n => `Bombs blast ${n}×${n}`,
@@ -2863,7 +2863,7 @@
       comboCap:   (add) => `コンボ上限 +${n1(add)}`,
       slots:      n => `レリック枠 +${n}`,
       offers:     n => `ショップ表示 +${n}`,
-      rows:       n => `盤面が ${n} 段 広がる`,
+      rows:       n => `盤面が ${n} 段 広がる（売ると戻ります）`,
       startFruit: n => `ステージ開始時にフルーツが ${n} 個 多く置かれる`,
       bombRadius: n => `爆弾の爆発範囲 +${n}`,
       bombSize:   n => `爆弾が ${n}×${n} で爆発`,
@@ -3239,7 +3239,7 @@
       comboCap:   (add) => `连击上限 +${n1(add)}`,
       slots:      n => `遗物格 +${n}`,
       offers:     n => `商店展示 +${n}`,
-      rows:       n => `棋盘增加 ${n} 行`,
+      rows:       n => `棋盘增加 ${n} 行（卖出后会缩回）`,
       startFruit: n => `每关开始时多放 ${n} 个水果`,
       bombRadius: n => `炸弹范围 +${n}`,
       bombSize:   n => `炸弹以 ${n}×${n} 爆炸`,
@@ -4341,16 +4341,30 @@
       const T = TRAITS[t.id]; if (!T) continue;
       for (const e of traitEffects(T, t.amount)) if (e.stat === "rows") want += e.amount;
     }
-    want = Math.min(ROWS_MAX, want);
-    if (want <= ROWS) return false;
+    want = Math.max(ROWS_BASE, Math.min(ROWS_MAX, want));
+    if (want === ROWS) return false;
+    const LAYERS = [[grid,-1],[special,null],[hp,0],[coinCell,0],
+                    [sprouted,0],[glow,null],[appear,0],[ghost,null]];
     // cell size comes from the width alone, so every existing r/c -> pixel mapping survives
-    // a row being appended; only the canvas gets taller
+    // a row being appended or dropped; only the canvas changes height
     while (ROWS < want) {
       ROWS++;
-      for (const [lyr, fill] of [[grid,-1],[special,null],[hp,0],[coinCell,0],
-                                 [sprouted,0],[glow,null],[appear,0],[ghost,null]])
-        if (lyr) lyr.push(Array(COLS).fill(fill));
+      for (const [lyr, fill] of LAYERS) if (lyr) lyr.push(Array(COLS).fill(fill));
     }
+    // ...and it comes back off when the relic goes. Growing one way only meant selling 개간
+    // kept the row: half the price back AND the board. What was on the dropped rows is lost,
+    // which is the honest cost of taking the ground away and is said on the card.
+    while (ROWS > want) {
+      ROWS--;
+      for (const [lyr] of LAYERS) if (lyr) lyr.pop();
+    }
+    // anything that addressed a cell by index has to be brought back inside the board
+    const cells = ROWS * COLS;
+    if (zoneCells && zoneCells.size)
+      zoneCells = new Set([...zoneCells].filter(i => i < cells));
+    if (bananaField && bananaField.r0 + 3 > ROWS) rollField();
+    for (let b = birds.length - 1; b >= 0; b--)
+      if (birds[b].tr >= ROWS || birds[b].sr >= ROWS) birds.splice(b, 1);
     layout();
     return true;
   }
@@ -6329,11 +6343,17 @@
     if (!R || $sh("shop").classList.contains("hidden")) return;
     if (dropArmed !== id) { dropArmed = id; renderInfo(); return; }
     dropArmed = null;
+    // Buying bumps touchesLeft so a touch relic pays out the same stage; selling has to take
+    // that back or 지구력 is "+2 touches for half price, keep the touches". Measured before
+    // the relic goes, because stageTouches() is what changes.
+    const touchWas = stageTouches();
     relics.splice(i, 1);
     delete relicLife[id];
     coins += Math.floor(R.price / 2);          // half back -- never enough to churn for profit
     coinsShown = coins;
     applyRelics();
+    const touchLost = touchWas - stageTouches();
+    if (touchLost > 0) touchesLeft = Math.max(0, touchesLeft - touchLost);
     renderInfo();
     renderShop();
   }
@@ -7972,6 +7992,7 @@
   document.getElementById("sh-reroll").addEventListener("click", () => {
     if (coins < shopReroll || !shopOffers.length) return;
     coins -= shopReroll; coinsShown = coins;
+    coinsSpent += shopReroll;           // 탕진 counts it, the same as the trait reroll does
     SFX.play("reroll");
     shopReroll += 2;                    // rerolling again in the same shop costs more
     shopOffers = rollOffers(shelfSize());
