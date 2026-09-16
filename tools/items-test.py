@@ -829,6 +829,11 @@ window.addEventListener('load', async () => {
     const coin = await hold($('st-coin'));
     chk('코인을 꾹 누르면 설명이 뜬다', coin.shown, true);
     chk('...그리고 손을 떼면 사라진다', coin.gone, true);
+    // every chip in the HUD, not just the coin -- an unexplained chip is the same problem
+    const mute = [];
+    for (const id of ['st-lvl-chip', 'st-touch-chip', 'st-spawn-chip'])
+      if (!(await hold($(id))).shown) mute.push(id);
+    chk('HUD 칩이 전부 꾹 누르면 설명된다', mute, []);
     const seenText = [];
     for (const b of document.querySelectorAll('#ishop .ib')) {
       const r = await hold(b);

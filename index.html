@@ -699,9 +699,9 @@
   </div>
 
   <div id="stats">
-    <span class="chip lvl">Lv.<b id="st-level">1</b><span id="st-max" class="lvmax hidden">MAX</span></span>
-    <span class="chip"><span data-i18n="touchChip">👆 터치</span> <b id="st-touch">0</b></span>
-    <span class="chip"><span data-i18n="spawnChip">➕ 매턴</span> <b id="st-spawn">1</b></span>
+    <span class="chip lvl" id="st-lvl-chip">Lv.<b id="st-level">1</b><span id="st-max" class="lvmax hidden">MAX</span></span>
+    <span class="chip" id="st-touch-chip"><span data-i18n="touchChip">👆 터치</span> <b id="st-touch">0</b></span>
+    <span class="chip" id="st-spawn-chip"><span data-i18n="spawnChip">➕ 매턴</span> <b id="st-spawn">1</b></span>
     <span class="chip coin" id="st-coin"><i class="cn"></i> <b id="st-coin-v">0</b></span>
     <span id="danger-label" class="hidden" data-i18n="danger">⚠️ 위험!</span>
   </div>
@@ -712,7 +712,7 @@
       <div class="rb-cell" id="rb-touch-cell"><span class="rb-val" id="rb-touch">15</span><span class="rb-lab" data-i18n="touchesLeft">남은 터치</span></div>
       <div class="rb-chips">
         <span class="chip coin" id="rs-coin"><i class="cn"></i> <b id="rs-coin-v">0</b></span>
-        <span class="chip">➕ <b id="rs-spawn">1</b></span>
+        <span class="chip" id="rs-spawn-chip">➕ <b id="rs-spawn">1</b></span>
         <span id="danger-label2" class="hidden">⚠️</span>
       </div>
     </div>
@@ -2346,6 +2346,9 @@
       tabOdds: "🍊 확률",
       tabOddsShort: "확률",
       tipCoin: "<b>코인</b><br>과일을 터뜨리거나 스테이지를 넘길 때 모입니다. 상점의 유물과 아래 아이템을 사는 데 씁니다.",
+      tipSpawn: n => `<b>매턴 생성</b><br>한 번 놓을 때마다 판에 새 과일이 ${n}개 더 생깁니다. 판이 차오르는 속도라, 높을수록 손이 급해집니다.`,
+      tipTouch: () => "<b>터치</b><br>이번 게임에서 과일을 놓은 횟수입니다. 아케이드에서는 이 수가 쌓일수록 난이도가 올라갑니다.",
+      tipLevel: n => `<b>난이도</b><br>점수가 오르면 단계가 올라갑니다 (최대 ${n}). 색이 늘고, 매턴 생성이 늘고, 크래커가 섞이기 시작합니다.`,
       tipItem_bird: (p, sc) => `<b>참새</b> · ${p}코인<br>빈 칸에 놓고 탭하면 날아가 방해물을 쪼아냅니다. 발동 시 +${sc}점.`,
       tipItem_lineH: (p, sc) => `<b>가로줄</b> · ${p}코인<br>놓고 탭하면 그 가로줄을 전부 청소합니다. 발동 시 +${sc}점.`,
       tipItem_lineV: (p, sc) => `<b>세로줄</b> · ${p}코인<br>놓고 탭하면 그 세로줄을 전부 청소합니다. 발동 시 +${sc}점.`,
@@ -2731,6 +2734,9 @@
       tabOdds: "🍊 Odds",
       tabOddsShort: "Odds",
       tipCoin: "<b>Coins</b><br>Earned by popping fruit and clearing stages. They buy relics in the shop and the items below.",
+      tipSpawn: n => `<b>Fruit per turn</b><br>Every placement drops ${n} more fruit on the board. This is how fast it fills up.`,
+      tipTouch: () => "<b>Touches</b><br>How many fruit you have placed this run. In Arcade, difficulty climbs with this number.",
+      tipLevel: n => `<b>Difficulty</b><br>Rises with your score, up to ${n}. More colours, more fruit per turn, and crackers start mixing in.`,
       tipItem_bird: (p, sc) => `<b>Sparrow</b> · ${p} coins<br>Place it, tap it, and it flies off to peck whatever is in the way. +${sc} when it fires.`,
       tipItem_lineH: (p, sc) => `<b>Row</b> · ${p} coins<br>Place it and tap to clear its whole row. +${sc} when it fires.`,
       tipItem_lineV: (p, sc) => `<b>Column</b> · ${p} coins<br>Place it and tap to clear its whole column. +${sc} when it fires.`,
@@ -3114,6 +3120,9 @@
       tabOdds: "🍊 確率",
       tabOddsShort: "確率",
       tipCoin: "<b>コイン</b><br>フルーツを割る・ステージを越えると貯まります。ショップのレリックと下のアイテムに使います。",
+      tipSpawn: n => `<b>毎ターン生成</b><br>1回置くたびに盤面へフルーツが${n}個増えます。盤が埋まる速さです。`,
+      tipTouch: () => "<b>タッチ</b><br>このゲームでフルーツを置いた回数です。アーケードではこの数で難度が上がります。",
+      tipLevel: n => `<b>難易度</b><br>スコアが伸びると段階が上がります（最大${n}）。色が増え、毎ターン生成が増え、クラッカーが混ざり始めます。`,
       tipItem_bird: (p, sc) => `<b>スズメ</b> · ${p}コイン<br>置いてタップすると飛んでいって邪魔なものをついばみます。発動時 +${sc}点。`,
       tipItem_lineH: (p, sc) => `<b>横ライン</b> · ${p}コイン<br>置いてタップするとその横一列を消します。発動時 +${sc}点。`,
       tipItem_lineV: (p, sc) => `<b>縦ライン</b> · ${p}コイン<br>置いてタップするとその縦一列を消します。発動時 +${sc}点。`,
@@ -3498,6 +3507,9 @@
       tabOdds: "🍊 概率",
       tabOddsShort: "概率",
       tipCoin: "<b>金币</b><br>消除水果和通关阶段时获得。用来购买商店的遗物和下方的道具。",
+      tipSpawn: n => `<b>每回合生成</b><br>每放置一次，棋盘上会多出${n}个水果。这就是棋盘填满的速度。`,
+      tipTouch: () => "<b>触摸</b><br>本局放置水果的次数。街机模式下难度随这个数字上升。",
+      tipLevel: n => `<b>难度</b><br>随分数提升，最高${n}级。颜色变多、每回合生成变多，并开始混入饼干。`,
       tipItem_bird: (p, sc) => `<b>麻雀</b> · ${p}金币<br>放置后点击，它会飞出去啄掉挡路的东西。发动时 +${sc}分。`,
       tipItem_lineH: (p, sc) => `<b>横线</b> · ${p}金币<br>放置后点击，清除整行。发动时 +${sc}分。`,
       tipItem_lineV: (p, sc) => `<b>竖线</b> · ${p}金币<br>放置后点击，清除整列。发动时 +${sc}分。`,
@@ -8041,6 +8053,10 @@
   }
   for (const id of ["st-coin", "rs-coin"])
     holdable(document.getElementById(id), () => d("tipCoin"));
+  for (const id of ["st-spawn-chip", "rs-spawn-chip"])
+    holdable(document.getElementById(id), () => d("tipSpawn", spawnCount()));
+  holdable(document.getElementById("st-touch-chip"), () => d("tipTouch"));
+  holdable(document.getElementById("st-lvl-chip"), () => d("tipLevel", MAX_LEVEL));
   for (const b of document.querySelectorAll("#ishop .ib"))
     holdable(b, () => d("tipItem_" + b.dataset.item, itemPrice(b.dataset.item),
                         ITEM_SCORE[b.dataset.item] || 0));
