@@ -3856,6 +3856,12 @@
   // moved relics between grades would be a different relic every time you bought 단골.
   const priceOf = R => Math.max(1, Math.round(R.price * shopDiscount));
   const itemPrice = kind => Math.max(1, Math.round(ITEM_PRICES[kind] * shopDiscount));
+  // A grade only opens once the run has got somewhere. A legendary in the first shop was not
+  // a thrill: you cannot afford it, it sells for half, and the run has not started. Counted in
+  // ROUNDS, not stages -- 유니크 from round 2, 전설 from round 3.
+  const TIER_FROM = { unique: 2, legend: 3 };
+  const roundNow = () => Math.floor((stage - 1) / STAGES_PER_ROUND) + 1;
+  const tierOpen = t => !TIER_FROM[t] || roundNow() >= TIER_FROM[t];
   const relicTier = R => R.tier ||
     (R.price >= 30 ? "legend" : R.price >= 23 ? "unique"
      : R.price >= 16 ? "epic" : R.price >= 8 ? "uncommon" : "common");
@@ -5757,7 +5763,7 @@
     }
     const out = [];
     while (out.length < n) {
-      const live = TIER_KEYS.filter(t => byTier[t].length);
+      const live = TIER_KEYS.filter(t => byTier[t].length && tierOpen(t));
       if (!live.length) break;
       let total = 0;
       for (const t of live) total += TIERS[t].odds;
@@ -8105,6 +8111,7 @@
       get coinToScore() { return coinToScore; },
       priceOf, itemPrice, spendFlatBonus, SPEND_PER,
       relicCats, offerWeight, RESONANCE_MAX, RESONANCE_BASE, identity,
+      TIER_FROM, tierOpen, roundNow,
       get resonance() { return resonance; },
       get coinsSpent() { return coinsSpent; }, set coinsSpent(v) { coinsSpent = v; },
       get spendFlat() { return spendFlat; }, get shopDiscount() { return shopDiscount; },

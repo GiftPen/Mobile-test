@@ -1746,8 +1746,10 @@ window.addEventListener('load', () => setTimeout(() => {
     schk('building a theme does not make it rarer', t2 >= t0 * 0.95, true);
     F.relics = []; F.applyRelics();
 
-    // the grade odds are shown to the player, so they must survive the lean untouched
+    // the grade odds are shown to the player, so they must survive the lean untouched.
+    // Late enough that every grade is open -- 유니크 and 전설 do not exist in round 1.
     F.mode = 'rush'; F.resetRun();
+    F.stage = F.STAGES_PER_ROUND * (Math.max(...Object.values(F.TIER_FROM)) - 1) + 1;
     F.relics = build.concat('resonator'); F.applyRelics();
     const seen = Object.fromEntries(F.TIER_KEYS.map(t => [t, 0]));
     const N = 3000;
@@ -1803,6 +1805,7 @@ window.addEventListener('load', () => setTimeout(() => {
   F.resetRun(); F.mode = 'rush';
   // built from TIER_KEYS, not written out: a hardcoded list silently stops covering the
   // moment a grade is added, which is exactly what happened when 유니크 went in
+  F.stage = F.STAGES_PER_ROUND * (Math.max(...Object.values(F.TIER_FROM)) - 1) + 1;
   const tierSeen = Object.fromEntries(F.TIER_KEYS.map(t => [t, 0]));
   const tierPool = Object.fromEntries(F.TIER_KEYS.map(t => [t, 0]));
   for (const id of Object.keys(F.RELICS)) tierPool[F.relicTier(F.RELICS[id])]++;
@@ -1819,6 +1822,40 @@ window.addEventListener('load', () => setTimeout(() => {
       stackFails.push({case: 'grade share ' + t, got: +got.toFixed(2), want});
   }
   schk('every grade is reachable', Math.min(...Object.values(tierSeen)) > 0, true);
+
+  // ---- a grade only opens once the run has got somewhere ----
+  // Finding a legendary in the first shop was not a thrill: you cannot afford it, it sells
+  // for half, and the run has not started. Counted in rounds, not stages.
+  (() => {
+    F.mode = 'rush'; F.resetRun(); F.relics = []; F.traits = []; F.applyRelics();
+    const shareAt = (stage) => {
+      F.stage = stage;
+      const seen = Object.fromEntries(F.TIER_KEYS.map(t => [t, 0]));
+      const N = 800;
+      for (let i = 0; i < N; i++)
+        for (const id of F.rollOffers(F.SHOP_OFFERS)) seen[F.relicTier(F.RELICS[id])]++;
+      return seen;
+    };
+    // An empty TIER_FROM would make the loop below run zero times and pass in silence, which
+    // is exactly what happened the first time this was written. Name the rule first.
+    schk('유니크와 전설은 라운드로 잠겨 있다',
+         [F.TIER_FROM.unique > 1, F.TIER_FROM.legend > 1], [true, true]);
+    schk('...그리고 전설이 유니크보다 늦게 열린다',
+         F.TIER_FROM.legend >= F.TIER_FROM.unique, true);
+    for (const t of Object.keys(F.TIER_FROM)) {
+      const from = F.TIER_FROM[t];
+      const lastClosed = F.STAGES_PER_ROUND * (from - 1);       // last stage of the round before
+      const firstOpen  = lastClosed + 1;
+      schk(`${t} does not appear before round ${from}`, shareAt(lastClosed)[t], 0);
+      schk(`${t} appears from round ${from}`, shareAt(firstOpen)[t] > 0, true);
+    }
+    // ...and the grades that ARE open still add up to every slot
+    const early = shareAt(1);
+    const total = F.TIER_KEYS.reduce((a, t) => a + early[t], 0);
+    schk('a locked grade gives its share to the others, it does not leave empty slots',
+         total, 800 * F.SHOP_OFFERS);
+    F.resetRun();
+  })();
 
   // the point of drawing grade-first: growing the pool must NOT move the grade odds
   const legendShare = () => {
