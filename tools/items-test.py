@@ -812,6 +812,47 @@ window.addEventListener('load', async () => {
   // 가루 폭발 SHELVED — its 3x3 checks are out with the relic; everything below is the
   // item and cracker-payment work, which is live and was switched off with it by mistake.
 
+  // ---- themes: every one has to be readable ----
+  // A theme is eight colour values, which is exactly the kind of thing that ships broken. The
+  // floor is contrast: text on its own surface, at every theme, or a card is unreadable and
+  // nobody finds out until a screenshot.
+  {
+    const lum = (c) => {
+      const m = c.match(/\d+/g).map(Number).slice(0, 3)
+        .map(v => { v /= 255; return v <= 0.03928 ? v / 12.92 : Math.pow((v + 0.055) / 1.055, 2.4); });
+      return 0.2126 * m[0] + 0.7152 * m[1] + 0.0722 * m[2];
+    };
+    const ratio = (a, b) => {
+      const [x, y] = [lum(a), lum(b)].sort((p, q) => q - p);
+      return (x + 0.05) / (y + 0.05);
+    };
+    const probe = document.createElement('div');
+    document.body.appendChild(probe);
+    const readVar = (name) => {
+      probe.style.color = `var(${name})`;
+      return getComputedStyle(probe).color;
+    };
+    const was = F.theme;
+    const bad = [];
+    for (const t of F.THEMES) {
+      F.setTheme(t);
+      const sheet = readVar('--sheet'), card = readVar('--card');
+      const pairs = [['--ink', card], ['--ink-soft', card], ['--ink-coin', card],
+                     ['--head-ink', readVar('--head')]];
+      for (const [fg, bg] of pairs) {
+        const r = ratio(readVar(fg), bg);
+        if (r < 3.0) bad.push(`${t}:${fg} ${r.toFixed(1)}:1`);
+      }
+      if (ratio(sheet, card) > 12) bad.push(`${t}: 카드가 판과 너무 동떨어짐`);
+    }
+    probe.remove();
+    F.setTheme(was);
+    chk('모든 테마에서 글자가 읽힌다 (대비 3:1 이상)', bad, []);
+    chk('기본 테마가 목록에 남아 있다', F.THEMES.includes('dark'), true);
+    chk('테마는 저장된다', (() => { F.setTheme('shore');
+      const ok = localStorage.getItem('fs_theme') === 'shore'; F.setTheme(was); return ok; })(), true);
+  }
+
   // ---- hold-to-explain, and the chrome that was taken away ----
   // A phone has no hover, so an icon nobody can name is a button nobody presses.
   {
@@ -850,6 +891,18 @@ window.addEventListener('load', async () => {
         ['btn-arcade', 'btn-challenge', 'btn-book']
           .filter(id => !wordy.test($(id).textContent.trim())), []);
     chk('확률 버튼은 글자다', $('info-btn').textContent.trim().length > 1, true);
+    // The dock drew emoji while the board drew the real sprite for the same item. Anything the
+    // game has art for must use it here too -- this is the one place UI and board sit side by
+    // side, so a disagreement is visible.
+    F.renderItemShop();
+    await sleep(900);
+    const emojiStill = [];
+    for (const b of document.querySelectorAll('#ishop .ib')) {
+      const kind = b.dataset.item, span = b.querySelector('.ib-ic');
+      const hasArt = !!F.ITEM_ART[kind];
+      if (hasArt && !span.dataset.art) emojiStill.push(kind);
+    }
+    chk('아트가 있는 아이템은 독에서도 아트를 쓴다', emojiStill, []);
   }
 
   // ---- every coin you spend counts as spent ----
