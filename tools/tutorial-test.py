@@ -56,14 +56,17 @@ window.addEventListener('load', () => setTimeout(async () => {
 
   // and hammering the whole board never advances more than one step at a time
   const walked = [];
-  for (let guard = 0; guard < 6 && F.tut; guard++) {
+  for (let guard = 0; guard < F.TUT_STEPS.length + 3 && F.tut; guard++) {
     const t = F.tut.target; if (!t) { await settle(200); continue; }
     for (let i = 0; i < 5; i++) tapCell(t[0], t[1]);
     for (let r = 0; r < 3; r++) for (let c = 0; c < 3; c++) tapCell(r, c);
     await settle(2300);
     walked.push(F.tut ? F.tut.i : 'end');
   }
-  chk('hammering taps still walks one step at a time', walked, [2, 3, 'end']);
+  const jumps = walked.filter((v, i) => i && v !== 'end' && v !== walked[i - 1] + 1);
+  chk('hammering taps still walks one step at a time',
+      jumps.length ? walked : [], []);
+  chk('and hammering does reach the end', walked[walked.length - 1], 'end');
   chk('and it still finishes cleanly', F.tut, null);
 
   // restart it for the per-board inspection below
@@ -75,22 +78,35 @@ window.addEventListener('load', () => setTimeout(async () => {
   //  - previewShows is what drawNextPreview actually drew. Steps set nextColor by hand, so a
   //    stale preview ships easily, and the player watches a fruit that is not the one landing.
   //  - the board must be populated beyond the shape being taught, or it reads as a diagram.
-  const SCRIPTED = [2, 8, 5, 3];
-  const mismatched = [], sparse = [], stepsSeen = [];
-  for (let guard = 0; guard < 8 && F.tut; guard++) {
+  // how many cells each step places by hand; the rest has to be scattered around it
+  const SCRIPTED = [2, 8, 5, 3, 3];
+  const mismatched = [], sparse = [], stepsSeen = [], crackerLeft = [];
+  for (let guard = 0; guard < F.TUT_STEPS.length + 3 && F.tut; guard++) {
     const i = F.tut.i;
     stepsSeen.push(i);
     if (F.previewShows !== F.nextColor)
       mismatched.push('step ' + i + ': preview ' + F.previewShows + ' vs queued ' + F.nextColor);
     const filled = F.grid.flat().filter(v => v !== -1).length;
-    if (filled <= SCRIPTED[i] + 2) sparse.push('step ' + i + ': only ' + filled + ' fruit');
+    if (filled <= (SCRIPTED[i] || 0) + 2) sparse.push('step ' + i + ': only ' + filled + ' fruit');
+    // a step that puts a cracker on the board is TEACHING how one breaks, so the lesson has
+    // to actually happen: polled while the step is still up, because the moment it advances
+    // the board is wiped and the answer is gone
+    const ck = [];
+    for (let r = 0; r < F.ROWS; r++) for (let c = 0; c < F.COLS; c++)
+      if (F.grid[r][c] === F.CRACKER) ck.push([r, c]);
     const t = F.tut.target.slice();
     tapCell(t[0], t[1]);
-    for (let w = 0; w < 250 && F.tut && F.tut.i === i; w++) { F.draw(); await sleep(16); }
+    let cracked = !ck.length;
+    for (let w = 0; w < 250 && F.tut && F.tut.i === i; w++) {
+      if (ck.length && F.grid[ck[0][0]][ck[0][1]] !== F.CRACKER) cracked = true;
+      F.draw(); await sleep(16);
+    }
+    if (!cracked) crackerLeft.push('step ' + i);
   }
-  chk('every step was reached', stepsSeen, [0, 1, 2, 3]);
+  chk('every step was reached', stepsSeen, [...Array(F.TUT_STEPS.length).keys()]);
   chk('the preview always shows the fruit that will land', mismatched, []);
   chk('every board looks like a real one, not a diagram', sparse, []);
+  chk('크래커를 가르치는 단계에서 크래커가 실제로 부서진다', crackerLeft, []);
 
   chk('it finishes', F.tut, null);
   chk('the panel is gone', document.getElementById('tut').classList.contains('hidden'), true);

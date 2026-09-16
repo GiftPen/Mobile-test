@@ -142,8 +142,10 @@ window.addEventListener('load', () => setTimeout(async () => {
   chk('필수 항목을 모두 다룬다', topics.filter(([, re_]) => !re_.test(doc)).map(([n_]) => n_), []);
   // marked TODO rather than merely bracketed: the page is also CSS and script, and [hidden]
   // is not something anyone has to fill in
-  chk('아직 채워야 할 자리', (doc.match(/\[TODO[^\]]{0,30}\]/g) || []).sort(),
-      ['[TODO contact email]', '[TODO name]', '[TODO 담당자 이름]', '[TODO 문의 이메일]'].sort());
+  chk('남은 TODO 자리가 없다', (doc.match(/\[TODO[^\]]{0,30}\]/g) || []), []);
+  // a policy with no way to reach anyone fails review, and "이용자 권리 행사 방법" is not a
+  // section you can write without one
+  chk('문의처가 실제 주소다', /[\w.+-]+@[\w.-]+\.\w+/.test(doc), true);
 
   try { localStorage.removeItem('fs_noads'); localStorage.removeItem('fs_games'); } catch (e) {}
   document.title = 'RESULT ' + JSON.stringify({ fails, free: A.FREE_GAMES, every: A.RETRY_EVERY });

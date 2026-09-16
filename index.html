@@ -337,6 +337,42 @@
   .rot-ic { font-size: 44px; transform: rotate(90deg); }
   .rot-t { font-size: 19px; font-weight: 800; color: var(--text); }
   .rot-s { font-size: 13px; color: var(--muted); }
+  /* the way in: bottom-left, 26px, barely there. z-index below the overlays so it can never
+     sit on top of a shop card or the pause sheet */
+  #devdot { position: fixed; left: 0; bottom: 0; width: 26px; height: 26px;
+    margin: 0; padding: 0; border: 0; border-radius: 0 12px 0 0; background: var(--ink);
+    opacity: .07; box-shadow: none; z-index: 9; }
+  #devdot.on { opacity: .55; background: var(--brand); }
+  #devpanel { position: fixed; inset: 0; z-index: 34; background: var(--scrim);
+    display: flex; align-items: center; justify-content: center; padding: 18px; }
+  #devpanel.hidden { display: none; }
+  /* there is no global .hidden in this stylesheet -- every element that hides itself says so
+     by id. These two were toggling a class that styled nothing, so the code box stayed on
+     screen under the unlocked menu. */
+  #dev-locked.hidden, #dev-open.hidden { display: none; }
+  /* 135 relics is taller than a phone, and the card is centred: without a scroll of its own
+     the header and the buttons end up off the top of the screen */
+  .dev-card { width: 100%; max-width: 300px; max-height: 92vh; overflow-y: auto;
+    scrollbar-width: none; -ms-overflow-style: none;
+    background: var(--sheet); color: var(--ink);
+    border: 1px solid var(--sheet-edge); border-radius: 18px; padding: 16px; text-align: center; }
+  .dev-card::-webkit-scrollbar { display: none; }
+  .dev-h { font-size: 16px; font-weight: 900; margin-bottom: 12px; letter-spacing: 2px; }
+  .dev-row { display: flex; gap: 8px; margin-top: 8px; }
+  .dev-row .ghost-btn { flex: 1; margin: 0; padding: 10px; font-size: 14px; }
+  .dev-card .ghost-btn.wide { width: 100%; margin: 0 0 8px; padding: 11px; font-size: 14px; }
+  #dev-code { width: 100%; padding: 11px 12px; font-size: 15px; font-family: inherit;
+    border-radius: 12px; border: 1px solid var(--chip-edge); background: var(--chip);
+    color: var(--ink); text-align: center; }
+  .dev-msg { font-size: 12px; color: var(--muted); min-height: 16px; margin-top: 8px; }
+  /* the relic picker, inside the panel it belongs to rather than as a second screen */
+  .dev-pick { display: grid; grid-template-columns: repeat(auto-fill, minmax(40px, 1fr));
+    gap: 4px; margin: 6px 0 2px; }
+  .dev-pick button { margin: 0; padding: 5px 2px; border-radius: 9px; box-shadow: none;
+    background: var(--slot); border: 1px solid var(--slot-edge); font-size: 17px; line-height: 1; }
+  .dev-pick .art-ic { width: 24px; height: 24px; }
+  .dev-tier { font-size: 11px; font-weight: 800; color: var(--muted); text-align: left;
+    margin: 8px 2px 2px; }
   #dock.hidden { display: none; }
   #dock {
     display: flex; align-items: center; flex-wrap: wrap; justify-content: center;
@@ -938,6 +974,33 @@
     <button class="dock-btn" data-item="bomb">💣</button>
     <button class="dock-btn" data-item="star">🌟</button>
     <button class="dock-btn" data-item="cracker">🍪</button>
+  </div>
+
+  <!-- Dev gate. Friends are testing this build, so the way in is a corner the game never
+       draws into, at 7% opacity: findable if you know it is there, invisible if you do not.
+       Korean only on purpose -- it is not player-facing text and does not belong in the packs. -->
+  <button id="devdot" aria-hidden="true" tabindex="-1"></button>
+  <div id="devpanel" class="hidden">
+    <div class="dev-card">
+      <div class="dev-h">개발자</div>
+      <div id="dev-locked">
+        <input id="dev-code" type="password" inputmode="text" autocomplete="off" placeholder="코드" />
+        <div class="dev-row">
+          <button id="dev-ok" class="ghost-btn">확인</button>
+          <button id="dev-x" class="ghost-btn">닫기</button>
+        </div>
+        <div id="dev-msg" class="dev-msg"></div>
+      </div>
+      <div id="dev-open" class="hidden">
+        <button id="dev-dock" class="ghost-btn wide">테스트 도크</button>
+        <button id="dev-relics" class="ghost-btn wide">유물 고르기</button>
+        <button id="dev-coins" class="ghost-btn wide">코인 +100</button>
+        <div class="dev-row">
+          <button id="dev-lock" class="ghost-btn">잠그기</button>
+          <button id="dev-x2" class="ghost-btn">닫기</button>
+        </div>
+      </div>
+    </div>
   </div>
 
   <div id="adstub" class="hidden">
@@ -2680,6 +2743,7 @@
       helpRule1: "빈 칸을 탭해 과일을 놓습니다. 같은 색 과일 옆(3×3)에 놓으면 <b>이어진 같은 색이 모두 터집니다</b>.",
       helpRule2: "한 번에 많이 터뜨릴수록 <b>덩어리</b> 배율이, 연속으로 성공할수록 <b>콤보</b> 배율이 올라갑니다.",
       helpRule3: "판이 가득 차면 그 자리에서 끝납니다.",
+      helpCracker: "🍪 <b>크래커</b>는 색이 없어 스스로 터지지 않습니다. <b>바로 옆에서 과일이 터지면</b> 부서집니다 — 놓은 공이 터진 것도 마찬가지입니다.",
       helpBird: (n, p) => `🐦 <b>참새</b> — ${n}개 이상 터뜨리면 생깁니다. 날아가 방해물을 쪼아냅니다. 발동 시 <b>+${p}점</b>.`,
       helpLine: (n, p) => `↔️ <b>라인</b> — ${n}개 이상. 가로나 세로 한 줄을 청소합니다. 발동 시 <b>+${p}점</b>.`,
       helpBomb: (n, w, p) => `💣 <b>폭탄</b> — ${n}개 이상. ${w}×${w} 범위를 날립니다. 발동 시 <b>+${p}점</b>.`,
@@ -2689,6 +2753,7 @@
       helpRun2: "스테이지 사이마다 <b>상점</b>이 열립니다. 코인으로 산 유물은 이번 게임 내내 효과가 이어집니다.",
       helpRun3: "라운드가 끝나면 <b>특성</b>을 하나 고릅니다. 목표를 일찍 채우면 남은 터치만큼 코인을 더 받습니다.",
       tut4: "아이템은 바로 옆에서 과일이 터져도 함께 발동합니다. 빛나는 칸에 놓아보세요",
+      tut5: "크래커는 바로 옆에서 과일이 터지면 부서집니다",
       reviveAd: "▶ 광고 보고 이어하기 · 판의 1/4 정리",
       adRewarded: "보상형 광고 (샘플)",
       adInterstitial: "전면 광고 (샘플)",
@@ -3073,6 +3138,7 @@
       helpRule1: "Tap an empty cell to place a fruit. Put it next to a matching one (3×3) and <b>the whole connected group pops</b>.",
       helpRule2: "The more you pop at once, the higher the <b>cluster</b> multiplier; the longer your streak, the higher the <b>combo</b>.",
       helpRule3: "If the board fills up, the run ends there.",
+      helpCracker: "🍪 A <b>cracker</b> has no colour and never pops on its own. It breaks when <b>fruit pops right beside it</b> — including the ball you placed.",
       helpBird: (n, p) => `🐦 <b>Sparrow</b> — left behind by popping ${n} or more. Flies off and pecks whatever is in the way. <b>+${p}</b> when it fires.`,
       helpLine: (n, p) => `↔️ <b>Line</b> — ${n} or more. Clears a whole row or column. <b>+${p}</b> when it fires.`,
       helpBomb: (n, w, p) => `💣 <b>Bomb</b> — ${n} or more. A ${w}×${w} blast. <b>+${p}</b> when it fires.`,
@@ -3082,6 +3148,7 @@
       helpRun2: "A <b>shop</b> opens between stages. Relics bought with coins last the rest of the run.",
       helpRun3: "At the end of a round you pick a <b>trait</b>. Finish early and the touches you did not use pay out as coins.",
       tut4: "An item also goes off when fruit pops right beside it. Place on the glowing cell",
+      tut5: "A cracker breaks when fruit pops right beside it",
       reviveAd: "▶ Watch an ad to continue · clears 1/4 of the board",
       adRewarded: "Rewarded ad (sample)",
       adInterstitial: "Interstitial ad (sample)",
@@ -3465,6 +3532,7 @@
       helpRule1: "空いたマスをタップしてフルーツを置きます。同じ色の隣(3×3)に置くと<b>つながった同色がすべて割れます</b>。",
       helpRule2: "一度に多く割るほど<b>かたまり</b>倍率が、連続で成功するほど<b>コンボ</b>倍率が上がります。",
       helpRule3: "盤面が埋まるとその場で終了です。",
+      helpCracker: "🍪 <b>クラッカー</b>は色がなく自分では弾けません。<b>すぐ隣でフルーツが弾ける</b>と壊れます — 置いた玉が弾けた場合も同じです。",
       helpBird: (n, p) => `🐦 <b>スズメ</b> — ${n}個以上割ると出ます。飛んでいって邪魔なものをついばみます。発動時 <b>+${p}点</b>。`,
       helpLine: (n, p) => `↔️ <b>ライン</b> — ${n}個以上。縦か横を一列消します。発動時 <b>+${p}点</b>。`,
       helpBomb: (n, w, p) => `💣 <b>爆弾</b> — ${n}個以上。${w}×${w} を吹き飛ばします。発動時 <b>+${p}点</b>。`,
@@ -3474,6 +3542,7 @@
       helpRun2: "ステージの合間に<b>ショップ</b>が開きます。コインで買ったレリックはラン中ずっと効きます。",
       helpRun3: "ラウンドの終わりに<b>特性</b>を1つ選びます。早く達成すると残りタッチ分のコインがもらえます。",
       tut4: "アイテムはすぐ隣でフルーツが割れても発動します。光るマスに置いてみましょう",
+      tut5: "クラッカーはすぐ隣でフルーツが弾けると壊れます",
       reviveAd: "▶ 広告を見て続ける · 盤面の1/4を整理",
       adRewarded: "リワード広告 (サンプル)",
       adInterstitial: "インタースティシャル広告 (サンプル)",
@@ -3857,6 +3926,7 @@
       helpRule1: "点击空格放置水果。放在同色旁边(3×3)时，<b>相连的同色会全部消除</b>。",
       helpRule2: "一次消除越多，<b>成团</b>倍率越高；连续成功越久，<b>连击</b>倍率越高。",
       helpRule3: "棋盘填满就会立刻结束。",
+      helpCracker: "🍪 <b>饼干</b>没有颜色，自己不会爆开。<b>紧邻的水果爆开时</b>它会碎裂 — 你放下的那颗爆开也算。",
       helpBird: (n, p) => `🐦 <b>麻雀</b> — 消除 ${n} 个以上出现。飞出去啄掉挡路的东西。发动时 <b>+${p}分</b>。`,
       helpLine: (n, p) => `↔️ <b>线道</b> — ${n} 个以上。清除一整行或一列。发动时 <b>+${p}分</b>。`,
       helpBomb: (n, w, p) => `💣 <b>炸弹</b> — ${n} 个以上。炸开 ${w}×${w} 范围。发动时 <b>+${p}分</b>。`,
@@ -3866,6 +3936,7 @@
       helpRun2: "关卡之间会开<b>商店</b>。用金币买的遗物整局有效。",
       helpRun3: "每轮结束选择一个<b>特性</b>。提前达成，剩余触摸会换成金币。",
       tut4: "旁边的水果被消除时道具也会发动。放在发光的格子上",
+      tut5: "饼干会在紧邻的水果爆开时碎裂",
       reviveAd: "▶ 看广告继续 · 清理盘面 1/4",
       adRewarded: "激励广告 (样例)",
       adInterstitial: "插屏广告 (样例)",
@@ -5555,9 +5626,29 @@
     // through the same place chipped ones are.
     const blasted = [];
     let visualEnd = 0;             // timestamp the last staggered pop fires at
+    // The ball you place is cleared by finishBurst, not by the frontier loop, so the 3x3 scan
+    // that chips crackers -- the one every popped cell runs -- never ran for IT. A cracker
+    // touching only the ball you put down survived: measured, three of five layouts, including
+    // 크래커|빈칸|레몬 with the ball in the middle. Only when the placement really pops, since
+    // an unmatched ball simply stays on the board. Once per chain: 가루 폭발 can re-enter the
+    // terminal block with a new frontier, and the ball must not chip twice for one placement.
+    let placedChipped = false;
     function step() {
       if (!frontier.length) {
         let broke = 0, chipped = 0;
+        if (placement && popped > 0 && !placedChipped) {
+          placedChipped = true;
+          for (let dr = -1; dr <= 1; dr++)
+            for (let dc = -1; dc <= 1; dc++) {
+              if (dr === 0 && dc === 0) continue;
+              const nr = r0 + dr, nc = c0 + dc;
+              if (nr < 0 || nr >= ROWS || nc < 0 || nc >= COLS) continue;
+              if (grid[nr][nc] === CRACKER) {
+                const k = nr * COLS + nc;
+                hitCrackers.set(k, (hitCrackers.get(k) || 0) + 1);
+              }
+            }
+        }
         const boom = [];
         // consumed outright by the blast: no HP to take off, it is simply gone and owed for
         for (const [br, bc] of blasted.splice(0)) {
@@ -6511,6 +6602,7 @@
         q.className = "help-p"; q.innerHTML = html; body.appendChild(q); };
       sec("helpRules");
       par(d("helpRule1")); par(d("helpRule2")); par(d("helpRule3"));
+      par(d("helpCracker"));
       sec("helpItems");
       par(d("helpBird", itemNeed(BIRD_THRESHOLD), ITEM_SCORE.bird));
       par(d("helpLine", itemNeed(LINE_THRESHOLD), ITEM_SCORE.lineH));
@@ -8081,6 +8173,20 @@
         return target;
       },
     },
+    { // 5. the obstacle, and the only thing that removes it. Nothing in the game said how a
+      //    cracker breaks -- not the help, not the tutorial -- so players worked it out by
+      //    accident or not at all. Same shape as step 4 on purpose: the thing beside the
+      //    group goes off because your pop reached it.
+      text: "tut5",
+      setup() {
+        grid[4][5] = CRACKER; hp[4][5] = 1;       // a cracker sitting to the side
+        grid[4][2] = 3; grid[4][3] = 3;           // lemons that do NOT touch it
+        const target = [4, 4];                    // the ball you place lands next to it
+        tutScatter(9, ring(4, 4).concat(ring(4, 5), ring(4, 3)));
+        nextColor = 3; nextColor2 = 3;
+        return target;
+      },
+    },
   ];
 
   // `thenMode` null means it was opened from settings: finish back at the menu instead of
@@ -8448,10 +8554,84 @@
     showMenu();
   });
 
-  // The test dock places pieces straight onto the board and RETURNS before the queue is
-  // read, so an accidental tap on it silently replaces every placement with that item while
-  // the preview keeps showing the real next fruit. Dev-only from here: ?dev=1.
-  if (location.search.includes("dev=1")) document.getElementById("dock").classList.remove("hidden");
+  // ---- developer mode -------------------------------------------------------------------
+  // The test dock places pieces straight onto the board and RETURNS before the queue is read,
+  // so an accidental tap on it silently replaces every placement with that item while the
+  // preview keeps showing the real next fruit. It stays behind a code.
+  const DEV_CODE = "master", DEV_KEY = "fs_dev";
+  let devOn = false;
+  try { devOn = localStorage.getItem(DEV_KEY) === "1"; } catch (e) {}
+  if (location.search.includes("dev=1")) devOn = true;
+  const $dev = id => document.getElementById(id);
+  function paintDev() {
+    $dev("devdot").classList.toggle("on", devOn);
+    $dev("dev-locked").classList.toggle("hidden", devOn);
+    $dev("dev-open").classList.toggle("hidden", !devOn);
+    // locking puts the board back the way a player sees it
+    if (!devOn) {
+      $dev("dock").classList.add("hidden");
+      selectedItem = null;
+      document.querySelectorAll(".dock-btn").forEach(x => x.classList.remove("sel"));
+    }
+  }
+  function setDev(v) {
+    devOn = !!v;
+    try { localStorage.setItem(DEV_KEY, devOn ? "1" : "0"); } catch (e) {}
+    paintDev();
+  }
+  $dev("devdot").addEventListener("click", () => {
+    $dev("dev-code").value = ""; $dev("dev-msg").textContent = "";
+    $dev("devpanel").classList.remove("hidden");
+    paintDev();
+    if (!devOn) setTimeout(() => $dev("dev-code").focus(), 50);
+  });
+  const closeDev = () => $dev("devpanel").classList.add("hidden");
+  $dev("dev-x").addEventListener("click", closeDev);
+  $dev("dev-x2").addEventListener("click", closeDev);
+  const tryCode = () => {
+    if ($dev("dev-code").value.trim().toLowerCase() === DEV_CODE) { setDev(true); $dev("dev-msg").textContent = ""; }
+    else { $dev("dev-msg").textContent = "코드가 다릅니다"; buzz(20); }
+  };
+  $dev("dev-ok").addEventListener("click", tryCode);
+  $dev("dev-code").addEventListener("keydown", e => { if (e.key === "Enter") tryCode(); });
+  $dev("dev-lock").addEventListener("click", () => { setDev(false); closeDev(); });
+  $dev("dev-dock").addEventListener("click", () => {
+    $dev("dock").classList.toggle("hidden");
+    closeDev();
+  });
+  $dev("dev-coins").addEventListener("click", () => { addCoins(100); updateHUD(); });
+  // every relic in the game, by grade, granted on tap. Not the shop: the shop is a thing being
+  // tested, and a tester who wants a specific card should not have to reroll for it.
+  $dev("dev-relics").addEventListener("click", () => {
+    const open = $dev("dev-open");
+    const had = open.querySelector(".dev-pick");
+    if (had) { open.querySelectorAll(".dev-pick, .dev-tier").forEach(x => x.remove()); return; }
+    for (const t of TIER_KEYS) {
+      const ids = Object.keys(RELICS).filter(id => relicTier(RELICS[id]) === t);
+      if (!ids.length) continue;
+      const h = document.createElement("div");
+      h.className = "dev-tier"; h.textContent = TIERS[t].name + " (" + ids.length + ")";
+      open.appendChild(h);
+      const g = document.createElement("div");
+      g.className = "dev-pick";
+      for (const id of ids) {
+        const b = document.createElement("button");
+        b.appendChild(relicIcon(id, "inf-ic"));
+        b.title = RELICS[id].name;
+        b.addEventListener("click", () => {
+          if (relics.includes(id)) return;
+          relics.push(id);
+          if (RELICS[id].life) relicLife[id] = RELICS[id].life.amount;
+          applyRelics(); updateHUD(); buzz(10);
+          b.style.opacity = ".35";
+        });
+        g.appendChild(b);
+      }
+      open.appendChild(g);
+    }
+  });
+  paintDev();
+  if (devOn && location.search.includes("dev=1")) $dev("dock").classList.remove("hidden");
 
   loadBest();
   applyStaticText();   // fill every data-i18n before the first paint

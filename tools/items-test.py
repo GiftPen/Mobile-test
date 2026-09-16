@@ -661,6 +661,55 @@ window.addEventListener('load', async () => {
   chk('a cracker is worth its base score',
       plainBreak.score >= F.CRACKER_SCORE, true);
 
+  // ---- and the ball you PLACE chips too, whichever side the cracker is on ----
+  // The placed ball is cleared by finishBurst rather than by the frontier loop, so the 3x3
+  // scan that chips crackers never ran for it. A cracker touching ONLY the ball you put down
+  // survived -- 크래커|빈칸|레몬 with the ball in the middle was the report, and three of five
+  // layouts failed. Every arrangement where a pop lands next to a cracker must break it.
+  const layout = async (pre, tap) => {
+    F.mode = 'rush'; F.resetRun(); F.relics = []; F.applyRelics();
+    clearBoard();
+    let ck = null;
+    for (const [r, c, v] of pre) {
+      if (v === 'C') { F.grid[r][c] = F.CRACKER; F.hp[r][c] = 1; ck = [r, c]; }
+      else F.grid[r][c] = v;
+    }
+    F.nextColor = 3; F.nextColor2 = 3; F.busy = false;
+    const rr = cv.getBoundingClientRect();
+    const x = rr.left + (tap[1] + 0.5) * rr.width / F.COLS;
+    const y = rr.top + (tap[0] + 0.5) * rr.height / F.ROWS;
+    cv.dispatchEvent(new PointerEvent('pointerdown', {clientX:x, clientY:y, bubbles:true}));
+    cv.dispatchEvent(new PointerEvent('pointerup',   {clientX:x, clientY:y, bubbles:true}));
+    await settle();
+    return F.grid[ck[0]][ck[1]] !== F.CRACKER;
+  };
+  const survived = [];
+  const LAYOUTS = [
+    ['크래커|레몬|놓기',        [[4,1,'C'],[4,2,3]],          [4,3]],
+    ['놓기|레몬|크래커',        [[4,3,3],[4,4,'C']],          [4,2]],
+    ['크래커|놓기|레몬',        [[4,1,'C'],[4,3,3]],          [4,2]],
+    ['놓은 공에만 인접',        [[3,2,'C'],[5,2,3],[5,3,3]],  [4,2]],
+    ['놓은 공에만 대각 인접',   [[3,1,'C'],[4,3,3],[4,4,3]],  [4,2]],
+  ];
+  for (const [name, pre, tap] of LAYOUTS) if (!(await layout(pre, tap))) survived.push(name);
+  chk('어느 쪽에 붙어 있든 크래커는 부서진다', survived, []);
+  // ...but a ball that pops NOTHING must not chip anything either
+  chk('터지지 않은 공은 크래커를 건드리지 않는다',
+      await layout([[4,1,'C']], [4,2]), false);
+
+  // ---- a flock aims at crackers first, and no two birds at the same one ----
+  F.mode = 'rush'; F.resetRun(); F.relics = []; F.applyRelics();
+  clearBoard(); F.busy = false; F.birds.length = 0;
+  F.grid[0][0] = F.CRACKER; F.hp[0][0] = 1;
+  F.grid[0][7] = F.CRACKER; F.hp[0][7] = 1;
+  for (let c = 0; c < 8; c++) { F.grid[6][c] = 1; F.grid[7][c] = 2; }
+  for (let i = 0; i < 3; i++) F.spawnBird(7, 3);
+  const aims = F.birds.map(b => [b.tr, b.tc]);
+  chk('참새떼의 참새도 크래커를 먼저 노린다',
+      aims.filter(([r, c]) => F.grid[r][c] === F.CRACKER).length, 2);
+  chk('두 마리가 같은 칸을 노리지 않는다', new Set(aims.map(a => a.join())).size, aims.length);
+  F.birds.length = 0;
+
   const scored = await breakOne(['cracker_score']);
   chk('바삭한 한 입 adds its bonus', scored.score - plainBreak.score, 1000);
   const paid = await breakOne(['cracker_coin']);
@@ -1101,8 +1150,14 @@ window.addEventListener('load', async () => {
       cv.dispatchEvent(new PointerEvent('pointerdown', {clientX:x1, clientY:y1, bubbles:true}));
       cv.dispatchEvent(new PointerEvent('pointerup',   {clientX:x1, clientY:y1, bubbles:true}));
       await settle();
-      // not "the cell is empty": the turn's spawn can drop a fresh fruit into the hole
-      return { gone: F.grid[2][4] !== F.CRACKER, paid: F.score >= worth, coins: F.coins, grew: F.crackerValue() > worth };
+      // not "the cell is empty": the turn's spawn can drop a fresh fruit into the hole.
+      // `why` rides along because this check has failed intermittently for months and the
+      // bare false never said WHICH thing went wrong -- a cracker that survived a real pop is
+      // an engine bug, a tap that never landed is a harness one, and they look identical.
+      return { gone: F.grid[2][4] !== F.CRACKER, paid: F.score >= worth, coins: F.coins,
+               grew: F.crackerValue() > worth,
+               why: { at24: F.grid[2][4], hp24: F.hp[2][4], placed: F.grid[3][4], score: F.score,
+                      busy: F.busy, touches: F.touchesLeft, links: F.links.length } };
     } else {
       F.grid[4][4] = 0; F.special[4][4] = how;      // bomb / lineH / lineV / star on (4,4)
       const b2 = cv.getBoundingClientRect();
@@ -1121,7 +1176,7 @@ window.addEventListener('load', async () => {
   };
   for (const how of ['neighbour', 'bomb', 'lineH', 'lineV', 'bird']) {
     const r = await breakBy(how);
-    chk(`${how}: the cracker is gone`, r.gone, true);
+    chk(`${how}: the cracker is gone`, r.gone ? true : (r.why || 'no diagnostics'), true);
     chk(`${how}: it pays its score`, r.paid, true);
     chk(`${how}: 소금통 pays its coins`, r.coins >= 2, true);
     chk(`${how}: 크래커 왕 grows on it`, r.grew, true);
