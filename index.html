@@ -5914,18 +5914,14 @@
             for (let rr = 0; rr < ROWS; rr++)
               for (let cc = 0; cc < COLS; cc++)
                 if (!visited[rr][cc] && (all ? grid[rr][cc] >= 0 : grid[rr][cc] === target)) {
-                  // A cell carrying an ITEM is not a node on the constellation. Clearing it
-                  // here deleted the item without firing it: two stars on the board and using
-                  // one simply ate the other, because the star sees the fruit underneath and
-                  // takes it with everything on top. Reported by a tester, who read it exactly
-                  // right. It goes to the chain instead -- the same thing 가루 폭발 does -- so
-                  // it detonates in order, scores as an item and can set off what it touches.
-                  if (special[rr][cc]) {
-                    visited[rr][cc] = true;
-                    next.push({ r: rr, c: cc, d: Math.hypot(rr - r, cc - c),
-                                mode: "blast", color: grid[rr][cc] });
-                    continue;
-                  }
+                  // A star takes FRUIT. It used to take the cell with whatever was standing
+                  // on it, so an item sitting on a fruit of the target colour was deleted
+                  // without firing -- two stars on the board and using one destroyed the
+                  // other. Firing it instead would pay for it, but then one tap sets off both
+                  // stars and the player is left wondering why. It is left alone: the item
+                  // stays, the fruit under it stays, and you still have a star to spend.
+                  // Adjacency is untouched -- an item next to a pop goes off as it always did.
+                  if (special[rr][cc]) continue;
                   const col = grid[rr][cc];
                   visited[rr][cc] = true;
                   grid[rr][cc] = -1; special[rr][cc] = null; popped++;

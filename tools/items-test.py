@@ -1003,12 +1003,16 @@ window.addEventListener('load', async () => {
     chk('기다리는 상태가 실제로 쓰인다', waited + cached, 40);
   }
 
-  // ---- a star must not swallow another item ----
+  // ---- a star takes fruit, and leaves items alone ----
   // The sweep cleared every cell of the target colour and nulled its `special` with it, so an
-  // item sitting on a fruit of that colour was DELETED without ever firing: two stars on the
+  // item standing on a fruit of that colour was DELETED without ever firing: two stars on the
   // board and using one destroyed the other. A tester read it exactly right -- "별이 그 별을
-  // 품고 있는 과일을 가져간다". Measured before the fix: star, bomb and bird all scored an
-  // identical 1,252, which is the score with no second item at all.
+  // 품고 있는 과일을 가져간다". Measured then: star, bomb and bird as the second item all
+  // scored an identical 1,252, which is the score with no second item at all.
+  //
+  // Firing it instead would at least pay for it, but then one tap sets off both stars and the
+  // player is left asking why two went off when they used one. So the star leaves items where
+  // they are, with the fruit under them, and you still have a star to spend.
   {
     const withSecond = async (second) => {
       F.mode = 'rush'; F.resetRun(); F.relics = []; F.traits = []; F.applyRelics();
@@ -1021,19 +1025,20 @@ window.addEventListener('load', async () => {
       if (second) F.special[5][5] = second;
       F.tapItem(2, 2);
       await settle();
-      return F.score;
+      return { kept: F.special[5][5], under: F.grid[5][5], score: F.score };
     };
-    const none = await withSecond(null);
-    const star = await withSecond('star');
-    const bomb = await withSecond('bomb');
-    const bird = await withSecond('bird');
-    const paid = { star: star - none, bomb: bomb - none, bird: bird - none };
-    chk('별이 삼킨 아이템도 발동한다', Object.keys(paid).filter(k => paid[k] <= 0), []);
-    // and each one is worth ITS OWN value, not a shared consolation
-    chk('세 아이템이 서로 다른 값을 낸다',
-        new Set([paid.star, paid.bomb, paid.bird]).size, 3);
-    chk('별이 가장 크고 참새가 가장 작다',
-        paid.star > paid.bomb && paid.bomb > paid.bird, true);
+    const gone = [];
+    for (const kind of ['star', 'bomb', 'bird']) {
+      const r = await withSecond(kind);
+      if (r.kept !== kind) gone.push(`${kind}: ${r.kept}`);
+      if (r.under !== 3) gone.push(`${kind}: 아래 과일이 사라짐 (${r.under})`);
+    }
+    chk('별은 다른 아이템을 가져가지 않는다', gone, []);
+    // the star still does its job on plain fruit
+    const plain = await withSecond(null);
+    chk('그래도 같은 색 과일은 모두 가져간다',
+        F.grid.flat().filter(v => v === 3).length, 0);
+    chk('그리고 점수는 낸다', plain.score > 0, true);
   }
 
   // ---- the item you earn is the group you MADE, not what survived the chain ----
