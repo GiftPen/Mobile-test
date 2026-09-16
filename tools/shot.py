@@ -10,6 +10,7 @@ SCREENS = {
   # name: what to run inside the frame once it has loaded
   'menu':  "",
   'game':  "D.getElementById('btn-challenge').click();",
+  'arcade':"D.getElementById('btn-arcade').click();",
   'shop':  "D.getElementById('btn-challenge').click(); F.coins = 40; F.openShop();",
   'set':   "D.getElementById('btn-settings').click();",
 }
