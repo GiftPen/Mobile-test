@@ -5646,7 +5646,8 @@
     fruitSignature(r0, c0, color, visited, placedSig);
     for (const it of placedSig) frontier.push(it);
     flashBox(r0, c0, R, color);
-    runChain(r0, c0, color, visited, frontier, true);
+    // measured now, while the board is still the one the player was looking at
+    runChain(r0, c0, color, visited, frontier, true, placedGroupSize(r0, c0, color));
   }
 
   // tap an existing item bud to trigger it directly (FREE: no touch count, no spawn — strategic)
@@ -5687,8 +5688,34 @@
     sprouted[r][c] = 0;
   }
 
+  // How big the group you just completed IS, counted on the board BEFORE anything pops.
+  // The reward loop can only count cells that reach it, and an item firing inside your group
+  // clears its own cells directly -- the star worst of all, since it sweeps the whole board in
+  // one go and marks everything visited. Measured: a 12-lemon group with a star beside the ball
+  // paid out a LINE, because nine of those lemons were taken before they could be counted. What
+  // you earn is what you built. A star's board-wide extras are not connected to your group, so
+  // they still do not count and the anti-snowball rule stands.
+  function placedGroupSize(r0, c0, color) {
+    const seen = Array.from({ length: ROWS }, () => Array(COLS).fill(false));
+    const stack = [[r0, c0]];
+    seen[r0][c0] = true;
+    let n = 0;
+    while (stack.length) {
+      const [r, c] = stack.pop();
+      n++;
+      for (let dr = -BURST_RADIUS; dr <= BURST_RADIUS; dr++)
+        for (let dc = -BURST_RADIUS; dc <= BURST_RADIUS; dc++) {
+          const nr = r + dr, nc = c + dc;
+          if (nr < 0 || nr >= ROWS || nc < 0 || nc >= COLS) continue;
+          if (seen[nr][nc] || grid[nr][nc] !== color) continue;
+          seen[nr][nc] = true;
+          stack.push([nr, nc]);
+        }
+    }
+    return n;
+  }
   // run the chain from an initial frontier; placement=true means a ball was placed
-  function runChain(r0, c0, color, visited, initialFrontier, placement) {
+  function runChain(r0, c0, color, visited, initialFrontier, placement, ownGroup = 0) {
     busy = true; dirty = true;
     const R = BURST_RADIUS;
     let frontier = initialFrontier;
@@ -5767,7 +5794,7 @@
           for (let n = 0; n < broke; n++) crackerBroken();
         }
         if (boom.length) { frontier = boom; setTimeout(step, WAVE_STEP_MS); return; }
-        finishBurst(r0, c0, color, popped, chainPopped, placement, pointsPopped, visualEnd, coined);
+        finishBurst(r0, c0, color, popped, chainPopped, placement, pointsPopped, visualEnd, coined, ownGroup);
         return;
       }
       const next = [];
@@ -6042,7 +6069,7 @@
       }
   }
 
-  function finishBurst(r0, c0, color, popped, chainPopped, placement, pointsPopped, visualEnd = 0, coined = 0) {
+  function finishBurst(r0, c0, color, popped, chainPopped, placement, pointsPopped, visualEnd = 0, coined = 0, ownGroup = 0) {
     // the tutorial waits for the burst to finish so the player sees the result of what they
     // did before the next instruction replaces it
     if (tut) setTimeout(nextTutStep, Math.max(700, visualEnd - performance.now() + 700));
@@ -6055,7 +6082,8 @@
         streak++;
         const cleared = popped + 1;          // include the ball you placed
         // 포도 송이 counts toward items as well: a bulkier cluster earns them sooner
-        const chainCount = chainPopped + 1 + (color === 4 ? grapeBulk : 0);
+        // whichever is bigger: what the chain managed to count, or the group you actually made
+        const chainCount = Math.max(chainPopped + 1, ownGroup) + (color === 4 ? grapeBulk : 0);
         // per-fruit points (placed ball + all popped) × chain-size bonus × streak
         // The ball you placed pops in the zone like anything else: it was scoring the plain
         // fruit value and paying no zone coin, so placing INTO the bonus area -- the obvious

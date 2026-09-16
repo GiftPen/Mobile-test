@@ -1003,6 +1003,37 @@ window.addEventListener('load', async () => {
     chk('기다리는 상태가 실제로 쓰인다', waited + cached, 40);
   }
 
+  // ---- the item you earn is the group you MADE, not what survived the chain ----
+  // An item firing inside your group clears its own cells without them reaching the reward
+  // loop, and the star is the worst of them: it sweeps the whole board in one go and marks
+  // every cell visited. Measured on a 12-lemon group with a star beside the ball: the same
+  // group paid a LINE with the star there and a STAR without it. Reported by a tester, who
+  // watched a star eat the lemons that were going to earn them a star.
+  {
+    const BLOB = [[4,4],[3,4],[2,4],[1,4],[1,3],[2,3],[3,3],[4,3],[5,3],[6,3],[6,4]];
+    const TARGET = [5, 4];                       // adjacent to (4,4), where the star sits
+    const build = async (withStar) => {
+      F.mode = 'rush'; F.resetRun(); F.relics = []; F.traits = []; F.applyRelics();
+      clearBoard();
+      for (let r = 0; r < F.ROWS; r++) for (let c = 0; c < F.COLS; c++) F.coinCell[r][c] = 0;
+      F.busy = false; F.score = 0; F.streak = 0; F.touchesLeft = 30;
+      for (const [r, c] of BLOB) F.grid[r][c] = 3;
+      if (withStar) F.special[4][4] = 'star';
+      F.nextColor = 3; F.nextColor2 = 3;
+      const rr = cv.getBoundingClientRect();
+      const x = rr.left + (TARGET[1] + 0.5) * rr.width / F.COLS;
+      const y = rr.top + (TARGET[0] + 0.5) * rr.height / F.ROWS;
+      cv.dispatchEvent(new PointerEvent('pointerdown', {clientX:x, clientY:y, bubbles:true}));
+      cv.dispatchEvent(new PointerEvent('pointerup',   {clientX:x, clientY:y, bubbles:true}));
+      await settle();
+      return F.special[TARGET[0]][TARGET[1]] || null;
+    };
+    const plain = await build(false);
+    chk('12개 덩어리는 별을 만든다', plain, 'star');
+    const eaten = await build(true);
+    chk('별이 그 덩어리를 먼저 먹어도 결과는 같다', eaten, plain);
+  }
+
   // ---- what the bird prints is what the bird pays ----
   // A bird landing on a banana floated "60" and added 20; on a cherry it floated "10" and
   // added 20; on a cracker it floated nothing and added 100. The number was never the score,
@@ -1015,10 +1046,20 @@ window.addEventListener('load', async () => {
       for (let r = 0; r < F.ROWS; r++) for (let c = 0; c < F.COLS; c++) F.coinCell[r][c] = 0;
       F.busy = false; F.birds.length = 0; F.score = 0; F.floats.length = 0;
       put();
-      F.birds.push({ sr: 7, sc: 7, tr: 2, tc: 2, t: 0.9, curve: 1 });
-      for (let i = 0; i < 90 && F.birds.length; i++) { F.draw(); await sleep(16); }
-      const fl = F.floats.length ? F.floats[F.floats.length - 1] : null;
-      return { shown: fl ? fl.text : null, gained: F.score };
+      // The float is RECORDED as it is created, not read off the array afterwards. The game's
+      // own rAF loop runs alongside this one and ages a float 0.03 per frame, so ~33 frames
+      // after it appears it is gone -- which happened about once in twenty runs and looked
+      // exactly like "the bird printed nothing".
+      const seen = [];
+      const arr = F.floats, realPush = arr.push.bind(arr);
+      arr.push = (...a) => { if (a[0] && a[0].text != null) seen.push(a[0].text); return realPush(...a); };
+      try {
+        F.birds.push({ sr: 7, sc: 7, tr: 2, tc: 2, t: 0.9, curve: 1 });
+        for (let i = 0; i < 200 && F.birds.length; i++) { F.draw(); await sleep(16); }
+      } finally { arr.push = realPush; }
+      // a bird that never landed is a broken test, not a wrong number -- say which
+      if (F.birds.length) return { shown: 'the bird never landed', gained: F.score };
+      return { shown: seen.length ? seen[seen.length - 1] : null, gained: F.score };
     };
     const banana = await birdEats(() => { F.grid[2][2] = 6; });
     chk('참새가 바나나를 먹으면 화면 숫자 = 실제 점수',
@@ -1565,7 +1606,7 @@ open('_it.html','w',encoding='utf-8').write(
 out = subprocess.run(['/Applications/Google Chrome.app/Contents/MacOS/Google Chrome',
     '--headless','--disable-gpu','--no-first-run','--window-size=430,932',
     '--virtual-time-budget=90000','--dump-dom','http://localhost:8899/_it.html?test=1'],
-    capture_output=True, text=True, timeout=180).stdout
+    capture_output=True, text=True, timeout=420).stdout
 os.remove('_it.html')
 m = re.search(r'RESULT (\{.*?\})</title>', out, re.S)
 if not m:
