@@ -20,6 +20,22 @@ window.addEventListener('load', () => setTimeout(async () => {
     cv.dispatchEvent(new PointerEvent('pointerup',   {clientX:x, clientY:y, bubbles:true}));
   };
   const settle = async ms => { for (let i = 0; i < Math.ceil(ms/16); i++) { F.draw(); await sleep(16); } };
+  // steps 6 and 7 are about the bar under the board: arm the item, place it, and for the bomb
+  // tap it again to set it off. Tapping the cell alone is refused on those steps, by design.
+  const answerStep = async () => {
+    const st = F.TUT_STEPS[F.tut.i], t = F.tut.target;
+    if (!t) return;
+    if (st.buy) {
+      const btn = document.querySelector('#ishop .ib[data-item="' + st.buy + '"]');
+      if (!btn || btn.disabled) return;
+      btn.click();
+      await settle(80);
+      tapCell(t[0], t[1]);                       // put it down
+      if (!st.advanceOnPlace) { await settle(200); tapCell(t[0], t[1]); }   // and fire it
+    } else {
+      tapCell(t[0], t[1]);
+    }
+  };
   const hidden = id => getComputedStyle(document.getElementById(id)).visibility === 'hidden';
 
   try { localStorage.removeItem(F.TUT_KEY); } catch (e) {}
@@ -58,8 +74,9 @@ window.addEventListener('load', () => setTimeout(async () => {
   const walked = [];
   for (let guard = 0; guard < F.TUT_STEPS.length + 3 && F.tut; guard++) {
     const t = F.tut.target; if (!t) { await settle(200); continue; }
-    for (let i = 0; i < 5; i++) tapCell(t[0], t[1]);
     for (let r = 0; r < 3; r++) for (let c = 0; c < 3; c++) tapCell(r, c);
+    if (F.TUT_STEPS[F.tut.i].buy) await answerStep();
+    else for (let i = 0; i < 5; i++) tapCell(t[0], t[1]);
     await settle(2300);
     walked.push(F.tut ? F.tut.i : 'end');
   }
@@ -81,6 +98,7 @@ window.addEventListener('load', () => setTimeout(async () => {
   // how many cells each step places by hand; the rest has to be scattered around it
   const SCRIPTED = [2, 8, 5, 3, 3];
   const mismatched = [], sparse = [], stepsSeen = [], crackerLeft = [];
+  const barHidden = [], notBought = [];
   for (let guard = 0; guard < F.TUT_STEPS.length + 3 && F.tut; guard++) {
     const i = F.tut.i;
     stepsSeen.push(i);
@@ -95,7 +113,12 @@ window.addEventListener('load', () => setTimeout(async () => {
     for (let r = 0; r < F.ROWS; r++) for (let c = 0; c < F.COLS; c++)
       if (F.grid[r][c] === F.CRACKER) ck.push([r, c]);
     const t = F.tut.target.slice();
-    tapCell(t[0], t[1]);
+    // a step that teaches the bar has to SHOW the bar, and buying has to actually happen --
+    // without this the check could pass by quietly doing nothing on those two steps
+    const buying = F.TUT_STEPS[i].buy, purse = F.coins;
+    if (buying && hidden('ishop')) barHidden.push('step ' + i);
+    await answerStep();
+    if (buying && F.coins >= purse) notBought.push('step ' + i + ' (' + buying + ')');
     let cracked = !ck.length;
     for (let w = 0; w < 250 && F.tut && F.tut.i === i; w++) {
       if (ck.length && F.grid[ck[0][0]][ck[0][1]] !== F.CRACKER) cracked = true;
@@ -107,6 +130,8 @@ window.addEventListener('load', () => setTimeout(async () => {
   chk('the preview always shows the fruit that will land', mismatched, []);
   chk('every board looks like a real one, not a diagram', sparse, []);
   chk('크래커를 가르치는 단계에서 크래커가 실제로 부서진다', crackerLeft, []);
+  chk('아이템을 가르치는 단계에서 아이템 바가 보인다', barHidden, []);
+  chk('그리고 실제로 구매가 일어난다', notBought, []);
 
   chk('it finishes', F.tut, null);
   chk('the panel is gone', document.getElementById('tut').classList.contains('hidden'), true);

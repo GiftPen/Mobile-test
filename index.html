@@ -48,6 +48,9 @@
     --gold-b: #ffe9a0;       /* the number itself, one step brighter */
     --gold-bg: #3a3316;      /* behind an armed/selected gold control */
     --met: #43d17a;          /* quota met -- the one green that is not a fruit colour here */
+    /* the glow on a 유니크/전설 card, which has to follow its grade colour */
+    --sh-unique: 255,201,60;  --sh-unique2: 255,243,190;
+    --sh-legend: 78,240,200;  --sh-legend2: 214,255,244;
     --t2-hi: #ffffff;        /* the STAR half of the title */
     --t2-lo: #c9cede;
     --text: #e8eaf2;
@@ -312,6 +315,8 @@
      belong to a game that has not started yet, and reading them is not the thing being taught */
   body.tut-on #rush, body.tut-on #stats, body.tut-on #ishop,
   body.tut-on #rush-next { visibility: hidden; }
+  /* ...except on the steps that are ABOUT the bar */
+  body.tut-on.tut-shop #ishop { visibility: visible; }
   #tut { position: fixed; left: 0; right: 0; bottom: 0; z-index: 26; pointer-events: none;
     display: flex; flex-direction: column; align-items: center; gap: 10px; padding: 0 16px 18px; }
   #tut.hidden { display: none; }
@@ -513,6 +518,8 @@
     --scrim: rgba(52,36,18,.74);
     --gold: #8a5a12; --gold-b: #5e3c08; --gold-bg: #f2dfb2;
     --met: #1c7a45;
+    --sh-unique: 194,24,91;  --sh-unique2: 216,27,96;
+    --sh-legend: 0,121,107;  --sh-legend2: 0,150,136;
     --t2-hi: #3b2a14; --t2-lo: #6f5527;
     --text: #2a1d10; --muted: #7a6a52;
   }
@@ -531,6 +538,8 @@
     --scrim: rgba(10,45,60,.74);
     --gold: #0f6c8a; --gold-b: #084e63; --gold-bg: #d2ecf5;
     --met: #0f7a4b;
+    --sh-unique: 194,24,91;  --sh-unique2: 216,27,96;
+    --sh-legend: 0,121,107;  --sh-legend2: 0,150,136;
     --t2-hi: #10323f; --t2-lo: #3c6474;
     --text: #15323d; --muted: #5c7784;
   }
@@ -552,6 +561,8 @@
     --scrim: rgba(20,32,56,.74);
     --gold: #b4761a; --gold-b: #8a5a12; --gold-bg: #f2e2c4;
     --met: #17713f;
+    --sh-unique: 194,24,91;  --sh-unique2: 216,27,96;
+    --sh-legend: 0,121,107;  --sh-legend2: 0,150,136;
     --t2-hi: #17202f; --t2-lo: #4a5877;
     --text: #17202f; --muted: #5d6a85;
   }
@@ -701,8 +712,8 @@
     background: linear-gradient(155deg, rgba(var(--sh), .30) 0%, var(--card) 58%);
     box-shadow: 0 0 0 1px rgba(var(--sh), .6), 0 0 22px rgba(var(--sh), .36);
     animation: pulseTop 2.1s ease-in-out infinite; }
-  .offer.shine-unique { --sh: 255,201,60;  --sh2: 255,243,190; }
-  .offer.shine-legend { --sh: 78,240,200;  --sh2: 214,255,244; }
+  .offer.shine-unique { --sh: var(--sh-unique); --sh2: var(--sh-unique2); }
+  .offer.shine-legend { --sh: var(--sh-legend); --sh2: var(--sh-legend2); }
   .offer.shine-top::after { animation-duration: 1.9s;
     background: linear-gradient(115deg, transparent 30%, rgba(var(--sh2), .34) 50%, transparent 70%); }
   .offer.shine-top .of-ic { animation: topIcon 2.1s ease-in-out infinite; }
@@ -710,6 +721,8 @@
     background: linear-gradient(90deg, rgb(var(--sh)) 0%, rgb(var(--sh2)) 45%, rgb(var(--sh)) 90%);
     background-size: 220% 100%; -webkit-background-clip: text; background-clip: text;
     -webkit-text-fill-color: transparent; animation: tierShimmer 2.4s linear infinite; }
+  html[data-theme] .offer.shine-top .of-tier {
+    background: none; -webkit-text-fill-color: initial; animation: none; }
   /* Legendary is a 1% draw against unique's 3%, so it cannot just be unique in another
      colour. It gets a second, COUNTER-ROTATING layer the unique does not have, a harder
      breath, and an icon that turns as it swells -- three things you can see at a glance
@@ -779,6 +792,10 @@
      was one pixel over, and a price that spills is a price you cannot trust */
   .of-price { font-size: clamp(11px, 3.4vw, 13px); }
   .of-price.nofit { color: #ff8fa3; }
+  /* why this one cannot be bought, under the price rather than on top of it */
+  .of-state { font-size: clamp(9px, 2.8vw, 11px); font-weight: 800; color: #a5122a;
+    letter-spacing: .5px; margin-top: 2px; padding: 1px 8px; border-radius: 999px;
+    background: rgba(200, 40, 70, .16); }
   .shop-empty { padding: 14px; text-align: center; color: var(--muted); font-size: 13px; }
 
   /* ---- info popup: what am I carrying, and what are the odds right now ---- */
@@ -2685,7 +2702,7 @@
       itemBird: "참새가 생겼습니다 — 크래커와 막힌 과일을 쪼아냅니다",
       expired: name => `${name} 효과가 끝났습니다`,
       shopEmpty: "더 살 유물이 없습니다", soldOut: "품절",
-      noRoom: price => `🪙 ${price} · 칸 없음`,
+      noSlot: "칸 없음",
       sellFor: n => `팔기 +🪙${n}`,
       noScalable: "2배로 만들 수 있는 특성이 없습니다",
       doubled: "2배",
@@ -2785,6 +2802,8 @@
       helpRun3: "라운드가 끝나면 <b>특성</b>을 하나 고릅니다. 목표를 일찍 채우면 남은 터치만큼 코인을 더 받습니다.",
       tut4: "아이템은 바로 옆에서 과일이 터져도 함께 발동합니다. 빛나는 칸에 놓아보세요",
       tut5: "크래커는 바로 옆에서 과일이 터지면 부서집니다",
+      tut6: "아래 바에서 과일 바구니를 사서 빈 칸에 놓아보세요. 판이 다시 채워집니다",
+      tut7: "폭탄도 사서 놓을 수 있습니다. 놓은 뒤 탭해 터뜨려보세요",
       reviveAd: "▶ 광고 보고 이어하기 · 판의 1/4 정리",
       adRewarded: "보상형 광고 (샘플)",
       adInterstitial: "전면 광고 (샘플)",
@@ -3081,7 +3100,7 @@
       itemBird: "Sparrow ready — pecks crackers and stuck fruit",
       expired: name => `${name} has worn off`,
       shopEmpty: "Nothing left to buy", soldOut: "Sold out",
-      noRoom: price => `🪙 ${price} · no slot`,
+      noSlot: "No slot",
       sellFor: n => `Sell +🪙${n}`,
       noScalable: "Nothing on offer can be doubled",
       doubled: "×2",
@@ -3181,6 +3200,8 @@
       helpRun3: "At the end of a round you pick a <b>trait</b>. Finish early and the touches you did not use pay out as coins.",
       tut4: "An item also goes off when fruit pops right beside it. Place on the glowing cell",
       tut5: "A cracker breaks when fruit pops right beside it",
+      tut6: "Buy a Fruit Basket from the bar below and place it. The board fills back up",
+      tut7: "You can buy a bomb too. Place it, then tap it to set it off",
       reviveAd: "▶ Watch an ad to continue · clears 1/4 of the board",
       adRewarded: "Rewarded ad (sample)",
       adInterstitial: "Interstitial ad (sample)",
@@ -3476,7 +3497,7 @@
       itemBird: "スズメができました — クラッカーをつつきます",
       expired: name => `${name} の効果が切れました`,
       shopEmpty: "買えるレリックがありません", soldOut: "売り切れ",
-      noRoom: price => `🪙 ${price} · 枠なし`,
+      noSlot: "枠なし",
       sellFor: n => `売る +🪙${n}`,
       noScalable: "2倍にできる特性がありません",
       doubled: "×2",
@@ -3576,6 +3597,8 @@
       helpRun3: "ラウンドの終わりに<b>特性</b>を1つ選びます。早く達成すると残りタッチ分のコインがもらえます。",
       tut4: "アイテムはすぐ隣でフルーツが割れても発動します。光るマスに置いてみましょう",
       tut5: "クラッカーはすぐ隣でフルーツが弾けると壊れます",
+      tut6: "下のバーでフルーツバスケットを買って空きマスに置いてみましょう。盤が埋まります",
+      tut7: "爆弾も買えます。置いてからタップして爆発させましょう",
       reviveAd: "▶ 広告を見て続ける · 盤面の1/4を整理",
       adRewarded: "リワード広告 (サンプル)",
       adInterstitial: "インタースティシャル広告 (サンプル)",
@@ -3871,7 +3894,7 @@
       itemBird: "生成了麻雀 — 啄掉挡路的饼干",
       expired: name => `${name} 的效果已结束`,
       shopEmpty: "没有可买的遗物了", soldOut: "已售罄",
-      noRoom: price => `🪙 ${price} · 没有格子`,
+      noSlot: "没有格子",
       sellFor: n => `卖出 +🪙${n}`,
       noScalable: "没有可以翻倍的特性",
       doubled: "×2",
@@ -3971,6 +3994,8 @@
       helpRun3: "每轮结束选择一个<b>特性</b>。提前达成，剩余触摸会换成金币。",
       tut4: "旁边的水果被消除时道具也会发动。放在发光的格子上",
       tut5: "饼干会在紧邻的水果爆开时碎裂",
+      tut6: "在下方栏买一个水果篮放到空格。棋盘会重新填满",
+      tut7: "炸弹也能买。放下后点一下就会爆炸",
       reviveAd: "▶ 看广告继续 · 清理盘面 1/4",
       adRewarded: "激励广告 (样例)",
       adInterstitial: "插屏广告 (样例)",
@@ -4234,12 +4259,25 @@
   // common relics quietly pushed rare from 72% a shop down to 55% -- every addition diluted
   // every other grade. Pick the grade first, then a relic inside it, and the pool can grow
   // without moving these numbers: only WHICH legendary changes, never how often one appears.
+  // A grade's colour is worn by its card border, its label, and its shelf in the book, and it
+  // was one palette for every theme. Measured against a cream card: 유니크 1.48:1 and 전설
+  // 1.38:1 -- not dimmed, GONE -- and none of the five reached 3:1. So the palette joins the
+  // theme contract. The dark set is the one the game shipped with, untouched; the paper set is
+  // the same five ideas at a weight that survives a light card, and 유니크 leaves gold behind,
+  // which it was sharing with money anyway.
+  const TIER_HUES = {
+    dark:  { common: "#8a93ad", uncommon: "#5fa8ff", epic: "#c48bff", unique: "#ffc93c", legend: "#4ef0c8" },
+    paper: { common: "#6a7183", uncommon: "#1565c0", epic: "#7b2ec8", unique: "#c2185b", legend: "#00796b" },
+  };
+  // hex, not a CSS variable: these are concatenated with an alpha suffix for the borders, and
+  // getComputedStyle would hand back rgb() and break that
+  const tierHue = k => TIER_HUES[theme === "dark" ? "dark" : "paper"][k];
   const TIERS = {
-    common:   { get name() { return d("tierCommon"); },   odds: 50, color: "#8a93ad" },
-    uncommon: { get name() { return d("tierUncommon"); }, odds: 33, color: "#5fa8ff" },
-    epic:     { get name() { return d("tierEpic"); },     odds: 13, color: "#c48bff" },
-    unique:   { get name() { return d("tierUnique"); },   odds:  3, color: "#ffc93c" },
-    legend:   { get name() { return d("tierLegend"); },   odds:  1, color: "#4ef0c8" },
+    common:   { get name() { return d("tierCommon"); },   odds: 50, get color() { return tierHue("common"); } },
+    uncommon: { get name() { return d("tierUncommon"); }, odds: 33, get color() { return tierHue("uncommon"); } },
+    epic:     { get name() { return d("tierEpic"); },     odds: 13, get color() { return tierHue("epic"); } },
+    unique:   { get name() { return d("tierUnique"); },   odds:  3, get color() { return tierHue("unique"); } },
+    legend:   { get name() { return d("tierLegend"); },   odds:  1, get color() { return tierHue("legend"); } },
   };
   // Price IS the grade: a relic cannot be priced like an epic and shine like a legendary.
   // Every price in the game goes through here, so a discount cannot apply to the charge and
@@ -5119,10 +5157,20 @@
       return;
     }
     if (armedItem) {                       // a bought item goes down instead of a fruit
-      placeBoughtItem(r, c);
+      if (!tutAllows(r, c)) { buzz(8); return; }
+      const step = tut && TUT_STEPS[tut.i];
+      // the basket has no burst to wait for -- it just fills the board -- so this step has to
+      // move itself along. The bomb step does not: it waits for the bang.
+      if (placeBoughtItem(r, c) && step && step.advanceOnPlace) {
+        tut.target = null;
+        setTimeout(nextTutStep, 1100);
+      }
       return;
     }
     if (!tutAllows(r, c)) { buzz(8); return; }            // tutorial: one legal tap at a time
+    // a step about the bar cannot be answered by planting a fruit -- but the bomb you already
+    // put down still has to be tappable, so only the empty cell is refused
+    if (tut && TUT_STEPS[tut.i] && TUT_STEPS[tut.i].buy && grid[r][c] === -1) { buzz(8); return; }
     // Spend the target the moment it is used. The burst finishes before nextTutStep fires, and
     // in that gap `busy` is already false while the target still points at the cell -- which is
     // now empty, so a second tap planted another fruit, queued another advance, and the
@@ -6388,19 +6436,24 @@
       // you would be buying. The full shelf is said on the price line instead.
       const ds = document.createElement("span"); ds.className = "of-desc"; ds.textContent = R.desc;
       const pr = document.createElement("span");
-      pr.className = "of-price" + (full ? " nofit" : "");
+      pr.className = "of-price";
+      // "몇 터치 남는 것인지" is the number a consumable is JUDGED by, and it lived on the
+      // price line -- so a full shelf, which wrote its own message there, erased it. The price
+      // line is now only ever the price and the duration; why you cannot buy it goes below.
       const life = R.life ? ` · ${R.life.amount}${lifeUnitLabel(R.life.unit)}` : "";
-      if (sold || full) {
-        setCoinText(pr, sold ? d("soldOut") : d("noRoom", priceOf(R)));
-      } else {
-        setCoinText(pr, `🪙 ${priceOf(R)}${life}`);
-        if (priceOf(R) !== R.price) {          // 단골: show what it was, struck through
-          const was = document.createElement("s");
-          was.className = "of-was"; was.textContent = R.price;
-          pr.insertBefore(was, pr.firstChild);
-        }
+      setCoinText(pr, `🪙 ${priceOf(R)}${life}`);
+      if (!sold && priceOf(R) !== R.price) {   // 단골: show what it was, struck through
+        const was = document.createElement("s");
+        was.className = "of-was"; was.textContent = R.price;
+        pr.insertBefore(was, pr.firstChild);
       }
       card.append(gr, nm, ic, ds, pr);
+      if (sold || full) {
+        const st = document.createElement("span");
+        st.className = "of-state";
+        st.textContent = sold ? d("soldOut") : d("noSlot");
+        card.appendChild(st);
+      }
       card.addEventListener("click", () => buyRelic(id));
       wrap.appendChild(card);
     }
@@ -8238,6 +8291,29 @@
         return target;
       },
     },
+    { // 6. The bar under the board is a shop, and nothing taught it -- players either found
+      //    it by poking or never spent a coin all run. The basket goes first: it cannot be
+      //    used wrongly, and what it does is visible in one frame.
+      text: "tut6",
+      buy: "basket", advanceOnPlace: true,
+      setup() {
+        tutScatter(4, ring(4, 4));           // a near-empty board, so the refill IS the lesson
+        coins = 60;
+        nextColor = 0; nextColor2 = 0;
+        return [4, 4];
+      },
+    },
+    { // 7. ...and a bought bomb is a bomb: buy it, put it down, set it off. Two taps on the
+      //    same cell, so the target does not move between them.
+      text: "tut7",
+      buy: "bomb",
+      setup() {
+        tutScatter(14, ring(4, 4));
+        coins = 60;
+        nextColor = 0; nextColor2 = 0;
+        return [4, 4];
+      },
+    },
   ];
 
   // `thenMode` null means it was opened from settings: finish back at the menu instead of
@@ -8262,6 +8338,8 @@
     glow = layer(null); appear = layer(0); ghost = layer(null);
     const step = TUT_STEPS[tut.i];
     tut.target = step.setup();
+    document.body.classList.toggle("tut-shop", !!step.buy);
+    if (step.buy) { armedItem = null; renderItemShop(); }
     // the step sets nextColor by hand, so the preview has to be told -- otherwise it keeps
     // showing whatever the last pickNext() rolled and the fruit that lands is not the one
     // the player was looking at
@@ -8274,7 +8352,7 @@
     const then = tut ? tut.then : "rush";
     tut = null;
     $sh("tut").classList.add("hidden");
-    document.body.classList.remove("tut-on");
+    document.body.classList.remove("tut-on", "tut-shop");
     if (completed) { try { localStorage.setItem(TUT_KEY, "1"); } catch (e) {} }
     if (then) { start(then); return; }
     running = false; busy = false;
@@ -8385,6 +8463,10 @@
     if (!THEMES.includes(t)) return;
     theme = t; applyTheme();
     try { localStorage.setItem("fs_theme", t); } catch (e) {}
+    // grade colours are per theme now, so anything already drawn has to be drawn again
+    if (!$sh("shop").classList.contains("hidden")) renderShop();
+    if (!$sh("traits").classList.contains("hidden")) renderTraits();
+    if (!$sh("book").classList.contains("hidden")) renderBook();
   }
   applyTheme();
 

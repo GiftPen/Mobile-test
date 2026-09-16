@@ -770,6 +770,34 @@ window.addEventListener('load', async () => {
   const marked = cards.map(c => !!c.querySelector('.of-temp'));
   chk('the temporary one is marked on its grade, the permanent one is not', marked, [true, false]);
 
+  // ---- a full shelf must not erase how long a consumable lasts ----
+  // The state message was written INTO the price line, which is also where the duration lives,
+  // so the moment the shelf filled up "20터치" disappeared -- and that is the number a
+  // consumable is judged by. Reported by a tester.
+  {
+    F.mode = 'rush'; F.resetRun(); F.relics = []; F.traits = []; F.applyRelics();
+    const room = () => F.relicCap() - F.relics.length;
+    const pool = Object.keys(F.RELICS).filter(id => !F.RELICS[id].life);
+    F.shopOffers = ['teapot', 'pinch']; F.shopSold = new Set(); F.coins = 999;
+    F.renderShop();
+    const priceOf = () => document.querySelector('#sh-offers .offer .of-price').textContent;
+    const stateOf = () => { const e = document.querySelector('#sh-offers .offer .of-state');
+                            return e ? e.textContent : ''; };
+    const openPrice = priceOf();
+    chk('칸이 남아 있으면 이유 표시가 없다', stateOf(), '');
+    chk('그때 지속시간이 가격 줄에 있다',
+        openPrice.includes(F.lifeUnitLabel('stages')), true);
+    let guard = 0;
+    while (room() > 0 && guard++ < 40) { F.relics.push(pool[F.relics.length]); F.applyRelics(); }
+    F.renderShop();
+    chk('칸이 차면 이유가 표시된다', stateOf().length > 0, true);
+    chk('그래도 지속시간은 그대로 보인다',
+        priceOf().includes(F.lifeUnitLabel('stages')) ? true : priceOf(), true);
+    chk('가격도 그대로 보인다',
+        priceOf().includes(String(F.RELICS.teapot.price)) ? true : priceOf(), true);
+    F.relics = []; F.applyRelics();
+  }
+
   // ---- selling asks, and the question can be answered "no" ----
   F.relics = ['pinch']; F.applyRelics();
   $('shop').classList.remove('hidden');
@@ -881,6 +909,9 @@ window.addEventListener('load', async () => {
       probe.style.color = `var(${name})`;
       return getComputedStyle(probe).color;
     };
+    // TIERS[].color is a hex string, and lum() only understands the digits inside rgb(...):
+    // given "#4ef0c8" it read 4, 0 and 8. Everything compared goes through the probe first.
+    const asRGB = (c) => { probe.style.color = c; return getComputedStyle(probe).color; };
     const was = F.theme;
     const bad = [];
     for (const t of F.THEMES) {
@@ -926,6 +957,18 @@ window.addEventListener('load', async () => {
       // a small control must not vanish into the surface it sits on
       if (ratio(chip, readVar('--sheet')) < 1.04 && ratio(readVar('--chip-edge'), chip) < 1.3)
         shell.push(`${t}: 칩이 판과 같은 색인데 테두리도 없음`);
+      // A grade's colour is the only thing on a shop card that says how rare it is. One
+      // palette served every theme, and against a cream card 유니크 measured 1.48:1 and
+      // 전설 1.38:1 -- not dim, absent. None of the five reached 3:1 on paper.
+      for (const k of F.TIER_KEYS) {
+        const r = ratio(asRGB(F.TIERS[k].color), readVar('--card'));
+        if (r < 3.0) shell.push(`${t}: ${k} 등급색 ${r.toFixed(1)}:1`);
+      }
+      // and they still have to tell each other apart
+      for (const a of F.TIER_KEYS) for (const b of F.TIER_KEYS) {
+        if (a >= b) continue;
+        if (F.TIERS[a].color === F.TIERS[b].color) shell.push(`${t}: ${a}/${b} 등급색이 같음`);
+      }
       // the canvas cannot read a variable, so draw() holds a copy -- it must be this theme's
       probe.style.color = F.PLATE.bg;
       const held = getComputedStyle(probe).color;
