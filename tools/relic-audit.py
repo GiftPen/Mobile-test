@@ -10,7 +10,7 @@ window.addEventListener('load', () => setTimeout(() => {
   const F = window.__fs;
   const LIVE_MODIFY = ['pop'];
   const LIVE_EVENTS = ['onPop','onFruitPop','onTurn','onSpawn','onStageStart','onRunStart'];
-  const report = { dead: [], badHook: [], capped: [], dupes: [], noDesc: [], gated: [] };
+  const report = { dead: [], badHook: [], capped: [], dupes: [], noDesc: [], gated: [], inert: [] };
 
   // What a PLAYER can observe in one stage -- not internal variables. The first version of
   // this audit read zoneBonus directly, so 측량 looked fine: the variable moved while the
@@ -80,6 +80,47 @@ window.addEventListener('load', () => setTimeout(() => {
     }
   }
 
+  // ---- a cracker payoff card has to make crackers ----
+  // "크래커를 부수면 점수 +300" is not a dead card by the test above -- it moves a channel --
+  // but the channel does nothing unless crackers exist, and in 스타 러시 they only exist
+  // because a relic makes them. Measured: 57% of runs were offered a payoff card before
+  // anything that spawns one, at a median of stage 3. Owning it alone must produce crackers.
+  for (const id of Object.keys(F.RELICS)) {
+    fresh();
+    F.relics = [id]; F.applyRelics();
+    const pays = F.crackerBonus > 0 || F.crackerMult > 1 || F.crackerCoin > 0 ||
+                 F.crackerTouch > 0;
+    if (!pays) continue;
+    const makes = F.crackerChance > 0 || F.crackerEvery;
+    if (!makes) report.inert.push(id + ': 크래커 보상만 있고 등장이 없음');
+    // and the card must not lie about the number. Changing the two together is two edits, and
+    // the first pass at 2/3/4/5 moved the descriptions and left the values at 4/5/6/8 -- every
+    // card promising a rate it did not deliver, and nothing to notice it.
+    const said = String(F.RELICS[id].desc).match(/(\d+)\s*%/);
+    if (said) {
+      const promised = +said[1] / 100;
+      if (Math.abs(promised - F.crackerChance) > 1e-9)
+        report.inert.push(`${id}: 카드는 ${said[1]}%, 실제 ${(F.crackerChance*100).toFixed(0)}%`);
+    }
+    // ...and the guarantee is a FLOOR, not a contribution. Summed, the forced cracker build
+    // hit a 77% spawn rate, filled the board with pieces nothing could clear, and a tree that
+    // ran to stage 31 died at stage 4. Owning every payoff card must not raise the rate above
+    // what the single most generous one promises.
+    if (makes && !F.crackerEvery) {
+      fresh();
+      F.relics = ['crumb_plate','cracker_score','mill','cracker_coin','oven'].filter(x => F.RELICS[x]);
+      F.applyRelics();
+      const all = F.crackerChance;
+      let solo = 0;
+      for (const one of F.relics.slice()) {
+        fresh(); F.relics = [one]; F.applyRelics();
+        if (F.crackerChance > solo) solo = F.crackerChance;
+      }
+      if (all > solo + 1e-9 && !report.inert.some(x => x.startsWith('합산')))
+        report.inert.push(`합산됨: 보상 카드 전부 = ${(all*100).toFixed(0)}%, 가장 큰 한 장 = ${(solo*100).toFixed(0)}%`);
+    }
+  }
+
   // relics with identical descriptions at different prices are confusing, not broken
   const byDesc = {};
   for (const id of Object.keys(F.RELICS)) {
@@ -130,11 +171,12 @@ if not m:
     print('NO RESULT', t.group(1)[:200] if t else ''); sys.exit(1)
 r = json.loads(m.group(1)); rep = r['report']
 LABEL = {'dead': '효과를 관찰할 수 없음', 'badHook': '엔진이 부르지 않는 훅',
+         'inert': '보상만 있고 조건을 못 만듦',
          'capped': '상한에 먹혀 의미 없음', 'dupes': '설명이 같은 유물',
          'noDesc': '설명 없음', 'gated': '선행 조건 있음 (의도됨)'}
 bad = 0
 print(f"유물 {r['total']}종 감사")
-for k in ['dead','badHook','capped','noDesc','dupes','gated']:
+for k in ['dead','badHook','capped','inert','noDesc','dupes','gated']:
     v = rep[k]
     mark = 'ok' if not v else ('참고' if k in ('dupes','gated') else '■')
     print(f"  {LABEL[k]:<26}{len(v):>3}건  {mark}")

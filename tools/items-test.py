@@ -1003,6 +1003,39 @@ window.addEventListener('load', async () => {
     chk('기다리는 상태가 실제로 쓰인다', waited + cached, 40);
   }
 
+  // ---- a star must not swallow another item ----
+  // The sweep cleared every cell of the target colour and nulled its `special` with it, so an
+  // item sitting on a fruit of that colour was DELETED without ever firing: two stars on the
+  // board and using one destroyed the other. A tester read it exactly right -- "별이 그 별을
+  // 품고 있는 과일을 가져간다". Measured before the fix: star, bomb and bird all scored an
+  // identical 1,252, which is the score with no second item at all.
+  {
+    const withSecond = async (second) => {
+      F.mode = 'rush'; F.resetRun(); F.relics = []; F.traits = []; F.applyRelics();
+      clearBoard();
+      for (let r = 0; r < F.ROWS; r++) for (let c = 0; c < F.COLS; c++) F.coinCell[r][c] = 0;
+      F.busy = false; F.score = 0; F.streak = 0; F.touchesLeft = 30;
+      for (const [r, c] of [[2,2],[2,3],[3,2],[3,3],[5,5],[5,6],[6,5],[6,6],[4,0],[0,7]])
+        F.grid[r][c] = 3;
+      F.special[2][2] = 'star';
+      if (second) F.special[5][5] = second;
+      F.tapItem(2, 2);
+      await settle();
+      return F.score;
+    };
+    const none = await withSecond(null);
+    const star = await withSecond('star');
+    const bomb = await withSecond('bomb');
+    const bird = await withSecond('bird');
+    const paid = { star: star - none, bomb: bomb - none, bird: bird - none };
+    chk('별이 삼킨 아이템도 발동한다', Object.keys(paid).filter(k => paid[k] <= 0), []);
+    // and each one is worth ITS OWN value, not a shared consolation
+    chk('세 아이템이 서로 다른 값을 낸다',
+        new Set([paid.star, paid.bomb, paid.bird]).size, 3);
+    chk('별이 가장 크고 참새가 가장 작다',
+        paid.star > paid.bomb && paid.bomb > paid.bird, true);
+  }
+
   // ---- the item you earn is the group you MADE, not what survived the chain ----
   // An item firing inside your group clears its own cells without them reaching the reward
   // loop, and the star is the worst of them: it sweeps the whole board in one go and marks
