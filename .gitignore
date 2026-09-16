@@ -1,0 +1,3 @@
+# test harnesses write a copy of the page next to it and delete it again; a crash
+# mid-run leaves one behind, and it must never be committed
+_*.html

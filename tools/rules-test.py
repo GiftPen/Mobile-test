@@ -1746,6 +1746,48 @@ window.addEventListener('load', () => setTimeout(() => {
     schk('building a theme does not make it rarer', t2 >= t0 * 0.95, true);
     F.relics = []; F.applyRelics();
 
+    // ---- every fruit can start a build ----
+    // Seven fruits, and the shop has to be able to open a build around any of them. Four
+    // ladders matter: a flat +N, a pile that grows every time you pop it, a multiplier, and
+    // odds. 오렌지/키위/복숭아 shipped with no pile card at all -- three of the seven could not
+    // compound without 착즙기 -- and nothing noticed, because no test asked the question.
+    {
+      const AIMED = 3;   // more fruits than this and the card is a blanket, not an identity
+      F.mode = 'rush'; F.resetRun(); F.relics = []; F.applyRelics();
+      const read = () => ({ flat: F.fruitFlat.slice(), mult: F.fruitMult.slice(),
+                            crown: F.fruitCrown.slice(), odds: F.oddsMult.slice() });
+      const base = read();
+      const ladder = { flat: [], pile: [], mult: [], odds: [] };
+      for (let i = 0; i < 7; i++) for (const k in ladder) ladder[k].push(0);
+      for (const id of Object.keys(F.RELICS)) {
+        const R = F.RELICS[id];
+        F.mode = 'rush'; F.resetRun(); F.relics = [id]; F.applyRelics();
+        const now = read();
+        const hit = { flat: [], mult: [], odds: [], pile: [] };
+        for (let i = 0; i < 7; i++) {
+          if (now.flat[i] !== base.flat[i]) hit.flat.push(i);
+          if (now.mult[i] !== base.mult[i] || now.crown[i] !== base.crown[i]) hit.mult.push(i);
+          if (now.odds[i] !== base.odds[i]) hit.odds.push(i);
+        }
+        if (R.onFruitPop) {
+          const was = F.fruitStack.slice();
+          for (let c = 0; c < 7; c++) R.onFruitPop({ color: c, cleared: 3, score: 100 });
+          for (let i = 0; i < 7; i++) if (F.fruitStack[i] !== was[i]) hit.pile.push(i);
+        }
+        for (const k in hit)
+          if (hit[k].length && hit[k].length <= AIMED) for (const i of hit[k]) ladder[k][i]++;
+      }
+      const holes = [];
+      const FRN = ['체리','오렌지','키위','레몬','포도','복숭아','바나나'];
+      for (const k of Object.keys(ladder))
+        for (let i = 0; i < 7; i++) if (!ladder[k][i]) holes.push(`${FRN[i]}: ${k} 유물 없음`);
+      // 착즙기 and 한 줌 hit all seven, so counting them would call every hole filled -- the
+      // first version of this test did exactly that and passed while three fruits had nothing.
+      // Only a card aimed at a fruit (or a pair) opens a build around it.
+      schk('일곱 과일 모두 고정·누적·배율·확률 유물을 가진다', holes, []);
+      F.mode = 'rush'; F.resetRun(); F.relics = []; F.applyRelics();
+    }
+
     // the grade odds are shown to the player, so they must survive the lean untouched.
     // Late enough that every grade is open -- 유니크 and 전설 do not exist in round 1.
     F.mode = 'rush'; F.resetRun();

@@ -47,8 +47,6 @@
                                 light themes darken it rather than lose it */
     --gold-b: #ffe9a0;       /* the number itself, one step brighter */
     --gold-bg: #3a3316;      /* behind an armed/selected gold control */
-    --coin-bg: rgba(255,190,40,.12);
-    --coin-edge: rgba(255,190,60,.35);
     --t2-hi: #ffffff;        /* the STAR half of the title */
     --t2-lo: #c9cede;
     --text: #e8eaf2;
@@ -139,7 +137,7 @@
   body.coin-art .cn { width: 1.15em; height: 1.15em; vertical-align: -.22em;
                       background: var(--coin-url) center/contain no-repeat; }
   body.coin-art .cn::before { content: ""; }
-  .chip.coin { color: var(--gold); background: var(--coin-bg); border: 1px solid var(--coin-edge); }
+  .chip.coin { color: var(--gold); background: var(--chip); border: 1px solid var(--chip-edge); }
   .chip.coin b { color: var(--gold-b); }
   .chip.coin.bump { animation: coinBump .22s ease-out; }
   @keyframes coinBump { 0% { transform: scale(1); } 45% { transform: scale(1.22); } 100% { transform: scale(1); } }
@@ -457,7 +455,6 @@
     --board: #4a3826; --board-cell: #5e4a35;
     --scrim: rgba(52,36,18,.74);
     --gold: #8a5a12; --gold-b: #5e3c08; --gold-bg: #f2dfb2;
-    --coin-bg: rgba(170,115,20,.14); --coin-edge: rgba(130,88,14,.42);
     --t2-hi: #3b2a14; --t2-lo: #6f5527;
     --text: #2a1d10; --muted: #7a6a52;
   }
@@ -475,7 +472,6 @@
     --board: #14485c; --board-cell: #1e5c73;
     --scrim: rgba(10,45,60,.74);
     --gold: #0f6c8a; --gold-b: #084e63; --gold-bg: #d2ecf5;
-    --coin-bg: rgba(15,108,138,.12); --coin-edge: rgba(15,108,138,.38);
     --t2-hi: #10323f; --t2-lo: #3c6474;
     --text: #15323d; --muted: #5c7784;
   }
@@ -496,7 +492,6 @@
     --board: #2c3a56; --board-cell: #3c4d6e;
     --scrim: rgba(20,32,56,.74);
     --gold: #b4761a; --gold-b: #8a5a12; --gold-bg: #f2e2c4;
-    --coin-bg: rgba(180,118,26,.13); --coin-edge: rgba(140,92,20,.40);
     --t2-hi: #17202f; --t2-lo: #4a5877;
     --text: #17202f; --muted: #5d6a85;
   }
@@ -587,6 +582,13 @@
   }
   .shop-title { font-size: 17px; font-weight: 800; color: var(--head-ink); }
   .shop-title b { color: var(--ink-coin); }
+  /* the purse rides ON the awning, which is the one surface in the shop that is neither sheet
+     nor card. It takes the reroll button's paper so that "what I have" and "what it costs"
+     are the same shape, and so it survives a light awning. */
+  .shop-head .chip.coin {
+    background: var(--card); border: 1px solid var(--card-edge); box-shadow: var(--card-lift);
+    color: var(--ink-coin); font-size: 14px; padding: 5px 12px; }
+  .shop-head .chip.coin b { color: var(--ink-coin); font-size: 15px; }
   /* cards, laid out 2 + 1 for three offers and 2 + 2 for four (a "+1 offer" trait later) */
   .offer-grid { display: flex; flex-wrap: wrap; gap: 10px; justify-content: center; }
   .offer { width: calc(50% - 5px); display: flex; flex-direction: column; align-items: center;
@@ -2494,6 +2496,9 @@
         peach_half: "복숭아 반쪽",
         peach_taste: "복숭아 명인",
         piggy_cherry: "체리 저금통",
+        marmalade: "마멀레이드",
+        kiwi_puree: "키위 퓌레",
+        peach_can: "복숭아 통조림",
         pinch: "한 줌",
         prism: "프리즘",
         quarry: "제과 공장",
@@ -2883,6 +2888,9 @@
         peach_half: "Peach Half",
         peach_taste: "Peach Master",
         piggy_cherry: "Cherry Piggybank",
+        marmalade: "Marmalade",
+        kiwi_puree: "Kiwi Purée",
+        peach_can: "Canned Peach",
         pinch: "A Pinch",
         prism: "Prism",
         quarry: "Biscuit Works",
@@ -3272,6 +3280,9 @@
         peach_half: "もも半分",
         peach_taste: "もも名人",
         piggy_cherry: "さくらんぼ貯金箱",
+        marmalade: "マーマレード",
+        kiwi_puree: "キウイピューレ",
+        peach_can: "桃の缶詰",
         pinch: "ひとつまみ",
         prism: "プリズム",
         quarry: "製菓工場",
@@ -3660,6 +3671,9 @@
         peach_half: "半个桃子",
         peach_taste: "桃子名家",
         piggy_cherry: "樱桃存钱罐",
+        marmalade: "橙子果酱",
+        kiwi_puree: "猕猴桃泥",
+        peach_can: "黄桃罐头",
         pinch: "一撮",
         prism: "棱镜",
         quarry: "点心工厂",
@@ -4361,6 +4375,17 @@
     banana_cellar: { icon: "🏺", price: 18,
       desc: () => d("stackOnPop", 6, 5),
       onFruitPop: p => { if (p.color === 6) fruitStack[6] += 5; } },
+    marmalade: { icon: "🍯", price: 15,
+      desc: () => d("stackOnPop", 1, 2),
+      onFruitPop: p => { if (p.color === 1) fruitStack[1] += 2; } },
+    // the same card as 마멀레이드, two coins dearer: 키위 measures as the strongest tree in
+    // the game by a distance, so its rung is priced above the rest of the ladder
+    kiwi_puree: { icon: "🥣", price: 17,
+      desc: () => d("stackOnPop", 2, 2),
+      onFruitPop: p => { if (p.color === 2) fruitStack[2] += 2; } },
+    peach_can: { icon: "🥫", price: 16,
+      desc: () => d("stackOnPop", 5, 3),
+      onFruitPop: p => { if (p.color === 5) fruitStack[5] += 3; } },
 
     // ---- 일반: cheap, modest, always worth something ----
     dust: { icon: "🪙", price: 3,
