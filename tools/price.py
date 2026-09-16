@@ -22,6 +22,7 @@ def opt(n, d, cast=int): return cast(A[A.index(n) + 1]) if n in A else d
 TOUCHES = opt('--touches', 60)
 SEEDS   = opt('--seeds', 3)
 OUT     = A[A.index('--out') + 1] if '--out' in A else '/tmp/price.json'
+SHOP    = '--shop' in A          # let the bot spend, so coin relics can show what money buys
 WITH    = A[A.index('--with') + 1].split(',') if '--with' in A else []
 _consumed = {OUT} | set(WITH) | ({A[A.index('--with') + 1]} if '--with' in A else set())
 ONLY    = [a for a in A if not a.startswith('--') and not a.isdigit() and a not in _consumed]
@@ -88,7 +89,40 @@ window.addEventListener('load', () => setTimeout(async () => {
     let taps = 0, guard = 0;
     while (F.running && taps < TOUCHES && guard++ < TOUCHES * 6) {
       if (shown('traits')) { F.pickTrait(F.traitOffers[0]); await sleep(15); continue; }
-      if (shown('shop'))   { F.closeShop(); await sleep(20); await settle(); continue; }
+      if (shown('shop')) {
+        // --shop: let the coins be SPENT. A coin relic is worth whatever the coins buy, and
+        // nothing else in this bench can convert them -- without this, every coin card reads
+        // x1.00 because the money just sits there. The shelf is fixed for a given seed, so
+        // what changes between two runs is only what the extra money could reach.
+        if (window.__SHOP) {
+          for (let k = 0; k < 8; k++) {
+            const can = F.shopOffers.filter(id => !F.shopSold.has(id)
+              && F.coins >= F.priceOf(F.RELICS[id]) && F.relics.length < F.relicCap());
+            if (!can.length) break;
+            can.sort((a, b) => F.priceOf(F.RELICS[b]) - F.priceOf(F.RELICS[a]));
+            F.buyRelic(can[0]);
+            await sleep(8);
+          }
+        }
+        F.closeShop(); await sleep(20); await settle();
+        // ...and once the shelf is full, money has only one place left to go. Without this the
+        // coin cards still read x1.00 after the eighth relic: the coins pile up and buy
+        // nothing. Items are the sink a real run actually uses.
+        if (window.__SHOP) {
+          for (let k = 0; k < 12; k++) {
+            const kinds = Object.keys(F.ITEM_PRICES)
+              .filter(t => F.canBuyItem(t))
+              .sort((a, b) => F.itemPrice(b) - F.itemPrice(a));
+            if (!kinds.length) break;
+            const free = F.emptyCells();
+            if (!free.length) break;
+            F.armItem(kinds[0]);
+            if (!F.placeBoughtItem(free[0][0], free[0][1])) break;
+            await sleep(8);
+          }
+        }
+        continue;
+      }
       if (shown('pause'))  { $('btn-resume').click(); await sleep(20); continue; }
       const cell = bestCell();
       if (!cell) break;
@@ -105,7 +139,7 @@ window.addEventListener('load', () => setTimeout(async () => {
       // whole budget before a sweep could finish.
       if (F.touchCount > was) taps++;
     }
-    const out = { score: F.score, coins: F.coins, stage: F.stage, taps };
+    const out = { score: F.score, coins: F.coins, stage: F.stage, taps, relics: F.relics.length };
     // NOT showMenu(): the menu's background animation runs on a timer and eats random numbers
     // between runs, which is the same leak by another route
     F.gameOver('bench'); await sleep(30);
@@ -118,7 +152,8 @@ window.addEventListener('load', () => setTimeout(async () => {
   const med = v => { const a = v.slice().sort((p, q) => p - q); return a[a.length >> 1]; };
   const baseScore = med(base.map(r => r.score));
   const baseCoins = med(base.map(r => r.coins));
-  rows.push({ id: '(기준선)', price: 0, score: baseScore, coins: baseCoins, gain: 1 });
+  rows.push({ id: '(기준선)', price: 0, score: baseScore, coins: baseCoins, gain: 1,
+              bought: med(base.map(r => r.relics)) });
 
   for (const id of IDS) {
     const runs = [];
@@ -126,7 +161,7 @@ window.addEventListener('load', () => setTimeout(async () => {
     const sc = med(runs.map(r => r.score)), co = med(runs.map(r => r.coins));
     rows.push({ id, price: F.priceOf(F.RELICS[id]), tier: F.relicTier(F.RELICS[id]),
                 score: sc, coins: co, gain: baseScore ? sc / baseScore : 0,
-                coinGain: co - baseCoins });
+                coinGain: co - baseCoins, bought: med(runs.map(r => r.relics)) });
   }
   document.title = 'RESULT ' + JSON.stringify(rows);
  } catch (e) { document.title = 'THREW ' + (e && e.message) + '|' + String(e && e.stack || '').slice(0, 200); }
@@ -138,7 +173,8 @@ def run(ids):
     page = f'_price-{os.getpid()}.html'
     src = open('index.html', encoding='utf-8').read()
     head = (f"<script>window.__TOUCHES={TOUCHES};window.__SEEDS={SEEDS};"
-            f"window.__WITH={json.dumps(WITH)};window.__IDS={json.dumps(ids)};</script>")
+            f"window.__WITH={json.dumps(WITH)};window.__SHOP={'true' if SHOP else 'false'};"
+            f"window.__IDS={json.dumps(ids)};</script>")
     # the seed has to be installed BEFORE the game's own script tag, not appended after it
     src = src.replace('<body', SEED_JS + '<body', 1)
     open(page, 'w', encoding='utf-8').write(src.replace('</body>', head + TEST + '</body>'))
@@ -177,8 +213,8 @@ for i in range(0, len(ids), BATCH):
     json.dump(rows, open(OUT, 'w'), ensure_ascii=False)
     print(f"  {min(i+BATCH, len(ids))}/{len(ids)}", flush=True)
 print(f"씨앗 {SEEDS}개 × {TOUCHES}터치 · 기준선 {rows[0]['score']:,}점")
-print(f"\n{'유물':<18}{'등급':>7}{'가격':>5}{'점수':>11}{'배수':>7}{'코인':>6}")
+print(f"\n{'유물':<18}{'등급':>7}{'가격':>5}{'점수':>11}{'배수':>7}{'코인':>6}{'보유':>5}")
 for r in sorted(rows[1:], key=lambda r: -r['gain']):
     print(f"{r['id']:<18}{r.get('tier',''):>7}{r['price']:>5}{r['score']:>11,}"
-          f"{r['gain']:>7.2f}{r.get('coinGain',0):>+6}")
+          f"{r['gain']:>7.2f}{r.get('coinGain',0):>+6}{r.get('bought',0):>5.0f}")
 print(f"\n원자료 -> {OUT}")

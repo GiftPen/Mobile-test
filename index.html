@@ -910,7 +910,13 @@
   // drawn on -- invisible under the art, so "I popped one lemon" could bank two and there was
   // no way to see why. It pays its own flat price instead, graded by what it does, and the
   // fruit underneath scores nothing and feeds no ledger.
-  const ITEM_SCORE = { bird: 30, lineH: 60, lineV: 60, lineX: 100, bomb: 120, star: 200 };
+  // x5 across the board. The old numbers were readable at round 1 (a bomb was 11% of the
+  // first quota) and meaningless by round 10 (0.006% of it). Five times over does not fix the
+  // late game -- only something that scales would -- but it makes the middle worth playing
+  // for, and it raises the ceiling on what coins are FOR: items are the one sink that never
+  // fills up, and a coin bench showed relics stop buying anything once the eighth slot is
+  // taken.
+  const ITEM_SCORE = { bird: 150, lineH: 300, lineV: 300, lineX: 500, bomb: 600, star: 1000 };
   // The swoop used to advance a fixed amount per FRAME: ~0.9s at 60Hz and half that on a
   // 120Hz phone, which read as a dart rather than a swoop. Wall clock, and slower.
   const BIRD_FLY_MS = 1050;
