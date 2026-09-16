@@ -1003,6 +1003,34 @@ window.addEventListener('load', async () => {
     chk('기다리는 상태가 실제로 쓰인다', waited + cached, 40);
   }
 
+  // ---- what the bird prints is what the bird pays ----
+  // A bird landing on a banana floated "60" and added 20; on a cherry it floated "10" and
+  // added 20; on a cracker it floated nothing and added 100. The number was never the score,
+  // which is why a player watching one land could not tell what they had got -- reported as
+  // "두 개가 거의 동시에 일어나서 점수를 모르겠다", but it was wrong on its own too.
+  {
+    const birdEats = async (put) => {
+      F.mode = 'rush'; F.resetRun(); F.relics = []; F.traits = []; F.applyRelics();
+      clearBoard();
+      for (let r = 0; r < F.ROWS; r++) for (let c = 0; c < F.COLS; c++) F.coinCell[r][c] = 0;
+      F.busy = false; F.birds.length = 0; F.score = 0; F.floats.length = 0;
+      put();
+      F.birds.push({ sr: 7, sc: 7, tr: 2, tc: 2, t: 0.9, curve: 1 });
+      for (let i = 0; i < 90 && F.birds.length; i++) { F.draw(); await sleep(16); }
+      const fl = F.floats.length ? F.floats[F.floats.length - 1] : null;
+      return { shown: fl ? fl.text : null, gained: F.score };
+    };
+    const banana = await birdEats(() => { F.grid[2][2] = 6; });
+    chk('참새가 바나나를 먹으면 화면 숫자 = 실제 점수',
+        banana.shown, String(banana.gained));
+    chk('그 점수는 참새 고정 점수다', banana.gained, F.BIRD_SCORE);
+    const cherry = await birdEats(() => { F.grid[2][2] = 0; });
+    chk('체리도 마찬가지다', cherry.shown, String(cherry.gained));
+    const cracker = await birdEats(() => { F.grid[2][2] = F.CRACKER; F.hp[2][2] = 1; });
+    chk('크래커도 숫자를 띄운다', cracker.shown, String(cracker.gained));
+    chk('그리고 그 값은 크래커 값이다', cracker.gained > F.BIRD_SCORE, true);
+  }
+
   // ---- arming the vertical line must not lay it back down ----
   // Two rules, one property: .ib.armed .ib-ic set a scale, which REPLACED the rotate on
   // .ib-ic.turn90, so the moment you picked up the vertical line its icon turned horizontal.

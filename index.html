@@ -7015,12 +7015,15 @@
 
   // a fruit's own points, at its own cell, in its own colour -- the "ingredients" beat.
   // The multiplied total lands separately once the whole chain has finished.
-  function popScoreText(r, c, colorIdx, pts) {
-    if (!(colorIdx >= 0)) return;
+  function popScoreText(r, c, colorIdx, pts, hex) {
+    // a cracker has no colour index, so its number was dropped. Inside a chain that is right --
+    // the group total at the origin already covers it -- but a bird eats one on its own, and
+    // then the only number it could show was no number at all.
+    if (!(colorIdx >= 0) && pts == null) return;
     floats.push({
       x: pad + c * cell + cell / 2, y: pad + r * cell + cell / 2,
       text: fmtShort(pts == null ? fruitScore(colorIdx) : pts),  // the number that actually scores
-      color: POP_COLORS[colorIdx] || "#fff", t: 0,
+      color: hex || POP_COLORS[colorIdx] || "#fff", t: 0,
     });
   }
 
@@ -7955,15 +7958,21 @@
             if (isCracker) SFX.play("cracker");
             if (beak) addCoins(1, f.tr, f.tc);
             burst(f.tr, f.tc, isJunk ? "#9aa0b5" : col);   // crackers burst grey, as they do elsewhere
-            if (!isJunk) popScoreText(f.tr, f.tc, col);
             // ...and saying so was all it did. A 크래커 왕 build that used its own bird lost the
             // cracker's score, 소금통's coins and the growth -- 20 flat points for a 100+ piece.
+            // The NUMBER it floated was wrong too, in every case: it printed the fruit's own
+            // value while paying a flat 20 (a banana said 60 and paid 20, a cherry said 10 and
+            // paid 20) and a cracker printed nothing while paying 100+. A player watching a
+            // bird land had no way to know what they got. It shows what it pays.
             if (isCracker) {
-              addScore(crackerValue());
+              const worth = crackerValue();
+              addScore(worth);
+              popScoreText(f.tr, f.tc, col, worth, "#cfd6e6");
               if (crackerCoin) addCoins(crackerCoin, f.tr, f.tc);
               crackerBroken();
             } else {
               addScore(BIRD_SCORE);
+              if (!isJunk) popScoreText(f.tr, f.tc, col, BIRD_SCORE);
               // 참새떼: the bird does not just clear the cell, it feeds that fruit for the rest
               // of the run. Turns a card that DELETED value into one that banks it.
               if (birdFeed && col >= 0) { fruitStack[col] += birdFeed; updateHUD(); }
