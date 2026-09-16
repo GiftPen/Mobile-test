@@ -281,6 +281,9 @@
   .ib:disabled .ib-p { color: #8a93ad; }
   .ib.armed { border-color: var(--gold); background: var(--gold-bg); }
   .ib.armed .ib-ic { transform: scale(1.12); }
+  /* one property, two rules: arming the vertical line replaced its rotate with a scale, so the
+     icon lay back down the moment you picked it up. The armed state has to carry the turn. */
+  .ib.armed .ib-ic.turn90 { transform: rotate(90deg) scale(1.12); }
   /* A portrait game cannot force rotation from the web, so it says so. Keyed on HEIGHT, not
      orientation: a tablet in landscape (820 tall) plays fine, a phone in landscape (390) does
      not. Also catches Flip flex mode and cover screens, which are short for the same reason. */
@@ -606,6 +609,29 @@
   #shop { position: fixed; inset: 0; z-index: 12; background: rgba(8,9,15,.9); backdrop-filter: blur(5px);
     display: flex; align-items: center; justify-content: center; padding: 18px; }
   #shop.hidden { display: none; }
+  /* Clearing a stage cut straight to the shop between two frames, which reads as a jump
+     rather than as going somewhere. The scrim fades, the counter rises into it, and a card
+     that comes up from below is a door opening rather than a screen swapping. */
+  #shop:not(.hidden), #traits:not(.hidden) { animation: scrimIn .22s ease-out; }
+  #shop:not(.hidden) .shop-card, #traits:not(.hidden) .shop-card {
+    animation: shopIn .3s cubic-bezier(.2, .9, .3, 1.1); }
+  @keyframes scrimIn { from { opacity: 0; } to { opacity: 1; } }
+  @keyframes shopIn { from { opacity: 0; transform: translateY(18px) scale(.95); }
+                      to   { opacity: 1; transform: none; } }
+  /* the beat in between: what you just finished, and what it paid */
+  #stageclear { position: fixed; inset: 0; z-index: 11; display: flex; flex-direction: column;
+    align-items: center; justify-content: center; gap: 8px; pointer-events: none;
+    animation: clearIn .5s ease-out both; }
+  #stageclear.hidden { display: none; }
+  #stageclear.out { animation: clearOut .22s ease-in both; }
+  .sc-t { font-size: 27px; font-weight: 900; color: #43d17a; letter-spacing: .5px;
+    text-shadow: 0 2px 2px rgba(0,0,0,.7), 0 4px 18px rgba(0,0,0,.65); }
+  .sc-s { font-size: 16px; font-weight: 800; color: #ffd23e;
+    text-shadow: 0 2px 2px rgba(0,0,0,.7), 0 3px 12px rgba(0,0,0,.7); }
+  @keyframes clearIn { 0% { opacity: 0; transform: scale(.86); }
+                       55% { opacity: 1; transform: scale(1.04); }
+                       100% { opacity: 1; transform: scale(1); } }
+  @keyframes clearOut { to { opacity: 0; transform: scale(1.07); } }
   /* The shop used to be the same dark navy as the board, so leaving the board did not feel
      like going anywhere. It is a warm paper counter now -- and the relic art was DRAWN on
      white, so it sits better here than it ever did on the dark. */
@@ -865,9 +891,9 @@
     <div class="info-card">
       <div class="info-tabs">
         <button class="itab on" data-tab="fruits" data-i18n="tabOdds">🍊 확률</button>
-        <button class="itab" data-tab="relics" data-i18n="tabRelics">📜 유물</button>
-        <button class="itab" data-tab="traits" data-i18n="tabTraits">✨ 특성</button>
-        <button class="itab" data-tab="help" data-i18n="tabHelp">❔ 도움말</button>
+        <button class="itab" data-tab="relics" data-i18n="tabRelics">유물</button>
+        <button class="itab" data-tab="traits" data-i18n="tabTraits">특성</button>
+        <button class="itab" data-tab="help" data-i18n="tabHelp">도움말</button>
       </div>
       <div class="fade-wrap"><div id="info-body" class="noscroll"></div></div>
       <button id="info-close" class="ghost-btn" data-i18n="btnClose">닫기</button>
@@ -881,7 +907,7 @@
         <span>
           <button id="tr-info" class="ghost-btn">📜</button>
           <button id="tr-reroll" class="ghost-btn"><span class="rr">↻</span> <i class="cn"></i><b id="tr-reroll-cost">3</b></button>
-          <button id="tr-double" class="ghost-btn hidden"><span data-i18n="doubleChip">✨ 2배</span> <b id="tr-double-n">1</b></button>
+          <button id="tr-double" class="ghost-btn hidden"><span data-i18n="doubleChip">2배</span> <b id="tr-double-n">1</b></button>
         </span>
       </div>
       <div id="tr-offers"></div>
@@ -895,7 +921,7 @@
       </div>
       <div id="sh-offers" class="offer-grid"></div>
       <div class="shop-actions">
-        <button id="sh-info" class="ghost-btn"><span data-i18n="myRelics">📜 내 유물</span> <b id="sh-slots">0/5</b></button>
+        <button id="sh-info" class="ghost-btn"><span data-i18n="myRelics">내 유물</span> <b id="sh-slots">0/5</b></button>
         <button id="sh-reroll" class="ghost-btn"><span class="rr">↻</span> <i class="cn"></i><b id="sh-reroll-cost">3</b></button>
         <button id="sh-next" data-i18n="btnClose">닫기</button>
       </div>
@@ -943,6 +969,10 @@
     <div id="rs-timed"></div>
   </div>
 
+  <div id="stageclear" class="hidden" aria-hidden="true">
+    <div class="sc-t" id="sc-title"></div>
+    <div class="sc-s" id="sc-sub"></div>
+  </div>
   <div id="coinfx" aria-hidden="true"></div>
   <div id="banner" class="hidden">AD</div>
   <div id="stage-wrap">
@@ -2636,28 +2666,29 @@
       tipItem_lineV: (p, sc) => `<b>세로줄</b> · ${p}코인<br>놓고 탭하면 그 세로줄을 전부 청소합니다. 발동 시 +${sc}점.`,
       tipItem_basket: (p) => `<b>과일 바구니</b> · ${p}코인<br>판에 과일을 한 번에 채웁니다. 판이 비어 다음 수가 없을 때 쓰세요.`,
       tipItem_bomb: (p, sc) => `<b>폭탄</b> · ${p}코인<br>놓고 탭하면 주변을 통째로 날립니다. 발동 시 +${sc}점.`,
-      tipItem_star: (p, sc) => `<b>별</b> · ${p}코인<br>놓고 탭하면 같은 색을 별자리로 이어 정리하고 코인을 떨굽니다. 발동 시 +${sc}점.`, tabRelics: "📜 유물", tabTraits: "✨ 특성",
-      traitPick: "특성 선택", doubleChip: "✨ 2배", myRelics: "📜 내 유물", prep: "준비",
+      tipItem_star: (p, sc) => `<b>별</b> · ${p}코인<br>놓고 탭하면 같은 색을 별자리로 이어 정리하고 코인을 떨굽니다. 발동 시 +${sc}점.`, tabRelics: "유물", tabTraits: "특성",
+      traitPick: "특성 선택", doubleChip: "2배", myRelics: "내 유물", prep: "준비",
       best: "최고", stage: "스테이지", score: "점수", scoreBest: (a, b) => `점수 ${a} · 최고 ${b}`,
       touchChip: "👆 터치", spawnChip: "➕ 매턴", danger: "⚠️ 위험!",
       goal: "목표", goalMet: "목표 달성 ✓", touchesLeft: "남은 터치",
       nextStage: "다음 스테이지 ▶", testDock: "테스트",
+      stageDone: label => `${label} 클리어`,
       rotateTitle: "세로로 돌려주세요", rotateSub: "화면이 낮아 판이 다 들어가지 않습니다",
       hintPlace: "빈 칸을 탭해 과일을 놓으세요",
       hintArcade: "같은 색 과일 옆(3×3)에 놓아 터뜨리세요",
       hintStage: (label, quota, touches) => `${label} — 목표 ${quota}점 · 터치 ${touches}회`,
       hintArmed: "빈 칸을 탭해 놓으세요 (다시 누르면 취소)",
       hintTestDock: "테스트: 빈 칸을 탭해 설치",
-      itemStar: "🌟 별 — 탭! 같은 색을 별자리로 잇습니다",
-      itemBomb: "💣 폭탄 — 탭! 5×5 대폭발",
-      itemLine: "↔️ 라인 — 탭! 한 줄 청소",
-      itemBird: "🐦 참새 — 탭! 크래커와 걸리는 과일을 쪼아냅니다",
-      expired: (icon, name) => `${icon} ${name} 효과가 끝났습니다`,
+      itemStar: "별이 생겼습니다 — 같은 색을 모두 잇습니다",
+      itemBomb: "폭탄이 생겼습니다 — 둘레 5×5를 터뜨립니다",
+      itemLine: "라인이 생겼습니다 — 한 줄을 지웁니다",
+      itemBird: "참새가 생겼습니다 — 크래커와 막힌 과일을 쪼아냅니다",
+      expired: name => `${name} 효과가 끝났습니다`,
       shopEmpty: "더 살 유물이 없습니다", soldOut: "품절",
       noRoom: price => `🪙 ${price} · 칸 없음`,
       sellFor: n => `팔기 +🪙${n}`,
       noScalable: "2배로 만들 수 있는 특성이 없습니다",
-      doubled: "✨2배",
+      doubled: "2배",
       relicCount: (n, cap) => `유물 ${n} / ${cap}칸`,
       relicOver: n => ` · ${n}개 비활성`,
       noRelics: "아직 유물이 없습니다", noTraits: "아직 특성이 없습니다",
@@ -2681,7 +2712,7 @@
       tut3: "크게 터뜨리면 아이템이 생깁니다. 폭탄을 탭해 터뜨리세요",
       tutSkip: "건너뛰기",
       tutReplay: "튜토리얼 다시 보기",
-      tabHelp: "❔ 도움말",
+      tabHelp: "도움말",
       crackerMult: n => `크래커 점수 ×${n1(n)}`,
       cracker: "크래커",
       everyTouch: "매 터치",
@@ -2689,7 +2720,7 @@
       coinToScore: n => `스테이지를 클리어할 때 보유 코인 1개당 점수 +${n}`,
       goldMine: (z, c) => `보너스 영역 +${z}칸 · 영역 안에서 터뜨리면 코인 +${c} · 코인 과일 확률 +5%p`,
       goldenCity: (z, c) => `보너스 영역 +${z}칸 · 영역 안에서 터뜨리면 코인 +${c} · 영역 점수 ×2 · 코인 과일 확률 +10%p`,
-      itemBasket: n => `🧺 과일 바구니 — 판에 과일 ${n}개를 채웁니다`,
+      itemBasket: n => `과일 바구니 — 빈 칸에 과일 ${n}개를 채웁니다`,
       sellSure: "정말 팔기?",
       sellCancel: "취소",
       tempRelic: "일시적 — 시간이 지나면 사라집니다",
@@ -3031,28 +3062,29 @@
       tipItem_lineV: (p, sc) => `<b>Column</b> · ${p} coins<br>Place it and tap to clear its whole column. +${sc} when it fires.`,
       tipItem_basket: (p) => `<b>Fruit Basket</b> · ${p} coins<br>Fills the board with fruit at once. For when there is nothing left to play.`,
       tipItem_bomb: (p, sc) => `<b>Bomb</b> · ${p} coins<br>Place it and tap to blow the area around it. +${sc} when it fires.`,
-      tipItem_star: (p, sc) => `<b>Star</b> · ${p} coins<br>Place it and tap to link one colour into a constellation and drop coins. +${sc} when it fires.`, tabRelics: "📜 Relics", tabTraits: "✨ Traits",
-      traitPick: "Pick a trait", doubleChip: "✨ ×2", myRelics: "📜 My relics", prep: "",
+      tipItem_star: (p, sc) => `<b>Star</b> · ${p} coins<br>Place it and tap to link one colour into a constellation and drop coins. +${sc} when it fires.`, tabRelics: "Relics", tabTraits: "Traits",
+      traitPick: "Pick a trait", doubleChip: "×2", myRelics: "My relics", prep: "",
       best: "Best", stage: "Stage", score: "Score", scoreBest: (a, b) => `Score ${a} · Best ${b}`,
       touchChip: "👆 Touches", spawnChip: "➕ Per turn", danger: "⚠️ Danger!",
       goal: "Goal", goalMet: "Goal met ✓", touchesLeft: "Touches left",
       nextStage: "Next stage ▶", testDock: "Test",
+      stageDone: label => `${label} cleared`,
       rotateTitle: "Please turn upright", rotateSub: "The board does not fit this screen height",
       hintPlace: "Tap an empty cell to place a fruit",
       hintArcade: "Place next to matching fruit (3×3) to pop them",
       hintStage: (label, quota, touches) => `${label} — goal ${quota} · ${touches} touches`,
       hintArmed: "Tap an empty cell to place it (tap again to cancel)",
       hintTestDock: "Test: tap an empty cell to place",
-      itemStar: "🌟 Star — tap! Links one colour into a constellation",
-      itemBomb: "💣 Bomb — tap! A 5×5 blast",
-      itemLine: "↔️ Line — tap! Clears a whole line",
-      itemBird: "🐦 Sparrow — tap! Pecks crackers and fruit in the way",
-      expired: (icon, name) => `${icon} ${name} has worn off`,
+      itemStar: "Star ready — links every fruit of one colour",
+      itemBomb: "Bomb ready — clears a 5x5 blast",
+      itemLine: "Line ready — clears a whole row or column",
+      itemBird: "Sparrow ready — pecks crackers and stuck fruit",
+      expired: name => `${name} has worn off`,
       shopEmpty: "Nothing left to buy", soldOut: "Sold out",
       noRoom: price => `🪙 ${price} · no slot`,
       sellFor: n => `Sell +🪙${n}`,
       noScalable: "Nothing on offer can be doubled",
-      doubled: "✨×2",
+      doubled: "×2",
       relicCount: (n, cap) => `Relics ${n} / ${cap}`,
       relicOver: n => ` · ${n} inactive`,
       noRelics: "No relics yet", noTraits: "No traits yet",
@@ -3076,7 +3108,7 @@
       tut3: "Big pops leave items behind. Tap the bomb to set it off",
       tutSkip: "Skip",
       tutReplay: "Replay tutorial",
-      tabHelp: "❔ Help",
+      tabHelp: "Help",
       crackerMult: n => `Cracker score ×${n1(n)}`,
       cracker: "Cracker",
       everyTouch: "every touch",
@@ -3084,7 +3116,7 @@
       coinToScore: n => `Clearing a stage scores +${n} per coin held`,
       goldMine: (z, c) => `+${z} bonus-zone cells · +${c} coin inside it · coin fruit +5%p`,
       goldenCity: (z, c) => `+${z} bonus-zone cells · +${c} coin inside it · zone score ×2 · coin fruit +10%p`,
-      itemBasket: n => `🧺 Fruit Basket — drops ${n} fruit onto the board`,
+      itemBasket: n => `Fruit Basket — drops ${n} fruit into empty cells`,
       sellSure: "Sell it?",
       sellCancel: "Cancel",
       tempRelic: "Temporary — it runs out",
@@ -3424,29 +3456,30 @@
       tipItem_lineV: (p, sc) => `<b>縦ライン</b> · ${p}コイン<br>置いてタップするとその縦一列を消します。発動時 +${sc}点。`,
       tipItem_basket: (p) => `<b>フルーツバスケット</b> · ${p}コイン<br>盤面にフルーツを一度に補充します。打つ手がないときに。`,
       tipItem_bomb: (p, sc) => `<b>爆弾</b> · ${p}コイン<br>置いてタップすると周囲を吹き飛ばします。発動時 +${sc}点。`,
-      tipItem_star: (p, sc) => `<b>星</b> · ${p}コイン<br>置いてタップすると同じ色を星座でつなぎ、コインを落とします。発動時 +${sc}点。`, tabRelics: "📜 レリック", tabTraits: "✨ 特性",
-      traitPick: "特性を選ぶ", doubleChip: "✨ ×2", myRelics: "📜 所持レリック", prep: "準備",
+      tipItem_star: (p, sc) => `<b>星</b> · ${p}コイン<br>置いてタップすると同じ色を星座でつなぎ、コインを落とします。発動時 +${sc}点。`, tabRelics: "レリック", tabTraits: "特性",
+      traitPick: "特性を選ぶ", doubleChip: "×2", myRelics: "所持レリック", prep: "準備",
       best: "ベスト", stage: "ステージ", score: "スコア",
       scoreBest: (a, b) => `スコア ${a} · ベスト ${b}`,
       touchChip: "👆 タッチ", spawnChip: "➕ 毎ターン", danger: "⚠️ 危険!",
       goal: "目標", goalMet: "目標達成 ✓", touchesLeft: "残りタッチ",
       nextStage: "次のステージ ▶", testDock: "テスト",
+      stageDone: label => `${label} クリア`,
       rotateTitle: "縦向きにしてください", rotateSub: "画面の高さが足りず盤面が入りません",
       hintPlace: "空いたマスをタップしてフルーツを置く",
       hintArcade: "同じ色のフルーツの隣(3×3)に置いて割る",
       hintStage: (label, quota, touches) => `${label} — 目標 ${quota} · タッチ ${touches}`,
       hintArmed: "空いたマスをタップして置く(もう一度押すとキャンセル)",
       hintTestDock: "テスト: 空いたマスをタップして設置",
-      itemStar: "🌟 星 — タップ! 同じ色を星座でつなぐ",
-      itemBomb: "💣 爆弾 — タップ! 5×5 の大爆発",
-      itemLine: "↔️ ライン — タップ! 一列をまとめて消す",
-      itemBird: "🐦 スズメ — タップ! クラッカーや邪魔なフルーツをついばむ",
-      expired: (icon, name) => `${icon} ${name} の効果が切れました`,
+      itemStar: "星ができました — 同じ色をすべてつなぎます",
+      itemBomb: "爆弾ができました — 5×5を吹き飛ばします",
+      itemLine: "ラインができました — 一列を消します",
+      itemBird: "スズメができました — クラッカーをつつきます",
+      expired: name => `${name} の効果が切れました`,
       shopEmpty: "買えるレリックがありません", soldOut: "売り切れ",
       noRoom: price => `🪙 ${price} · 枠なし`,
       sellFor: n => `売る +🪙${n}`,
       noScalable: "2倍にできる特性がありません",
-      doubled: "✨×2",
+      doubled: "×2",
       relicCount: (n, cap) => `レリック ${n} / ${cap}`,
       relicOver: n => ` · ${n} 個 無効`,
       noRelics: "まだレリックがありません", noTraits: "まだ特性がありません",
@@ -3470,7 +3503,7 @@
       tut3: "大きく割るとアイテムが出ます。爆弾をタップして起動",
       tutSkip: "スキップ",
       tutReplay: "チュートリアルをもう一度",
-      tabHelp: "❔ ヘルプ",
+      tabHelp: "ヘルプ",
       crackerMult: n => `クラッカーのスコア ×${n1(n)}`,
       cracker: "クラッカー",
       everyTouch: "毎タッチ",
@@ -3478,7 +3511,7 @@
       coinToScore: n => `ステージクリア時、所持コイン1枚につきスコア +${n}`,
       goldMine: (z, c) => `ボーナス領域 +${z}マス · 領域内で割ると コイン +${c} · コイン付き +5%p`,
       goldenCity: (z, c) => `ボーナス領域 +${z}マス · 領域内で割ると コイン +${c} · 領域スコア ×2 · コイン付き +10%p`,
-      itemBasket: n => `🧺 フルーツかご — 盤面にフルーツを ${n} 個 補充します`,
+      itemBasket: n => `フルーツバスケット — 空きマスにフルーツ ${n} 個`,
       sellSure: "本当に売る?",
       sellCancel: "キャンセル",
       tempRelic: "一時的 — 期限が切れると消えます",
@@ -3818,29 +3851,30 @@
       tipItem_lineV: (p, sc) => `<b>竖线</b> · ${p}金币<br>放置后点击，清除整列。发动时 +${sc}分。`,
       tipItem_basket: (p) => `<b>水果篮</b> · ${p}金币<br>一次性把水果补满棋盘。没有可下之处时使用。`,
       tipItem_bomb: (p, sc) => `<b>炸弹</b> · ${p}金币<br>放置后点击，炸开周围一片。发动时 +${sc}分。`,
-      tipItem_star: (p, sc) => `<b>星星</b> · ${p}金币<br>放置后点击，把同色连成星座并掉落金币。发动时 +${sc}分。`, tabRelics: "📜 遗物", tabTraits: "✨ 特性",
-      traitPick: "选择特性", doubleChip: "✨ ×2", myRelics: "📜 我的遗物", prep: "准备",
+      tipItem_star: (p, sc) => `<b>星星</b> · ${p}金币<br>放置后点击，把同色连成星座并掉落金币。发动时 +${sc}分。`, tabRelics: "遗物", tabTraits: "特性",
+      traitPick: "选择特性", doubleChip: "×2", myRelics: "我的遗物", prep: "准备",
       best: "最高", stage: "关卡", score: "分数",
       scoreBest: (a, b) => `分数 ${a} · 最高 ${b}`,
       touchChip: "👆 触摸", spawnChip: "➕ 每回合", danger: "⚠️ 危险!",
       goal: "目标", goalMet: "达成目标 ✓", touchesLeft: "剩余触摸",
       nextStage: "下一关 ▶", testDock: "测试",
+      stageDone: label => `${label} 通关`,
       rotateTitle: "请竖屏游玩", rotateSub: "屏幕高度不足，棋盘放不下",
       hintPlace: "点击空格放置水果",
       hintArcade: "放在同色水果旁(3×3)即可消除",
       hintStage: (label, quota, touches) => `${label} — 目标 ${quota} · 触摸 ${touches}`,
       hintArmed: "点击空格放置(再按一次取消)",
       hintTestDock: "测试: 点击空格放置",
-      itemStar: "🌟 星星 — 点击! 把同色连成星座",
-      itemBomb: "💣 炸弹 — 点击! 5×5 大爆炸",
-      itemLine: "↔️ 线道 — 点击! 清除一整行",
-      itemBird: "🐦 麻雀 — 点击! 啄掉饼干和挡路的水果",
-      expired: (icon, name) => `${icon} ${name} 效果已结束`,
+      itemStar: "生成了星星 — 连接所有同色水果",
+      itemBomb: "生成了炸弹 — 炸开 5×5",
+      itemLine: "生成了直线 — 清除一整行或一列",
+      itemBird: "生成了麻雀 — 啄掉挡路的饼干",
+      expired: name => `${name} 的效果已结束`,
       shopEmpty: "没有可买的遗物了", soldOut: "已售罄",
       noRoom: price => `🪙 ${price} · 没有格子`,
       sellFor: n => `卖出 +🪙${n}`,
       noScalable: "没有可以翻倍的特性",
-      doubled: "✨×2",
+      doubled: "×2",
       relicCount: (n, cap) => `遗物 ${n} / ${cap}`,
       relicOver: n => ` · ${n} 个未生效`,
       noRelics: "还没有遗物", noTraits: "还没有特性",
@@ -3864,7 +3898,7 @@
       tut3: "大量消除会留下道具。点击炸弹引爆",
       tutSkip: "跳过",
       tutReplay: "重看教程",
-      tabHelp: "❔ 帮助",
+      tabHelp: "帮助",
       crackerMult: n => `饼干分数 ×${n1(n)}`,
       cracker: "饼干",
       everyTouch: "每次触碰",
@@ -3872,7 +3906,7 @@
       coinToScore: n => `通关时，每持有 1 金币得分 +${n}`,
       goldMine: (z, c) => `奖励区域 +${z} 格 · 区域内消除金币 +${c} · 带金币水果 +5%p`,
       goldenCity: (z, c) => `奖励区域 +${z} 格 · 区域内消除金币 +${c} · 区域分数 ×2 · 带金币水果 +10%p`,
-      itemBasket: n => `🧺 水果篮 — 在盘面补充 ${n} 个水果`,
+      itemBasket: n => `水果篮 — 在空格放入 ${n} 个水果`,
       sellSure: "确定卖出?",
       sellCancel: "取消",
       tempRelic: "临时 — 用完即消失",
@@ -6102,7 +6136,7 @@
     if (expired) {
       SFX.play("expire");
       applyRelics();
-      document.getElementById("hint").textContent = d("expired", expired.icon, expired.name);
+      document.getElementById("hint").textContent = d("expired", expired.name);
       updateHUD();
     }
   }
@@ -6754,11 +6788,14 @@
   // Leaving early trades score for coins: the touches you did not spend come back as
   // currency. Half rate, or rushing the quota would beat playing on for score every time.
   const leftoverCoins = () => Math.floor(Math.max(0, touchesLeft) * COIN_PER_LEFTOVER);
+  // what leaving early paid, so the card can add it to what the clear itself paid
+  let clearBonus = 0;
   function endStageEarly() {
     if (!rules().touchBudget || !running || busy) return;
     if (stageScore < rules().quota(stage)) return;
     busy = true;
-    addCoins(leftoverCoins(), (ROWS - 1) / 2, (COLS - 1) / 2);
+    clearBonus = leftoverCoins();          // banked here, shown on the card a beat later
+    addCoins(clearBonus, (ROWS - 1) / 2, (COLS - 1) / 2);
     touchesLeft = 0;
     document.getElementById("rush-next").classList.add("hidden");
     updateHUD();
@@ -6801,6 +6838,7 @@
     // Paid on the round, not the stage, so saving up has to survive a whole round to matter.
     // 환전: the coins you are holding become score. Read before the payout, like interest,
     // so it pays for keeping money rather than for money everyone gets.
+    const coinsBefore = coins;
     if (coinToScore) addScore(coins * coinToScore);
     const interest = stage % STAGES_PER_ROUND === 0 ? payInterest() : 0;
     addCoins(Math.round(COIN_PAYOUT(stage) * payoutMult), (ROWS - 1) / 2, (COLS - 1) / 2);
@@ -6815,7 +6853,20 @@
       + (interest ? " · " + d("interestPaid", interest) : "");
     updateHUD();
     dirty = true;
-    setTimeout(openShop, 700);          // let the payout coins fly first; busy stays true
+    // The board is still paying out -- coins are in the air and the quota line is green. The
+    // card names the stage you just finished over the top of that, and the shop comes up as it
+    // goes. Under a second all in: long enough to land, short enough that a fast player is
+    // not waiting on it.
+    const cleared = stageLabel(stage - 1), paid = coins - coinsBefore + clearBonus;
+    clearBonus = 0;
+    const card = document.getElementById("stageclear");
+    document.getElementById("sc-title").textContent = d("stageDone", cleared);
+    setCoinText(document.getElementById("sc-sub"), paid > 0 ? `🪙 +${paid}` : "");
+    card.classList.remove("hidden", "out");
+    void card.offsetWidth;                        // restart the animation on a repeat clear
+    setTimeout(() => card.classList.add("out"), 640);
+    setTimeout(() => card.classList.add("hidden"), 900);
+    setTimeout(openShop, 900);          // let the payout coins fly first; busy stays true
   }
 
   // What the coins you did NOT spend are worth. Capped, and the cap is a relic's job to lift.

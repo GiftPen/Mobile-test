@@ -960,6 +960,59 @@ window.addEventListener('load', async () => {
     chk('기다리는 상태가 실제로 쓰인다', waited + cached, 40);
   }
 
+  // ---- arming the vertical line must not lay it back down ----
+  // Two rules, one property: .ib.armed .ib-ic set a scale, which REPLACED the rotate on
+  // .ib-ic.turn90, so the moment you picked up the vertical line its icon turned horizontal.
+  {
+    F.mode = 'rush'; F.resetRun(); F.relics = []; F.applyRelics();
+    F.running = true; F.busy = false; F.coins = 999;
+    F.paintItemIcons && F.paintItemIcons();
+    const btn = document.querySelector('#ishop .ib[data-item="lineV"]');
+    const ic = btn && btn.querySelector('.ib-ic');
+    // rotate(90deg) is matrix(0,1,-1,0,..): the b term is what says it is turned
+    const turned = () => {
+      const t = getComputedStyle(ic).transform;
+      const m = t.match(/matrix\(([^)]+)\)/);
+      return m ? Math.abs(parseFloat(m[1].split(',')[1])) > 0.5 : false;
+    };
+    chk('세로 라인 아이콘이 서 있다', !!ic && ic.classList.contains('turn90') && turned(), true);
+    F.armItem('lineV');
+    chk('눌러도 여전히 서 있다', turned(), true);
+    chk('그리고 실제로 선택된 상태다', btn.classList.contains('armed'), true);
+    F.armItem('lineV');
+  }
+
+  // ---- clearing a stage is a beat, not a cut ----
+  {
+    F.mode = 'rush'; F.resetRun(); F.relics = []; F.applyRelics();
+    F.start('rush'); await sleep(120);
+    F.score = 9000; F.stageScore = 9000; F.updateHUD();
+    const coinsBefore = F.coins;
+    F.endStageEarly();
+    await sleep(700);
+    const card = document.getElementById('stageclear');
+    const cardUp = getComputedStyle(card).display !== 'none';
+    const shopEarly = !document.getElementById('shop').classList.contains('hidden');
+    chk('클리어하면 카드가 뜬다', cardUp, true);
+    chk('상점이 즉시 열리지 않는다', shopEarly, false);
+    chk('카드가 방금 끝낸 스테이지를 말한다',
+        document.getElementById('sc-title').textContent.includes('1-1'), true);
+    // the button promised "+N" for the touches left; the card must not quietly say less
+    const shown = parseInt((document.getElementById('sc-sub').textContent.match(/\d+/) || [0])[0], 10);
+    chk('카드의 코인이 실제로 받은 만큼이다', shown, F.coins - coinsBefore);
+    // the page's own timers are what move this along, so poll rather than assume a duration
+    let opened = false;
+    for (let i = 0; i < 40 && !opened; i++) {
+      await sleep(60);
+      opened = !document.getElementById('shop').classList.contains('hidden');
+    }
+    chk('그다음 상점이 열린다', opened ? true : { busy: F.busy, stage: F.stage,
+        card: getComputedStyle(card).display, run: F.running }, true);
+    chk('그리고 카드는 사라진다', getComputedStyle(card).display, 'none');
+    F.closeShop && F.closeShop();
+    document.getElementById('shop').classList.add('hidden');
+  }
+
   // ---- hold-to-explain, and the chrome that was taken away ----
   // A phone has no hover, so an icon nobody can name is a button nobody presses.
   {
