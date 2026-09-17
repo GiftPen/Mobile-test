@@ -5785,8 +5785,11 @@
   const BASKET_FRUIT = 12;     // how many fruit a 과일 바구니 drops
   let armedItem = null, wasDanger = false;
   function canBuyItem(kind) {
+    // the basket needs somewhere to put its fruit AND a cell to leave open: bought on the last
+    // free cell it fills it with its own ball, so 22 coins bought the end of the run
+    const need = kind === "basket" ? 2 : 1;
     return running && !busy && !paused && ITEM_PRICES[kind] != null
-           && coins >= itemPrice(kind) && emptyCells().length > 0;
+           && coins >= itemPrice(kind) && emptyCells().length >= need;
   }
   function armItem(kind) {
     armedItem = armedItem === kind ? null : (canBuyItem(kind) ? kind : null);
@@ -5811,7 +5814,8 @@
       // the board, not this cell: a stage that an item emptied takes many turns to refill,
       // and that gets worse every stage. This is the way to buy those turns back.
       grid[r][c] = color; appear[r][c] = 1;
-      spawnBuds(BASKET_FRUIT);
+      // never the last cell: this is the card you buy to KEEP playing
+      spawnBuds(Math.max(0, Math.min(BASKET_FRUIT, emptyCells().length - 1)));
     } else {
       grid[r][c] = color;
       // 십자로 upgrades either line to a cross, whichever one you paid for
@@ -5820,6 +5824,12 @@
     }
     armedItem = null;
     dirty = true; renderItemShop(); updateHUD();
+    // the board-full check lives in endTurn, which an item placement does not go through.
+    // Without this a full board after an item is a dead game that never says so.
+    if (running && !busy && emptyCells().length === 0) {
+      busy = true;
+      setTimeout(() => closeStage("board"), 750);
+    }
     return true;
   }
   function renderItemShop() {

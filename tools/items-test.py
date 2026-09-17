@@ -1006,6 +1006,45 @@ window.addEventListener('load', async () => {
     chk('기다리는 상태가 실제로 쓰인다', waited + cached, 40);
   }
 
+  // ---- an item must never leave a board that cannot be played ----
+  // 과일 바구니 is the card you buy to keep playing, and it could end the run: measured, three
+  // empty cells went to zero, and because the board-full check lives in endTurn -- which an
+  // item placement does not go through -- running stayed true with every tap dead. Nothing to
+  // do but quit. Reported by a tester.
+  {
+    const fill = (leave) => {
+      F.mode = 'rush'; F.resetRun(); F.relics = []; F.traits = []; F.applyRelics();
+      for (let r = 0; r < F.ROWS; r++) for (let c = 0; c < F.COLS; c++) F.grid[r][c] = (r + c) % 7;
+      let n = 0;
+      for (let r = 0; r < F.ROWS && n < leave; r++)
+        for (let c = 0; c < F.COLS && n < leave; c++) { F.grid[r][c] = -1; F.special[r][c] = null; n++; }
+      F.running = true; F.busy = false; F.coins = 999; F.touchesLeft = 20;
+    };
+    fill(3);
+    F.armItem('basket');
+    F.placeBoughtItem(0, 0);
+    chk('바구니는 마지막 칸을 남긴다', F.emptyCells().length >= 1, true);
+    chk('그래서 판은 계속 놀 수 있다', F.running, true);
+
+    fill(1);
+    chk('빈 칸이 하나면 바구니를 살 수 없다', F.canBuyItem('basket'), false);
+
+    // ...and if a board does end up full after an item, it has to SAY so rather than hang
+    fill(1);
+    F.armItem('bomb');
+    F.placeBoughtItem(0, 0);
+    chk('마지막 칸을 아이템으로 채우면 판이 찬다', F.emptyCells().length, 0);
+    chk('그리고 그 자리에서 멈춘다 (판정이 돈다)', F.busy, true);
+    await settle();
+    chk('판이 꽉 차면 런이 끝난다', F.running, false);
+    // it ends a run on purpose. over() reads #gameover's own class and start() only hides the
+    // parent overlay, so the panel has to be put away by hand or every later check sees it.
+    F.start('rush');
+    await settle();
+    $('gameover').classList.add('hidden');
+    F.busy = false;
+  }
+
   // ---- a star takes fruit, and leaves items alone ----
   // The sweep cleared every cell of the target colour and nulled its `special` with it, so an
   // item standing on a fruit of that colour was DELETED without ever firing: two stars on the
