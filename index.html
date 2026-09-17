@@ -187,7 +187,7 @@
   #rb-left, #rb-mid { display: flex; align-items: center; gap: 6px; min-width: 0; }
   /* 확률 hugs the left edge, the purse and 매턴 the right */
   #rb-mid { margin-left: auto; flex: none; }
-  #rb-left { flex: 1 1 auto; overflow: hidden; }
+  #rb-left { flex: 1 1 auto; min-width: 0; }
   /* the 확률 button lives on a chip row in both modes, so it is chip-sized in both */
   body:not(.rush-chrome) #stats { flex-wrap: wrap; row-gap: 6px; }
   /* one height for everything on the chip row: the coin carries a border and measured 2px
@@ -232,7 +232,27 @@
      two and that is exactly when you need to know */
   /* its own row with a reserved height: slipping these into the chip row wrapped the band
      and shoved the board 42px down the moment a timed relic was bought */
-  #rs-timed { display: flex; align-items: center; gap: 4px; overflow: hidden; }
+  /* one chip, and a drawer under it. Not overflow:hidden any more -- the drawer has to be
+     able to hang below the strip. */
+  #rs-timed { position: relative; display: flex; align-items: center; gap: 4px; }
+  .th-head { margin: 0; box-shadow: none; cursor: pointer; display: inline-flex;
+    align-items: center; gap: 4px; font-family: inherit; }
+  .th-body { display: inline-flex; align-items: center; gap: 3px; }
+  .th-ic { width: 15px; height: 15px; font-size: 13px; line-height: 1; }
+  .th-more { font-size: 11px; opacity: .75; }
+  .th-caret { font-size: 9px; opacity: .75; }
+  #rs-timed.open .th-caret { transform: rotate(180deg); }
+  .th-list { display: none; position: absolute; left: 0; top: calc(100% + 5px); z-index: 8;
+    min-width: 168px; padding: 5px; border-radius: 12px;
+    background: var(--sheet); border: 1px solid var(--sheet-edge);
+    box-shadow: 0 10px 26px rgba(0,0,0,.4); }
+  #rs-timed.open .th-list { display: block; }
+  .th-row { display: flex; align-items: center; gap: 7px; padding: 5px 7px; border-radius: 9px;
+    font-size: 12px; color: var(--ink); white-space: nowrap; }
+  .th-row + .th-row { margin-top: 2px; }
+  .th-row b { font-weight: 800; flex: 1 1 auto; }
+  .th-left { font-weight: 800; color: var(--gold); }
+  .th-row.last .th-left { color: #ff5a7a; }
   .chip.timed { padding: 3px 7px; font-size: 12px; font-weight: 800; color: #ffd6a0;
     background: rgba(255,180,60,.14); border: 1px solid rgba(255,180,60,.4); }
   .chip.timed.last { color: #ff9db0; background: rgba(255,90,110,.16);
@@ -2181,7 +2201,7 @@
       millPaid += pay; touchesLeft += pay; updateHUD();
     }
   }
-  const INTEREST_CAP    = 5;    // most coins interest can pay in one round, before 금고
+  const INTEREST_CAP    = 20;   // most coins interest can pay in one round, before 금고
   const SPEND_PER = 2;          // coins spent per +1 fruit score, for 탕진
   let coinsSpent = 0;           // ACCUMULATED, not derived: applyRelics must not wipe it
   let spendFlat = 0;            // +1 to every fruit per SPEND_PER spent, while 탕진 is held
@@ -4509,9 +4529,9 @@
       desc: () => d("coinToScore", 30), apply() { coinToScore += 30; } },
     // the bonus zone as a coin engine: 금맥 pays inside it, these make it bigger and richer
     gold_mine:  { icon: "⛏️", price: 26, requires: () => zoneOn(),
-      desc: () => d("goldMine", 3, 1),
-      apply() { zoneBonus += 3; zoneCoins += 1; coinFruitBonus += 0.05; } },
-    golden_city: { icon: "🏙️", price: 42,
+      desc: () => d("goldMine", 4, 1),
+      apply() { zoneBonus += 4; zoneCoins += 1; coinFruitBonus += 0.05; } },
+    golden_city: { icon: "🏙️", price: 46,
       desc: () => d("goldenCity", 6, 2),
       apply() { zoneBonus += 6; zoneCoins += 2; zoneMult += 1; coinFruitBonus += 0.1; } },
     silver_clover: { icon: "🍀", price: 17,
@@ -4586,7 +4606,7 @@
       apply() { for (let i = 0; i < fruitFlat.length; i++) fruitFlat[i] += 2; } },
     breather: { icon: "🫁", price: 5,
       desc: () => d("touch", 1), apply() { touchBonus += 1; } },
-    change_purse: { icon: "👛", price: 4,
+    change_purse: { icon: "👛", price: 12,
       desc: () => d("payoutFlat", 3), apply() { payoutMult += 3 / 4; } },
     one_cherry: { icon: "🍒", price: 4,
       desc: () => d("fruitFlat", 0, 8), apply() { fruitFlat[0] += 8; } },
@@ -4598,7 +4618,7 @@
       desc: () => d("popMult", 1.5), modify: { pop: v => Math.round(v * 1.5) } },
     frenzy: { icon: "🌪️", price: 7, life: { unit: "stages", amount: 1 },
       desc: () => d("spawn", 3), apply() { spawnBonus += 3; } },
-    bonanza: { icon: "💎", price: 7, life: { unit: "touches", amount: 15 },
+    bonanza: { icon: "💎", price: 7, life: { unit: "touches", amount: 5 },
       desc: () => d("coinFruit", 30), apply() { coinFruitBonus += 0.3; } },
     heat: { icon: "🔥", price: 8, life: { unit: "stages", amount: 2 },
       desc: () => d("comboCap", 2.0), apply() { STREAK_CAP += 2; } },
@@ -4617,7 +4637,7 @@
     fruit_crate: { icon: "📦", price: 18, life: { unit: "touches", amount: 20 },
       desc: () => d("allFlat", 40),
       apply() { for (let i = 0; i < fruitFlat.length; i++) fruitFlat[i] += 40; } },
-    golden_rain: { icon: "🌧️", price: 17, life: { unit: "touches", amount: 20 },
+    golden_rain: { icon: "🌧️", price: 23, life: { unit: "touches", amount: 15 },
       desc: () => d("coinFruit", 60), apply() { coinFruitBonus += 0.6; } },
     storm_front: { icon: "⛈️", price: 18, life: { unit: "stages", amount: 1 },
       desc: () => d("popMult", 2), modify: { pop: v => Math.round(v * 2) } },
@@ -4651,7 +4671,7 @@
       onFruitPop: p => { if (p.color === 5) fruitStack[5] += 3; } },
 
     // ---- 일반: cheap, modest, always worth something ----
-    dust: { icon: "🪙", price: 3,
+    dust: { icon: "🪙", price: 7,
       desc: () => d("payoutFlat", 2), apply() { payoutMult += 2 / 4; } },
     lemon_slice: { icon: "🍋", price: 4,
       desc: () => d("fruitFlat", 3, 8), apply() { fruitFlat[3] += 8; } },
@@ -5209,20 +5229,43 @@
 
       const timed = document.getElementById("rs-timed");
       timed.textContent = "";
-      const running_ = relics.filter(id => relicLife[id]);
-      for (const id of running_.slice(0, 4)) {
-        const R = RELICS[id], left = relicLife[id];
-        const sp = document.createElement("span");
-        sp.className = "chip timed" + (left <= 1 ? " last" : "");
-        sp.append(relicIcon(id, ""), String(left));
-        sp.title = `${R.name} — ${d("lifeLeft", left, lifeUnitLabel(R.life.unit))}`;
-        timed.appendChild(sp);
-      }
-      if (running_.length > 4) {                 // the rest are in the relic panel
-        const more = document.createElement("span");
-        more.className = "chip timed"; more.textContent = `+${running_.length - 4}`;
-        timed.appendChild(more);
-      }
+      // soonest to expire first: that is the one a decision hangs on
+      const running_ = relics.filter(id => relicLife[id])
+        .sort((a, b) => relicLife[a] - relicLife[b]);
+      if (running_.length) {
+        const head = document.createElement("button");
+        head.className = "chip timed th-head" + (relicLife[running_[0]] <= 1 ? " last" : "");
+        head.appendChild(timedChipBody(running_[0]));
+        if (running_.length > 1) {
+          const more = document.createElement("span");
+          more.className = "th-more";
+          more.textContent = `+${running_.length - 1}`;
+          head.appendChild(more);
+          const caret = document.createElement("span");
+          caret.className = "th-caret"; caret.textContent = "▾";
+          head.appendChild(caret);
+          head.addEventListener("click", e => {
+            e.stopPropagation();
+            timed.classList.toggle("open");
+          });
+        }
+        timed.appendChild(head);
+        if (running_.length > 1) {
+          const list = document.createElement("div");
+          list.className = "th-list";
+          for (const id of running_) {
+            const row = document.createElement("div");
+            row.className = "th-row" + (relicLife[id] <= 1 ? " last" : "");
+            row.appendChild(relicIcon(id, "th-ic"));
+            const nm = document.createElement("b"); nm.textContent = RELICS[id].name;
+            const lf = document.createElement("span"); lf.className = "th-left";
+            lf.textContent = relicLife[id] + lifeUnitShort(RELICS[id].life.unit);
+            row.append(nm, lf);
+            list.appendChild(row);
+          }
+          timed.appendChild(list);
+        }
+      } else timed.classList.remove("open");
     }
     // The button holds its place for the whole stage and only enables once the quota is met:
     // appearing on demand pushed everything below it down mid-play.
@@ -6328,6 +6371,18 @@
   // Temporary relics are cheap because they run out. Their clock ticks in whichever unit
   // they were written in -- stages, or placements -- and they leave when it hits zero.
   const lifeUnitLabel = u => d(u === "touches" ? "unitTouch" : "unitStage");
+  // one letter, because a chip has room for a number and not a word
+  const lifeUnitShort = u => (u === "touches" ? "T" : "S");
+  function timedChipBody(id) {
+    const wrap = document.createElement("span");
+    wrap.className = "th-body";
+    wrap.appendChild(relicIcon(id, "th-ic"));
+    const n = document.createElement("b");
+    n.textContent = relicLife[id] + lifeUnitShort(RELICS[id].life.unit);
+    wrap.appendChild(n);
+    wrap.title = `${RELICS[id].name} — ${d("lifeLeft", relicLife[id], lifeUnitLabel(RELICS[id].life.unit))}`;
+    return wrap;
+  }
   function tickRelicLife(unit) {
     let expired = null;
     for (const id of Object.keys(relicLife)) {
@@ -8797,6 +8852,10 @@
   });
   document.getElementById("info-btn").addEventListener("click", () => openInfo("fruits"));
   document.getElementById("relic-btn").addEventListener("click", () => openInfo("relics"));
+  document.addEventListener("click", () => {
+    const t = document.getElementById("rs-timed");
+    if (t) t.classList.remove("open");
+  });
   document.getElementById("trait-btn").addEventListener("click", () => openInfo("traits"));
 
   // ---- hold to explain -------------------------------------------------------------------
