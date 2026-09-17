@@ -1367,7 +1367,7 @@
   // round 7 it climbs properly.
   const RUSH_ACCEL_EARLY = 0.12; // boundaries into rounds 2-3
   const RUSH_ACCEL_MID   = 0.20; // into rounds 4-6
-  const RUSH_ACCEL_LATE  = 0.30; // into round 7 and beyond
+  const RUSH_ACCEL_LATE  = 0.25; // into round 7 and beyond
   const accelAt = k => (k < 2 ? RUSH_ACCEL_EARLY : k < 5 ? RUSH_ACCEL_MID : RUSH_ACCEL_LATE);
   // A whole round advances by its internal steps AND the boundary jump, so the round
   // multiplier compounds on the END of the previous round -- otherwise the quota drops

@@ -5,6 +5,12 @@
 # Re-running to find out is a bet that it reproduces, which for a flaky one it does not. The
 # whole output of anything that fails is kept, and repeated at the end where it can be read.
 cd "$(dirname "$0")/.."
+# Invoked as `bash tools/all.sh` this file used to print "print: command not found" for every
+# test and still exit 0 -- a silent all-pass. Refuse rather than lie.
+if [ -z "$ZSH_VERSION" ]; then
+  echo "tools/all.sh needs zsh -- run it as 'tools/all.sh' or 'zsh tools/all.sh'" >&2
+  exit 2
+fi
 fail=0
 typeset -a broke
 for t in js-check rules-test items-test hud-fit device-fit sound-test i18n-test tutorial-test relic-audit ads-test dev-test erode-test save-test coin-test coinfly-test art-check book-test menufx-test stack-test pair-audit smoke; do
