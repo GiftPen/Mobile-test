@@ -1340,7 +1340,8 @@
   const CRACKER = -2;            // grid value for a cracker (wall; only items can clear it)
   const SEED  = -3;            // a kiwi's leftover: blocks the cell, counts down, grows back
   const SEED_TOUCHES = 3;      // ...in this many touches
-  const FIELD_EVERY = 3;       // 바나나 밭: a banana grows every this many touches
+  const FIELD_EVERY = 2;       // 바나나 밭: a banana grows every this many touches
+  const FIELD_SIZE  = 5;       // ...across a patch this many cells on a side
   const CRACKER_EVERY = 5;       // one cracker spawns every N touches once unlocked
   const CRACKER_SCORE = 100;   // what breaking one is worth, before relics
   // 크래커 왕's growth, kept apart from the base: how much a cracker is worth and how fast
@@ -2290,11 +2291,11 @@
   // is the other half of the same idea -- hold the two and the streak both survives and
   // never stops climbing.
   let comboKeep = false;       // DERIVED: 콤보가 끊기지 않는다
-  const fieldAt = (r, c) => !!bananaField && r >= bananaField.r0 && r < bananaField.r0 + 3
-                                          && c >= bananaField.c0 && c < bananaField.c0 + 3;
+  const fieldAt = (r, c) => !!bananaField && r >= bananaField.r0 && r < bananaField.r0 + FIELD_SIZE
+                                          && c >= bananaField.c0 && c < bananaField.c0 + FIELD_SIZE;
   function rollField() {
-    bananaField = fieldOn && ROWS >= 3 && COLS >= 3
-      ? { r0: randInt(ROWS - 2), c0: randInt(COLS - 2) } : null;
+    bananaField = fieldOn && ROWS >= FIELD_SIZE && COLS >= FIELD_SIZE
+      ? { r0: randInt(ROWS - FIELD_SIZE + 1), c0: randInt(COLS - FIELD_SIZE + 1) } : null;
   }
   // a fruit is worth more on a marked cell
   const fruitScoreAt = (r, c, colorIdx) => {
@@ -2572,6 +2573,7 @@
       // 한 줄 / 두 줄, not 1줄 / 2줄 -- Korean counts small numbers of things with native
       // numerals, and the board can only ever grow by four
       rows:       n => `판이 ${["", "한", "두", "세", "네"][n] || n} 줄 넓어집니다 (되팔면 되돌아갑니다)`,
+      rowsTrait:  n => `판이 ${["", "한", "두", "세", "네"][n] || n} 줄 넓어집니다`,
       startFruit: n => `스테이지를 시작할 때 과일 ${n}개가 더 놓입니다`,
       bombRadius: n => `폭탄 폭발 범위 +${n}`,
       bombSize:   n => `폭탄이 ${n}×${n}로 터집니다`,
@@ -2881,7 +2883,7 @@
       cherryPile: n => `체리를 터뜨릴 때마다 이 스테이지 동안 체리 점수 +${n}`,
       citrusFuse: () => "오렌지와 레몬이 한 덩어리로 이어집니다",
       kiwiSeed: () => "키위를 터뜨리면 씨앗이 남습니다",
-      bananaField: n => `3×3 바나나 밭이 생기고 ${n}터치마다 바나나가 1개 자랍니다`,
+      bananaField: (n, s2) => `${s2}×${s2} 바나나 밭이 생기고 ${n}터치마다 바나나가 1개 자랍니다`,
       crackerTouch: (n, cap) => `크래커를 부술 때마다 터치 +${n} (스테이지마다 ${cap}회까지)`,
       comboKeep:   () => "콤보가 끊기지 않습니다",
       richSoil:  (a, b) => `보너스 영역에서 터뜨린 과일 점수 ×${n1(a)}, 코인 +${b}`,
@@ -2975,6 +2977,7 @@
       slots:      n => `+${n} relic slot${n > 1 ? "s" : ""}`,
       offers:     n => `+${n} shop card${n > 1 ? "s" : ""}`,
       rows:       n => `Board grows ${n} row${n > 1 ? "s" : ""} (sold, it shrinks back)`,
+      rowsTrait:  n => `Board grows ${n} row${n > 1 ? "s" : ""}`,
       startFruit: n => `${n} extra fruit at the start of each stage`,
       bombRadius: n => `Bomb blast radius +${n}`,
       bombSize:   n => `Bombs blast ${n}×${n}`,
@@ -3282,7 +3285,7 @@
       cherryPile: n => `Each cherry popped adds +${n} to cherries for this stage`,
       citrusFuse: () => "Orange and lemon count as one colour",
       kiwiSeed: () => "A popped kiwi leaves a seed behind",
-      bananaField: n => `A 3x3 banana patch grows one banana every ${n} touches`,
+      bananaField: (n, s2) => `A ${s2}×${s2} banana patch grows one banana every ${n} touches`,
       crackerTouch: (n, cap) => `+${n} touch per cracker broken (up to ${cap} a stage)`,
       comboKeep:   () => "A miss no longer resets your combo",
       richSoil:  (a, b) => `Fruit popped in a bonus zone scores ×${n1(a)} and pays ${b} coin`,
@@ -3376,6 +3379,7 @@
       slots:      n => `レリック枠 +${n}`,
       offers:     n => `ショップ表示 +${n}`,
       rows:       n => `盤面が ${n} 段 広がる（売ると戻ります）`,
+      rowsTrait:  n => `盤面が ${n} 段 広がる`,
       startFruit: n => `ステージ開始時にフルーツが ${n} 個 多く置かれる`,
       bombRadius: n => `爆弾の爆発範囲 +${n}`,
       bombSize:   n => `爆弾が ${n}×${n} で爆発`,
@@ -3682,7 +3686,7 @@
       cherryPile: n => `さくらんぼを割るたび、このステージ中 さくらんぼのスコア +${n}`,
       citrusFuse: () => "オレンジとレモンがひとつの色としてつながります",
       kiwiSeed: () => "キウイを割ると種が残ります",
-      bananaField: n => `3×3のバナナ畑ができ、${n}タッチごとにバナナが1つ育ちます`,
+      bananaField: (n, s2) => `${s2}×${s2}のバナナ畑ができ、${n}タッチごとにバナナが1つ育ちます`,
       crackerTouch: (n, cap) => `クラッカーを割るたびにタッチ +${n}（ステージごとに${cap}回まで）`,
       comboKeep:   () => "コンボが途切れなくなります",
       richSoil:  (a, b) => `ボーナス領域で割ったフルーツのスコア ×${n1(a)}、コイン +${b}`,
@@ -3776,6 +3780,7 @@
       slots:      n => `遗物格 +${n}`,
       offers:     n => `商店展示 +${n}`,
       rows:       n => `棋盘增加 ${n} 行（卖出后会缩回）`,
+      rowsTrait:  n => `棋盘增加 ${n} 行`,
       startFruit: n => `每关开始时多放 ${n} 个水果`,
       bombRadius: n => `炸弹范围 +${n}`,
       bombSize:   n => `炸弹以 ${n}×${n} 爆炸`,
@@ -4082,7 +4087,7 @@
       cherryPile: n => `每消除一个樱桃，本关樱桃分数 +${n}`,
       citrusFuse: () => "橙子和柠檬视为同一种颜色",
       kiwiSeed: () => "消除猕猴桃会留下种子",
-      bananaField: n => `出现3×3香蕉田，每${n}次触摸长出1个香蕉`,
+      bananaField: (n, s2) => `出现${s2}×${s2}香蕉田，每${n}次触摸长出1个香蕉`,
       crackerTouch: (n, cap) => `每次打碎饼干获得触摸 +${n}（每阶段最多${cap}次）`,
       comboKeep:   () => "连击不会中断",
       richSoil:  (a, b) => `在奖励区域内消除的水果分数 ×${n1(a)}，金币 +${b}`,
@@ -4323,7 +4328,7 @@
     // ---- 전설: the two that change a run's shape ----
     homestead:   { icon: "🌾", tier: "legend", scalable: true,
       effects: [{ stat: "rows", amount: 1 }],
-      desc: e => d("rows", e[0].amount) },   // doubled it is two rows, and has to say so
+      desc: e => d("rowsTrait", e[0].amount) },   // doubled it is two rows, and has to say so
     attunement:  { icon: "🎵", tier: "legend", scalable: true,
       effects: [{ stat: "resonance", amount: 0.35 }],
       desc: () => d("resonance") },   // the wording does not carry a number, so 2배 reads the same
@@ -4799,7 +4804,7 @@
     // is paced at a third of "one a touch" because banana is already a build that dies of a
     // full board (4 of 7 measured runs), and a patch you can see is one you can play around.
     banana_field: { icon: "🌴", price: 27,
-      desc: () => d("bananaField", FIELD_EVERY), apply() { fieldOn = true; } },
+      desc: () => d("bananaField", FIELD_EVERY, FIELD_SIZE), apply() { fieldOn = true; } },
     // 키위: the tree had one card per grade but only six in total, and nothing that played
     // with the seed itself
     // This was 키위 묘목, which planted three seeds a stage. Measured, that handed the
@@ -9208,7 +9213,7 @@
       get sprouted() { return sprouted; }, set sprouted(v) { sprouted = v; },
       RELIC_RENAMES,
       get bananaField() { return bananaField; }, set bananaField(v) { bananaField = v; },
-      get fieldOn() { return fieldOn; }, rollField, fieldAt, FIELD_EVERY,
+      get fieldOn() { return fieldOn; }, rollField, fieldAt, FIELD_EVERY, FIELD_SIZE,
       get crackerTouch() { return crackerTouch; }, get comboKeep() { return comboKeep; },
       get millPaid() { return millPaid; }, set millPaid(v) { millPaid = v; }, MILL_CAP,
       get shopOffers() { return shopOffers; }, set shopOffers(v) { shopOffers = v; },

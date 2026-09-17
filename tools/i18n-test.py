@@ -108,6 +108,22 @@ window.addEventListener('load', () => setTimeout(() => {
   }
   chk('no roguelite jargon in Korean player text', jargon, []);
 
+  // A trait cannot be sold -- there is no button and no code path -- so a trait card must not
+  // describe what happens when you sell it. 개척지 and 개간 shared one sentence, and the
+  // parenthetical was only true for the relic.
+  const SELL_WORDS = ['되팔', '되돌아갑니다', 'sold', 'sell', '売る', '卖出'];
+  const sellClaims = [];
+  for (const lg of langs) {
+    F.setLang(lg);
+    for (const id of Object.keys(F.TRAITS)) {
+      const T = F.TRAITS[id];
+      let d2 = '';
+      try { d2 = String(T.desc(F.traitEffects(T, 1))); } catch (e) { continue; }
+      if (SELL_WORDS.some(w => d2.includes(w))) sellClaims.push(lg + ':' + id + ' — ' + d2);
+    }
+  }
+  chk('특성 설명이 되팔기를 말하지 않는다', sellClaims.slice(0, 5), []);
+
   // 3) a genuinely missing key must fall back to Korean, never to blank or "undefined"
   F.setLang('en');
   const madeUp = F.d('a_pattern_that_does_not_exist');

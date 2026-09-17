@@ -402,7 +402,9 @@ window.addEventListener('load', async () => {
       [true, true, true]);
   F.mode='rush'; F.resetRun(); F.relics=[]; F.traits=[]; F.applyRelics();
 
-  // 바나나 밭 — a 3x3 patch that grows its own fruit on a touch clock
+  // 바나나 밭 — a patch that grows its own fruit on a touch clock. Its size is read from the
+  // game rather than written here: the 3 was a literal, and retuning the card to 5x5 failed a
+  // check that was only ever about "inside is inside, outside is outside".
   F.mode = 'rush'; F.resetRun(); F.relics = []; F.traits = []; F.applyRelics();
   chk('no patch without the relic', F.bananaField, null);
   F.relics = ['banana_field']; F.applyRelics(); F.rollField();
@@ -410,9 +412,15 @@ window.addEventListener('load', async () => {
   // a missing patch must report as the one failed check above, not throw and take the rest
   // of the suite with it
   const fld = F.bananaField || { r0: 0, c0: 0 };
-  chk('the patch is 3x3 and fits on the board',
-      [fld.r0 >= 0, fld.c0 >= 0, fld.r0 + 3 <= F.ROWS, fld.c0 + 3 <= F.COLS], [true,true,true,true]);
-  chk('a cell just outside it is not in it', F.fieldAt(fld.r0 + 3, fld.c0), false);
+  const FS = F.FIELD_SIZE;
+  chk('the patch is square and fits on the board',
+      [fld.r0 >= 0, fld.c0 >= 0, fld.r0 + FS <= F.ROWS, fld.c0 + FS <= F.COLS], [true,true,true,true]);
+  chk('a cell just outside it is not in it', F.fieldAt(fld.r0 + FS, fld.c0), false);
+  chk('and the patch really is that many cells', (() => {
+    let n = 0;
+    for (let r = 0; r < F.ROWS; r++) for (let c = 0; c < F.COLS; c++) if (F.fieldAt(r, c)) n++;
+    return n;
+  })(), FS * FS);
   clearBoard();
   F.busy = false;
   // place away from the patch so the count, not the placement, is what fills it
