@@ -2247,7 +2247,7 @@
       millPaid += pay; touchesLeft += pay; updateHUD();
     }
   }
-  const INTEREST_CAP    = 20;   // most coins interest can pay in one round, before 금고
+  const INTEREST_CAP    = 10;   // most coins interest can pay in one round, before 금고
   const SPEND_PER = 2;          // coins spent per +1 fruit score, for 탕진
   let coinsSpent = 0;           // ACCUMULATED, not derived: applyRelics must not wipe it
   let spendFlat = 0;            // +1 to every fruit per SPEND_PER spent, while 탕진 is held
@@ -2309,7 +2309,8 @@
     zoneCells = new Set();
     const n = zoneCount(); if (!n) return;
     const all = [];
-    for (let r = 0; r < ROWS; r++) for (let c = 0; c < COLS; c++) all.push(r * COLS + c);
+    for (let r = 0; r < ROWS; r++) for (let c = 0; c < COLS; c++)
+      if (!isLocked(r, c)) all.push(r * COLS + c);   // a zone on eroded ground is unreachable
     for (let i = 0; i < n && all.length; i++) zoneCells.add(all.splice(randInt(all.length), 1)[0]);
   }
   let traits = [];                         // [{id, amount}] -- amount may have been doubled
@@ -9162,7 +9163,7 @@
       scorePop, fruitScore, chainBonus, streakMult, pickColor, addScore,
       resetRun, serializeRun, restoreRun, FRUIT_POINTS, COLS,
       MODES, activeColors, spawnCount, crackerLevel, computeMaxLevel,
-      spawnBuds,
+      spawnBuds, spawnCracker, fruitSignature,
       COLORS,
       RELICS, notify, modify, applyRelics, activeRelics, relicCap, stageTouches, RELIC_SLOTS,
       settleSlots, tickRelicLife, lifeUnitLabel, TIERS, TIER_KEYS, relicTier,

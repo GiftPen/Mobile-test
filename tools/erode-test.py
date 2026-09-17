@@ -78,6 +78,71 @@ window.addEventListener('load', () => setTimeout(() => {
     // and the board-full check counts it as gone rather than as space
     for (const [r, c] of F.emptyCells()) F.grid[r][c] = 0;
     chk('판이 찼다고 판정된다', F.emptyCells().length, 0);
+
+    // ---- every other thing that writes to a cell has to respect the lock ----
+    // The wall behaviour is inherited rather than declared -- a locked cell holds grid === -1
+    // and the collectors all want grid !== -1 -- which is cheap but means any NEW path that
+    // writes to the board is a hole until someone checks. rollZones was exactly that: it
+    // offered every cell and put bonus zones on ground nobody could reach.
+    const lockedCells = () => { const o = [];
+      for (let r = 0; r < F.ERODE_ROWS; r++) for (let c = 0; c < F.COLS; c++)
+        if (F.eroded[r][c]) o.push([r, c]);
+      return o; };
+    const lockedTouched = () => lockedCells()
+      .filter(([r, c]) => F.grid[r][c] !== -1 || F.special[r][c])
+      .map(([r, c]) => r + ',' + c);
+    const clearFree = () => { for (let r = 0; r < F.ROWS; r++) for (let c = 0; c < F.COLS; c++)
+      if (!F.eroded[r][c]) { F.grid[r][c] = -1; F.special[r][c] = null; F.hp[r][c] = 0; } };
+    const setUp = () => { atRound10(); for (let i = 0; i < 3; i++) F.erodeStage();
+                          F.busy = false; clearFree(); };
+
+    setUp();
+    for (let i = 0; i < 12; i++) F.spawnBuds(6);
+    chk('매턴 스폰이 잠긴 칸을 피한다', lockedTouched(), []);
+
+    setUp();
+    for (let i = 0; i < 30; i++) F.spawnCracker(1);
+    chk('크래커가 잠긴 칸에 생기지 않는다', lockedTouched(), []);
+
+    setUp();
+    F.coins = 999; F.armItem('basket');
+    { const free = F.emptyCells()[0]; F.placeBoughtItem(free[0], free[1]); }
+    chk('과일 바구니가 잠긴 칸을 채우지 않는다', lockedTouched(), []);
+
+    // 바나나 군락 converts NEIGHBOURS, which is a write the flood does not make
+    setUp();
+    F.relics = ['banana_grove2']; F.applyRelics();
+    { const L = lockedCells()[2];
+      const nb = [[L[0], L[1]+1], [L[0], L[1]-1], [L[0]+1, L[1]], [L[0]-1, L[1]]]
+        .filter(([r, c]) => r >= 0 && r < F.ROWS && c >= 0 && c < F.COLS && !F.eroded[r][c]);
+      for (const [r, c] of nb) F.grid[r][c] = 6;
+      const vis = Array.from({ length: F.ROWS }, () => Array(F.COLS).fill(false));
+      if (nb.length) F.fruitSignature(nb[0][0], nb[0][1], 6, vis, []);
+      chk('바나나 군락이 잠긴 칸을 바꾸지 않는다', lockedTouched(), []);
+    }
+
+    // a bird flies over walls, but it must not aim AT one
+    setUp();
+    for (const [r, c] of F.emptyCells().slice(0, 6)) F.grid[r][c] = 1;
+    { const aims = [];
+      for (let i = 0; i < 30; i++) { const t = F.chooseBirdTarget({}); if (t) aims.push(t); }
+      chk('참새가 잠긴 칸을 노리지 않는다',
+          aims.filter(([r, c]) => F.eroded[r][c]).length, 0);
+      chk('그래도 노릴 과일은 찾는다', aims.length > 0, true);
+    }
+
+    // ---- and a bonus zone never lands on ground you cannot use ----
+    // rollZones offered every cell on the board; the erosion arrived afterwards. A zone on a
+    // locked cell is a bonus that cannot be reached.
+    atRound10();
+    for (let i = 0; i < F.ERODE_ROWS; i++) F.erodeStage();
+    F.relics = ['golden_city']; F.applyRelics();
+    let onLocked = 0;
+    for (let n = 0; n < 40; n++) {
+      F.rollZones();
+      for (const k of F.zoneCells) if (F.eroded[(k / F.COLS) | 0][k % F.COLS]) onLocked++;
+    }
+    chk('보너스 칸이 잠긴 땅에 생기지 않는다', onLocked, 0);
   } catch (e) { fails.push({ case: 'threw', got: e.message, want: '' }); }
   document.title = 'RESULT ' + JSON.stringify({ fails, shape });
 }, 700));
