@@ -39,6 +39,36 @@ window.addEventListener('load', () => setTimeout(async () => {
   chk('the relics survive', F.relics.length, 2);
   // derived state is NOT serialised, so it has to be recomputed or the relics do nothing
   chk('and their effects are recomputed', F.fruitScore(0), F.FRUIT_POINTS[0] + 8);
+
+  // --- 오염된 땅 survives being closed and reopened ---
+  // A board that is a quarter locked is the board: restoring the fruit and forgetting which
+  // cells are gone would hand the player back a run they were not playing. Round 10+ only,
+  // which is exactly where nobody re-tests by hand.
+  F.start('rush'); await settle(120);
+  F.stage = (F.ERODE_FROM_ROUND - 1) * F.STAGES_PER_ROUND + 1;
+  F.erodeStage(); F.erodeStage(); F.erodeStage();   // rows 0-2
+  F.coins = 500;
+  F.unlockCell(2, 1);                                // ...and one bought back
+  const lockedBefore = [];
+  for (let r = 0; r < F.ERODE_ROWS; r++) for (let c = 0; c < F.COLS; c++)
+    if (F.eroded[r][c]) lockedBefore.push(r + ',' + c + ':' + F.eroded[r][c]);
+  const stepBefore = F.erodeStep;
+  F.saveRun();
+  F.resetRun(); F.running = false;
+  chk('erosion really was wiped', F.erodeStep, 0);
+  F.resumeSavedRun(); await settle(150);
+  const lockedAfter = [];
+  for (let r = 0; r < F.ERODE_ROWS; r++) for (let c = 0; c < F.COLS; c++)
+    if (F.eroded[r][c]) lockedAfter.push(r + ',' + c + ':' + F.eroded[r][c]);
+  chk('잠긴 칸이 그대로 돌아온다', lockedAfter, lockedBefore);
+  chk('영구/해제가능 구분도 남는다',
+      lockedAfter.filter(x => x.endsWith(':2')).length, 2);
+  chk('되산 칸은 열린 채로 남는다', F.eroded[2][1], 0);
+  chk('침식 진행도가 이어진다', F.erodeStep, stepBefore);
+  // and it keeps growing from where it left off rather than starting over
+  F.erodeStage();
+  chk('이어서 자란다', F.erodeStep >= stepBefore, true);
+
   // paused, so returning never lands on a live board mid-thought
   chk('it comes back paused', [F.running, F.paused], [true, true]);
   chk('with the pause panel up', shown('pause'), true);

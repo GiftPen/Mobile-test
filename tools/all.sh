@@ -7,7 +7,7 @@
 cd "$(dirname "$0")/.."
 fail=0
 typeset -a broke
-for t in js-check rules-test items-test hud-fit device-fit sound-test i18n-test tutorial-test relic-audit ads-test dev-test save-test coin-test coinfly-test art-check book-test menufx-test stack-test pair-audit smoke; do
+for t in js-check rules-test items-test hud-fit device-fit sound-test i18n-test tutorial-test relic-audit ads-test dev-test erode-test save-test coin-test coinfly-test art-check book-test menufx-test stack-test pair-audit smoke; do
   printf "%-15s " "$t"
   if out=$(python3 "tools/$t.py" 2>&1); then
     print -- "${out##*$'\n'}"

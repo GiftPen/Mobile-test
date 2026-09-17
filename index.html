@@ -1877,6 +1877,24 @@
   // build score thirty times the other fruits (measured). One revival per kiwi keeps the
   // relic's promise -- "a popped kiwi leaves a seed" -- while making the total finite.
   let sprouted;
+  // ---- 오염된 땅 ---------------------------------------------------------------------------
+  // From round 10 the board starts closing from both edges, one cell per side per stage, in a
+  // zigzag one and two cells in from each wall. Score inflation is something a build can
+  // outrun; space is not. The two cells of 10-1 are permanent -- they are the warning. Every
+  // one after that can be bought back for a flat 50, and once the zigzag reaches the bottom
+  // the next one re-takes the highest cell that was paid off, so keeping the board open is a
+  // standing bill rather than a one-off purchase.
+  let eroded;                  // cell layer: 0 free · 1 locked (payable) · 2 locked (permanent)
+  let erodeStep = 0;           // how many cells per side have been placed
+  const ERODE_FROM_ROUND = 10;
+  const ERODE_ROWS = 8;        // the base board; 개간's extra rows are never eroded
+  const ERODE_COST = 50;
+  // row r takes the column one in from the wall on even rows, two in on odd ones
+  const erodeCellsAt = i => (i % 2 === 0
+    ? [[i, 1], [i, COLS - 2]]
+    : [[i, 2], [i, COLS - 3]]);
+  const erodeOn = () => mode === "rush" && roundNow() >= ERODE_FROM_ROUND;
+  const isLocked = (r, c) => !!(eroded && eroded[r] && eroded[r][c]);
   let ghost;                   // ghost[r][c] = colorIdx of a cell already cleared in logic
                                // but not yet visually popped -- keeps the fruit on screen
                                // until ITS staggered burst fires, so a blast reads as fruit
@@ -1973,7 +1991,7 @@
   function resetRun() {
     ROWS = 8;                              // Star Rush grows this mid-run; runs start at 8
     grid = layer(-1); special = layer(null); hp = layer(0);
-    coinCell = layer(0); sprouted = layer(0);
+    coinCell = layer(0); sprouted = layer(0); eroded = layer(0); erodeStep = 0;
     glow = layer(null); appear = layer(0); ghost = layer(null);   // display-only layers
     nextColor = null; nextColor2 = null;   // null queue -> pickNext refills both slots
     score = 0; streak = 0; touchCount = 0;
@@ -2005,7 +2023,8 @@
     return { v: RUN_VERSION, mode, rows: ROWS, grid, special, hp, coinCell, sprouted, bananaField,
              nextColor, nextColor2, score, streak, touchCount,
              stage, stageScore, touchesLeft, coins, oddsMult, fruitMult,
-             fruitStack, fruitBoost, relics, relicLife, traits, doubles, coinsSpent, crackerScore };
+             fruitStack, fruitBoost, relics, relicLife, traits, doubles, coinsSpent, crackerScore,
+             eroded, erodeStep };
   }
   function restoreRun(o) {
     if (!o || o.v !== RUN_VERSION) return false;   // unknown/older save -> caller starts fresh
@@ -2014,6 +2033,9 @@
     ({ grid, special, hp, coinCell, nextColor, nextColor2, score, streak, touchCount,
        stage, stageScore, touchesLeft, coins, oddsMult, fruitMult,
        fruitStack, fruitBoost, relics, relicLife, traits, doubles } = o);
+    // a save from before the erosion existed has neither: an empty layer is the right default
+    eroded = o.eroded || layer(0);
+    erodeStep = o.erodeStep || 0;
     // absent in an older save: an empty layer just means no kiwi is mid-revival yet
     // A renamed relic would be dropped by applyRelics (it guards on RELICS[id]) and the
     // player would just find a legendary missing mid-run, so old ids are carried across.
@@ -5045,10 +5067,57 @@
     return T.effects.map(e => ({ ...e, amount: e.amount * m }));
   }
 
+  // one more cell per side, per stage. The row-0 pair is permanent; the rest are payable.
+  // When the zigzag has reached the bottom, the next growth re-takes the highest cell that
+  // was bought back -- so paying buys time, not an exit.
+  function erodeStage() {
+    if (!erodeOn()) return 0;
+    let took = 0;
+    if (erodeStep < ERODE_ROWS) {
+      const mark = erodeStep === 0 ? 2 : 1;      // 10-1's pair cannot be bought back
+      for (const [r, c] of erodeCellsAt(erodeStep)) {
+        if (r >= ROWS || c < 0 || c >= COLS) continue;
+        eroded[r][c] = mark;
+        clearCellForErosion(r, c);
+        took++;
+      }
+      erodeStep++;
+    } else {
+      // the sequence is spent: take back the first cell that was paid off, from the top
+      for (let i = 0; i < ERODE_ROWS && took < 2; i++)
+        for (const [r, c] of erodeCellsAt(i)) {
+          if (took >= 2) break;
+          if (r >= ROWS || c < 0 || c >= COLS) continue;
+          if (eroded[r][c]) continue;            // still locked -- nothing to re-take here
+          eroded[r][c] = 1;
+          clearCellForErosion(r, c);
+          took++;
+        }
+    }
+    if (took) { dirty = true; updateHUD(); }
+    return took;
+  }
+  // whatever stood there is gone with it: fruit, cracker, item, coin
+  function clearCellForErosion(r, c) {
+    grid[r][c] = -1; special[r][c] = null; hp[r][c] = 0;
+    coinCell[r][c] = 0; sprouted[r][c] = 0; ghost[r][c] = null;
+    burst(r, c, "#6b5b8a");
+  }
+  // 50 coins, flat, however many times it comes back
+  function unlockCell(r, c) {
+    if (!isLocked(r, c) || eroded[r][c] === 2) return false;
+    if (coins < ERODE_COST) { buzz(12); SFX.play("tap"); return false; }
+    coins -= ERODE_COST; coinsSpent += ERODE_COST; coinsShown = coins;
+    eroded[r][c] = 0;
+    SFX.play("buy"); buzz(14);
+    dirty = true; updateHUD();
+    return true;
+  }
+
   function emptyCells() {
     const out = [];
     for (let r = 0; r < ROWS; r++) for (let c = 0; c < COLS; c++)
-      if (grid[r][c] === -1) out.push([r, c]);
+      if (grid[r][c] === -1 && !isLocked(r, c)) out.push([r, c]);
     return out;
   }
   function filledCount() {
@@ -5346,6 +5415,8 @@
       if (grid[r][c] === -1) placeTestItem(r, c, selectedItem);
       return;
     }
+    // a locked cell answers only one question: do you want it back
+    if (isLocked(r, c)) { unlockCell(r, c); return; }
     if (armedItem) {                       // a bought item goes down instead of a fruit
       if (!tutAllows(r, c)) { buzz(8); return; }
       const step = tut && TUT_STEPS[tut.i];
@@ -6146,6 +6217,7 @@
   }
 
   // same-color plain fruits within Chebyshev radius R (items are NOT color-matched)
+  // a locked cell is a wall: no flood crosses it, no blast takes it, nothing spawns in it
   function seedsAround(r, c, R, color, visited) {
     const out = [];
     for (let dr = -R; dr <= R; dr++) {
@@ -6622,6 +6694,7 @@
     saveRun();                             // back on the board: shop and traits are settled
     $sh("hint").textContent = "";     // the band says the stage, the goal and the touches
     if (fresh) {
+      erodeStage();              // round 10+: the board closes another notch
       rollZones(); rollField();  // a fresh map each stage -- but NOT on a revive
       millPaid = 0;              // the mill's allowance is per stage
       notify("onStageStart", { stage });
@@ -7810,6 +7883,44 @@
         ctx.fillStyle = PLATE.cell;
         roundRect(x + g, y + g, cell - g*2, cell - g*2, cell*0.22); ctx.fill();
 
+        // 오염된 땅. The permanent pair is a different colour and carries no price, so there
+        // is nothing to try and buy: you can see at a glance which two are never coming back.
+        if (isLocked(r, c)) {
+          const perm = eroded[r][c] === 2;
+          ctx.save();
+          ctx.fillStyle = perm ? "#241b2e" : "#3a2a46";
+          roundRect(x + g, y + g, cell - g*2, cell - g*2, cell*0.22); ctx.fill();
+          ctx.strokeStyle = perm ? "#4a3a5c" : "#6b4a8a";
+          ctx.lineWidth = Math.max(1, cell * 0.035);
+          roundRect(x + g, y + g, cell - g*2, cell - g*2, cell*0.22); ctx.stroke();
+          const cx = x + cell / 2, cy = y + cell / 2;
+          if (perm) {
+            // a cross: this one is gone
+            ctx.strokeStyle = "#6b5b8a"; ctx.lineWidth = Math.max(1.5, cell * 0.07);
+            ctx.lineCap = "round";
+            const a = cell * 0.17;
+            ctx.beginPath();
+            ctx.moveTo(cx - a, cy - a); ctx.lineTo(cx + a, cy + a);
+            ctx.moveTo(cx + a, cy - a); ctx.lineTo(cx - a, cy + a);
+            ctx.stroke();
+          } else {
+            // a padlock and its price
+            const w = cell * 0.26, h = cell * 0.2, top = cy - cell * 0.13;
+            ctx.strokeStyle = "#c9a6e8"; ctx.lineWidth = Math.max(1.2, cell * 0.045);
+            ctx.beginPath();
+            ctx.arc(cx, top, w * 0.34, Math.PI, 0);
+            ctx.stroke();
+            ctx.fillStyle = "#c9a6e8";
+            roundRect(cx - w / 2, top, w, h, cell * 0.04); ctx.fill();
+            ctx.fillStyle = coins >= ERODE_COST ? "#ffd23e" : "#8a7aa0";
+            ctx.font = `800 ${cell * 0.24}px 'Maplestory', system-ui, sans-serif`;
+            ctx.textAlign = "center"; ctx.textBaseline = "top";
+            ctx.fillText(String(ERODE_COST), cx, cy + cell * 0.14);
+          }
+          ctx.restore();
+          continue;                 // nothing else is drawn in a cell that is not there
+        }
+
         // the banana patch, in banana blue so it cannot be read as the (green/gold) bonus zone
         if (bananaField && fieldAt(r, c)) {
           ctx.save();
@@ -8585,6 +8696,7 @@
     if (tut.i >= TUT_STEPS.length) { finishTutorial(true); return; }
     // a clean slate each step: the lesson is the shape on the board, not what is left over
     grid = layer(-1); special = layer(null); hp = layer(0); coinCell = layer(0);
+    eroded = layer(0); erodeStep = 0;
     sprouted = layer(0);
     glow = layer(null); appear = layer(0); ghost = layer(null);
     const step = TUT_STEPS[tut.i];
@@ -9050,6 +9162,7 @@
       scorePop, fruitScore, chainBonus, streakMult, pickColor, addScore,
       resetRun, serializeRun, restoreRun, FRUIT_POINTS, COLS,
       MODES, activeColors, spawnCount, crackerLevel, computeMaxLevel,
+      spawnBuds,
       COLORS,
       RELICS, notify, modify, applyRelics, activeRelics, relicCap, stageTouches, RELIC_SLOTS,
       settleSlots, tickRelicLife, lifeUnitLabel, TIERS, TIER_KEYS, relicTier,
@@ -9095,6 +9208,9 @@
       resetEffects, get links() { return links; }, coinReady, drawCoin,
       updateStreakBadge,
       ART_IDS, iconEl, relicIcon, traitIcon, warmArt,
+      get eroded() { return eroded; }, set eroded(v) { eroded = v; },
+      get erodeStep() { return erodeStep; }, set erodeStep(v) { erodeStep = v; },
+      erodeStage, unlockCell, isLocked, erodeCellsAt, ERODE_COST, ERODE_ROWS, ERODE_FROM_ROUND,
       ITEM_ART, paintItemIcons,
       fxRnd,
       COIN_FLY_MS, COIN_STAGGER_MS, flyCoins, clearCoinFly,
