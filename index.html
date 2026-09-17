@@ -177,12 +177,43 @@
     white-space: nowrap; line-height: 13px; height: 13px; }
   .rb-div { width: 1px; align-self: stretch; margin: 3px 0 6px; background: var(--slot-edge); }
   .rb-chips { margin-left: auto; display: flex; align-items: center; gap: 6px; }
+  #rs-chrome { display: flex; align-items: center; gap: 6px; }
+  /* row three: what you press and what you own, off the two rows that hold numbers */
+  /* the strip the board-fill gauge used to sit on: short controls, nothing that holds a
+     number you read mid-swipe */
+  #rush-bar { width: 100%; max-width: 520px; padding: 3px 18px 0; display: flex;
+    align-items: center; gap: 7px; }
+  #rush-bar.hidden { display: none; }
+  #rb-left, #rb-mid { display: flex; align-items: center; gap: 7px; min-width: 0; }
+  /* 확률 hugs the left edge, the purse and 매턴 the right */
+  #rb-mid { margin-left: auto; flex: none; }
+  #rb-left { flex: 1 1 auto; overflow: hidden; }
+  /* the 확률 button lives on a chip row in both modes, so it is chip-sized in both */
+  #info-btn { height: 28px; padding: 0 10px; font-size: 13px; }
+  body:not(.rush-chrome) #stats { flex-wrap: wrap; row-gap: 6px; }
+  body.rush-chrome #rush-bar .chip { height: 28px; display: inline-flex; align-items: center;
+    font-size: 13px; padding: 0 10px; }
+  /* the preview stands beside 남은 터치, at the band's height */
+  body.rush-chrome #next-wrap { padding: 2px 5px; }
+  body.rush-chrome #np-now  { width: 38px; height: 38px; }
+  body.rush-chrome #np-next { width: 25px; height: 25px; }
+  /* the combo speaks at the score's size, immediately to its left */
+  #streak-badge2 { font-size: inherit; font-weight: 800; margin-right: 6px; }
+  /* the band is the second row now, so what sits in it has to be band-sized */
+  body.rush-chrome #rush .rb-row { gap: 8px; }
+  /* 확률 keeps its fruit icon and drops the word: the band has two big numbers to protect,
+     and measured, the label cost the quota 24px of font size */
+  body.rush-chrome #info-btn { height: 34px; width: 38px; padding: 0; font-size: 15px; }
+  body.rush-chrome #np-now  { width: 40px; height: 40px; }
+  body.rush-chrome #np-next { width: 26px; height: 26px; }
+
+  /* the top row in 스타 러시: short, fixed things only */
+
   /* timed relics have to be readable without opening a panel -- they are gone in a stage or
      two and that is exactly when you need to know */
   /* its own row with a reserved height: slipping these into the chip row wrapped the band
      and shoved the board 42px down the moment a timed relic was bought */
-  #rs-timed { display: flex; align-items: center; gap: 4px; height: 22px; margin-top: 4px;
-    overflow: hidden; }
+  #rs-timed { display: flex; align-items: center; gap: 4px; overflow: hidden; }
   .chip.timed { padding: 3px 7px; font-size: 12px; font-weight: 800; color: #ffd6a0;
     background: rgba(255,180,60,.14); border: 1px solid rgba(255,180,60,.4); }
   .chip.timed.last { color: #ff9db0; background: rgba(255,90,110,.16);
@@ -953,7 +984,7 @@
   <div id="top">
     <div class="top-left">
       <button id="pause-btn" data-i18n-aria="paused" aria-label="일시정지">⏸</button>
-      <button id="info-btn" data-i18n="tabOdds" aria-label="유물과 과일 확률">🍊 확률</button>
+      <button id="info-btn" aria-label="유물과 과일 확률"><span id="odds-ic">🍊</span><span class="odds-word" data-i18n="tabOddsWord"> 확률</span></button>
     </div>
     <div class="score-box center" id="arcade-box">
       <span class="score-val" id="score">0</span>
@@ -962,8 +993,7 @@
     </div>
     <div class="rush-box center hidden" id="rush-box">
       <span class="rb-stage"><span data-i18n="stage">스테이지</span> <b id="rs-stage">1-1</b></span>
-      <span class="best-line"><span data-i18n="score">점수</span> <b id="rb-score">0</b> · <span data-i18n="best">최고</span> <b id="rb-best">0</b></span>
-      <span id="streak-badge2"></span>
+      <span class="best-line"><span id="streak-badge2"></span><span data-i18n="score">점수</span> <b id="rb-score">0</b> · <span data-i18n="best">최고</span> <b id="rb-best">0</b></span>
     </div>
     <div id="next-wrap">
       <canvas id="np-now"  width="128" height="128"></canvas>
@@ -985,6 +1015,7 @@
       <div class="rb-cell" id="rb-touch-cell"><span class="rb-val" id="rb-touch">15</span><span class="rb-lab" data-i18n="touchesLeft">남은 터치</span></div>
       <div class="rb-chips">
         <span class="chip coin" id="rs-coin"><i class="cn"></i> <b id="rs-coin-v">0</b></span>
+        <span id="rs-chrome"></span>
         <span class="chip" id="rs-spawn-chip">➕ <b id="rs-spawn">1</b></span>
         <span id="danger-label2" class="hidden">⚠️</span>
       </div>
@@ -992,6 +1023,10 @@
     <div id="rs-timed"></div>
   </div>
 
+  <div id="rush-bar" class="hidden">
+    <span id="rb-left"></span>
+    <span id="rb-mid"></span>
+  </div>
   <div id="coinfx" aria-hidden="true"></div>
   <div id="banner" class="hidden">AD</div>
   <div id="stage-wrap">
@@ -1790,6 +1825,7 @@
   let cell, pad, dpr, boardPx, boardH;
 
   const BOARD_MIN = 260, BOARD_MAX = 520, CHROME_H = 220;
+  const RUSH_BAR_H = 34;   // 스타 러시's third header row, which arcade does not have
   // below this the HUD, board and item bar cannot all fit at any board size
   const MIN_PLAY_H = 520;
   function checkViewport() {
@@ -1811,7 +1847,8 @@
 
   function layout() {
     // the height budget must shrink as ROWS grows or an 8x12 board runs off the screen
-    const byHeight = (usableH() - CHROME_H) * COLS / ROWS;
+    const chrome = CHROME_H + (mode === "rush" ? RUSH_BAR_H : 0);
+    const byHeight = (usableH() - chrome) * COLS / ROWS;
     const maxW = Math.min(usableW() - 24, BOARD_MAX, byHeight);
     // BOARD_MIN keeps the board playable on a wide-but-short screen, but it is a floor, not a
     // licence to overflow: at 320x568 with a grown 12-row board it pushed the item bar 28px
@@ -2695,6 +2732,7 @@
       touchChip: "👆 터치", spawnChip: "➕ 매턴", danger: "⚠️ 위험!",
       goal: "목표", goalMet: "목표 달성 ✓", touchesLeft: "남은 터치",
       nextStage: "다음 스테이지 ▶", testDock: "테스트",
+      nextShort: "다음 ▶",
       stageDone: label => `${label} 클리어`,
       rotateTitle: "세로로 돌려주세요", rotateSub: "화면이 낮아 판이 다 들어가지 않습니다",
       hintPlace: "빈 칸을 탭해 과일을 놓으세요",
@@ -2736,6 +2774,7 @@
       tutSkip: "건너뛰기",
       tutReplay: "튜토리얼 다시 보기",
       tabHelp: "도움말",
+      tabOddsWord: " 확률",
       crackerMult: n => `크래커 점수 ×${n1(n)}`,
       cracker: "크래커",
       everyTouch: "매 터치",
@@ -3094,6 +3133,7 @@
       touchChip: "👆 Touches", spawnChip: "➕ Per turn", danger: "⚠️ Danger!",
       goal: "Goal", goalMet: "Goal met ✓", touchesLeft: "Touches left",
       nextStage: "Next stage ▶", testDock: "Test",
+      nextShort: "Next ▶",
       stageDone: label => `${label} cleared`,
       rotateTitle: "Please turn upright", rotateSub: "The board does not fit this screen height",
       hintPlace: "Tap an empty cell to place a fruit",
@@ -3135,6 +3175,7 @@
       tutSkip: "Skip",
       tutReplay: "Replay tutorial",
       tabHelp: "Help",
+      tabOddsWord: " Odds",
       crackerMult: n => `Cracker score ×${n1(n)}`,
       cracker: "Cracker",
       everyTouch: "every touch",
@@ -3492,6 +3533,7 @@
       touchChip: "👆 タッチ", spawnChip: "➕ 毎ターン", danger: "⚠️ 危険!",
       goal: "目標", goalMet: "目標達成 ✓", touchesLeft: "残りタッチ",
       nextStage: "次のステージ ▶", testDock: "テスト",
+      nextShort: "次へ ▶",
       stageDone: label => `${label} クリア`,
       rotateTitle: "縦向きにしてください", rotateSub: "画面の高さが足りず盤面が入りません",
       hintPlace: "空いたマスをタップしてフルーツを置く",
@@ -3533,6 +3575,7 @@
       tutSkip: "スキップ",
       tutReplay: "チュートリアルをもう一度",
       tabHelp: "ヘルプ",
+      tabOddsWord: " 確率",
       crackerMult: n => `クラッカーのスコア ×${n1(n)}`,
       cracker: "クラッカー",
       everyTouch: "毎タッチ",
@@ -3890,6 +3933,7 @@
       touchChip: "👆 触摸", spawnChip: "➕ 每回合", danger: "⚠️ 危险!",
       goal: "目标", goalMet: "达成目标 ✓", touchesLeft: "剩余触摸",
       nextStage: "下一关 ▶", testDock: "测试",
+      nextShort: "下一关 ▶",
       stageDone: label => `${label} 通关`,
       rotateTitle: "请竖屏游玩", rotateSub: "屏幕高度不足，棋盘放不下",
       hintPlace: "点击空格放置水果",
@@ -3931,6 +3975,7 @@
       tutSkip: "跳过",
       tutReplay: "重看教程",
       tabHelp: "帮助",
+      tabOddsWord: " 概率",
       crackerMult: n => `饼干分数 ×${n1(n)}`,
       cracker: "饼干",
       everyTouch: "每次触碰",
@@ -5038,9 +5083,7 @@
     mfxStop();
     document.getElementById("overlay").classList.add("hidden");
     syncBanner();
-    document.getElementById("hint").textContent = rules().touchBudget
-      ? d("hintStage", "1-1", rules().quota(1), touchesLeft)
-      : d("hintArcade");
+    document.getElementById("hint").textContent = rules().touchBudget ? "" : d("hintArcade");
   }
 
   // build the segmented gauge once
@@ -5071,6 +5114,42 @@
     paintCoins();
   }
 
+  // 스타 러시 puts 확률, the preview and the purse in the band; arcade keeps them up top,
+  // where it has the room because it shows no stage and no quota
+  function placeChrome() {
+    const rush = mode === "rush";
+    document.body.classList.toggle("rush-chrome", rush);
+    const odds = $sh("info-btn"), prev = $sh("next-wrap");
+    const band = $sh("rush") && $sh("rush").querySelector(".rb-row");
+    const slot = $sh("rs-chrome");
+    const left = document.querySelector(".top-left"), top = $sh("top");
+    const bar = $sh("rush-bar"), bl = $sh("rb-left"), bm = $sh("rb-mid"), br = $sh("rb-right");
+    const nextBtn = $sh("rush-next"), purse = $sh("rs-coin");
+    bar.classList.toggle("hidden", !rush);
+    const spawnChip = $sh("rs-spawn-chip");
+    if (rush) {
+      // row three: 확률, the purse, 매턴 -- all short, all at one height
+      if (odds.parentElement !== bl) bl.appendChild(odds);
+      const timed = $sh("rs-timed");
+      if (timed && timed.parentElement !== bl) bl.appendChild(timed);
+      if (purse.parentElement !== bm) bm.appendChild(purse);
+      if (spawnChip && spawnChip.parentElement !== bm) bm.appendChild(spawnChip);
+      // the preview belongs beside 남은 터치, not over the score
+      if (prev.parentElement !== slot) slot.appendChild(prev);
+      // and the button goes back under the board, where the thumb is
+      if (nextBtn.parentElement !== document.body) document.body.appendChild(nextBtn);
+    } else {
+      const stats = $sh("stats");
+      if (stats && odds.parentElement !== stats) stats.insertBefore(odds, stats.firstChild);
+      if (prev.parentElement !== top) top.appendChild(prev);
+      const chips = document.querySelector("#rush .rb-chips"), rushEl = $sh("rush");
+      const timed = $sh("rs-timed");
+      if (chips && purse.parentElement !== chips) chips.insertBefore(purse, chips.firstChild);
+      if (chips && spawnChip && spawnChip.parentElement !== chips) chips.appendChild(spawnChip);
+      if (timed && rushEl && timed.parentElement !== rushEl) rushEl.appendChild(timed);
+      if (nextBtn.parentElement !== document.body) document.body.appendChild(nextBtn);
+    }
+  }
   function updateHUD() {
     setBig(document.getElementById("score"), score, 16);
     document.getElementById("best").textContent = fmtNum(best);
@@ -5080,6 +5159,7 @@
     // rather than relabelling shared ones -- the two modes want different hierarchies.
     const rush = rules().touchBudget;
     document.getElementById("stats").classList.toggle("hidden", rush);
+    placeChrome();
     document.getElementById("rush").classList.toggle("hidden", !rush);
     document.getElementById("arcade-box").classList.toggle("hidden", rush);
     document.getElementById("rush-box").classList.toggle("hidden", !rush);
@@ -6433,8 +6513,7 @@
     if (paused) { paused = false; $sh("pause").classList.add("hidden"); }
     busy = false; dirty = true;
     saveRun();                             // back on the board: shop and traits are settled
-    $sh("hint").textContent =
-      d("hintStage", stageLabel(stage), rules().quota(stage), touchesLeft);
+    $sh("hint").textContent = "";     // the band says the stage, the goal and the touches
     if (fresh) {
       rollZones(); rollField();  // a fresh map each stage -- but NOT on a revive
       millPaid = 0;              // the mill's allowance is per stage
@@ -6952,9 +7031,7 @@
     touchesLeft = stageTouches();
     flash = Math.max(flash, 0.5); addShake(7);
     // interest has to be SEEN or it is not a strategy, just a number that moved
-    document.getElementById("hint").textContent =
-      d("hintStage", stageLabel(stage), rules().quota(stage), touchesLeft)
-      + (interest ? " · " + d("interestPaid", interest) : "");
+    document.getElementById("hint").textContent = interest ? d("interestPaid", interest) : "";
     updateHUD();
     dirty = true;
     // The board is still paying out -- coins are in the air and the quota line is green. The
