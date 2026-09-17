@@ -182,15 +182,17 @@
   /* the strip the board-fill gauge used to sit on: short controls, nothing that holds a
      number you read mid-swipe */
   #rush-bar { width: 100%; max-width: 520px; padding: 3px 18px 0; display: flex;
-    align-items: center; gap: 7px; }
+    align-items: center; gap: 6px; }
   #rush-bar.hidden { display: none; }
-  #rb-left, #rb-mid { display: flex; align-items: center; gap: 7px; min-width: 0; }
+  #rb-left, #rb-mid { display: flex; align-items: center; gap: 6px; min-width: 0; }
   /* 확률 hugs the left edge, the purse and 매턴 the right */
   #rb-mid { margin-left: auto; flex: none; }
   #rb-left { flex: 1 1 auto; overflow: hidden; }
   /* the 확률 button lives on a chip row in both modes, so it is chip-sized in both */
-  #info-btn { height: 28px; padding: 0 10px; font-size: 13px; }
   body:not(.rush-chrome) #stats { flex-wrap: wrap; row-gap: 6px; }
+  /* one height for everything on the chip row: the coin carries a border and measured 2px
+     shorter than its neighbours */
+  #stats .chip { height: 28px; display: inline-flex; align-items: center; padding: 0 10px; }
   body.rush-chrome #rush-bar .chip { height: 28px; display: inline-flex; align-items: center;
     font-size: 13px; padding: 0 10px; }
   /* the preview stands beside 남은 터치, at the band's height */
@@ -199,11 +201,28 @@
   body.rush-chrome #np-next { width: 25px; height: 25px; }
   /* the combo speaks at the score's size, immediately to its left */
   #streak-badge2 { font-size: inherit; font-weight: 800; margin-right: 6px; }
+  #odds-ic { width: 17px; height: 17px; display: block; }
+  /* the same chip as 확률: one strip, one height, three doors */
+  .hud-tab-btn { height: 28px; margin: 0; padding: 0 9px; border-radius: 12px;
+    background: var(--chip); color: var(--ink); border: 1px solid var(--chip-edge);
+    font-size: 13px; font-weight: 800; box-shadow: none; white-space: nowrap;
+    display: inline-flex; align-items: center; gap: 4px; }
+  .hud-tab-btn.hidden { display: none; }
+  .htb-ic { font-size: 13px; line-height: 1; }
+  /* measured: at 320px the strip ran 28px past the screen. The two labels that are already
+     a picture go, and 확률 keeps its word -- a fruit icon alone does not say "odds". */
+  @media (max-width: 384px) {
+    .hud-tab-btn span:not(.htb-ic) { display: none; }
+    .hud-tab-btn { padding: 0 8px; }
+  }
   /* the band is the second row now, so what sits in it has to be band-sized */
   body.rush-chrome #rush .rb-row { gap: 8px; }
   /* 확률 keeps its fruit icon and drops the word: the band has two big numbers to protect,
      and measured, the label cost the quota 24px of font size */
-  body.rush-chrome #info-btn { height: 34px; width: 38px; padding: 0; font-size: 15px; }
+  /* on the chip strip it is a chip: same height, same padding, and wide enough for its word */
+  body.rush-chrome #info-btn, body:not(.rush-chrome) #stats #info-btn {
+    height: 28px; width: auto; min-width: 0; padding: 0 10px;
+    font-size: 13px; line-height: 1; display: inline-flex; align-items: center; gap: 4px; }
   body.rush-chrome #np-now  { width: 40px; height: 40px; }
   body.rush-chrome #np-next { width: 26px; height: 26px; }
 
@@ -852,6 +871,7 @@
     margin: 0; padding: 9px 4px; font-size: 12px; font-weight: 800; border-radius: 12px;
     background: var(--slot); color: var(--muted); box-shadow: none; font-family: inherit; }
   .itab.on { background: var(--slot-on); color: var(--ink); }
+  .itab.hidden { display: none; }
   .inf-row { display: flex; align-items: center; gap: 10px; padding: 9px 10px; margin-bottom: 6px;
     background: var(--slot); border-radius: 12px; }
   .inf-row.inert { opacity: .38; }
@@ -984,7 +1004,9 @@
   <div id="top">
     <div class="top-left">
       <button id="pause-btn" data-i18n-aria="paused" aria-label="일시정지">⏸</button>
-      <button id="info-btn" aria-label="유물과 과일 확률"><span id="odds-ic">🍊</span><span class="odds-word" data-i18n="tabOddsWord"> 확률</span></button>
+      <button id="info-btn" aria-label="과일 확률"><img id="odds-ic" src="assets_new/fruit0.png" onerror="this.onerror=null;this.src='assets/fruit0.png'" alt="" /><span class="odds-word" data-i18n="tabOddsWord">확률</span></button>
+      <button id="relic-btn" class="hud-tab-btn hidden" aria-label="내 유물"><span class="htb-ic">📜</span><span data-i18n="tabRelics">유물</span></button>
+      <button id="trait-btn" class="hud-tab-btn hidden" aria-label="내 특성"><span class="htb-ic">✨</span><span data-i18n="tabTraits">특성</span></button>
     </div>
     <div class="score-box center" id="arcade-box">
       <span class="score-val" id="score">0</span>
@@ -2774,7 +2796,7 @@
       tutSkip: "건너뛰기",
       tutReplay: "튜토리얼 다시 보기",
       tabHelp: "도움말",
-      tabOddsWord: " 확률",
+      tabOddsWord: "확률",
       crackerMult: n => `크래커 점수 ×${n1(n)}`,
       cracker: "크래커",
       everyTouch: "매 터치",
@@ -3175,7 +3197,7 @@
       tutSkip: "Skip",
       tutReplay: "Replay tutorial",
       tabHelp: "Help",
-      tabOddsWord: " Odds",
+      tabOddsWord: "Odds",
       crackerMult: n => `Cracker score ×${n1(n)}`,
       cracker: "Cracker",
       everyTouch: "every touch",
@@ -3575,7 +3597,7 @@
       tutSkip: "スキップ",
       tutReplay: "チュートリアルをもう一度",
       tabHelp: "ヘルプ",
-      tabOddsWord: " 確率",
+      tabOddsWord: "確率",
       crackerMult: n => `クラッカーのスコア ×${n1(n)}`,
       cracker: "クラッカー",
       everyTouch: "毎タッチ",
@@ -3975,7 +3997,7 @@
       tutSkip: "跳过",
       tutReplay: "重看教程",
       tabHelp: "帮助",
-      tabOddsWord: " 概率",
+      tabOddsWord: "概率",
       crackerMult: n => `饼干分数 ×${n1(n)}`,
       cracker: "饼干",
       everyTouch: "每次触碰",
@@ -5130,6 +5152,11 @@
     if (rush) {
       // row three: 확률, the purse, 매턴 -- all short, all at one height
       if (odds.parentElement !== bl) bl.appendChild(odds);
+      for (const id of ["relic-btn", "trait-btn"]) {
+        const btn = $sh(id);
+        btn.classList.remove("hidden");
+        if (btn.parentElement !== bl) bl.appendChild(btn);
+      }
       const timed = $sh("rs-timed");
       if (timed && timed.parentElement !== bl) bl.appendChild(timed);
       if (purse.parentElement !== bm) bm.appendChild(purse);
@@ -5141,6 +5168,7 @@
     } else {
       const stats = $sh("stats");
       if (stats && odds.parentElement !== stats) stats.insertBefore(odds, stats.firstChild);
+      for (const id of ["relic-btn", "trait-btn"]) $sh(id).classList.add("hidden");
       if (prev.parentElement !== top) top.appendChild(prev);
       const chips = document.querySelector("#rush .rb-chips"), rushEl = $sh("rush");
       const timed = $sh("rs-timed");
@@ -6958,6 +6986,13 @@
     wrap.classList.toggle("more", more);
   }
   function openInfo(tab) {
+    // 유물 and 특성 are 스타 러시 ideas. In arcade the panel is 확률 and 도움말, and a tab
+    // that leads to an empty shelf is worse than no tab.
+    const shelved = mode !== "rush";
+    for (const t of document.querySelectorAll('.itab[data-tab="relics"], .itab[data-tab="traits"]'))
+      t.classList.toggle("hidden", shelved);
+    if (shelved && (infoTab === "relics" || infoTab === "traits")) infoTab = "fruits";
+    if (shelved && (tab === "relics" || tab === "traits")) tab = "fruits";
     if (tab) infoTab = tab;
     renderInfo();
     $sh("info").classList.remove("hidden");
@@ -8760,7 +8795,9 @@
     graftArmed = !graftArmed;           // armed, not spent -- picking an unscalable trait keeps it
     renderTraits();
   });
-  document.getElementById("info-btn").addEventListener("click", () => openInfo());
+  document.getElementById("info-btn").addEventListener("click", () => openInfo("fruits"));
+  document.getElementById("relic-btn").addEventListener("click", () => openInfo("relics"));
+  document.getElementById("trait-btn").addEventListener("click", () => openInfo("traits"));
 
   // ---- hold to explain -------------------------------------------------------------------
   // There is no hover on a phone, and an icon nobody can name is a button nobody presses. Hold
