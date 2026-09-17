@@ -727,10 +727,17 @@
   /* The shop used to be the same dark navy as the board, so leaving the board did not feel
      like going anywhere. It is a warm paper counter now -- and the relic art was DRAWN on
      white, so it sits better here than it ever did on the dark. */
-  .shop-card { width: 100%; max-width: 400px; max-height: 92vh; overflow-y: auto;
-    scrollbar-width: none; -ms-overflow-style: none;
+  .shop-card { width: 100%; max-width: 400px; max-height: 92vh;
+    display: flex; flex-direction: column; overflow: hidden;
     background: var(--sheet); border-radius: 20px; padding: 16px;
     border: 1px solid var(--sheet-edge); box-shadow: 0 18px 50px rgba(0,0,0,.55); }
+  .shop-card > .shop-head, .shop-card > .shop-actions, .shop-card > #tr-double { flex: none; }
+  /* the shelf is the only part that moves */
+  #sh-offers, #tr-offers { flex: 1 1 auto; min-height: 0; overflow-y: auto;
+    scrollbar-width: none; -ms-overflow-style: none;
+    /* room for the card lift shadow, which a scroll box would otherwise cut */
+    padding: 2px; margin: -2px; }
+  #sh-offers::-webkit-scrollbar, #tr-offers::-webkit-scrollbar { display: none; }
   /* A shop should look like a place, not a dialog. A market stall's awning: cream-and-green
      canvas, and a scalloped hem cut out of the bottom edge with a repeating radial gradient
      -- no image, so it costs nothing and scales to any width. */
