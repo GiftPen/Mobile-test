@@ -1029,14 +1029,31 @@ window.addEventListener('load', async () => {
     fill(1);
     chk('빈 칸이 하나면 바구니를 살 수 없다', F.canBuyItem('basket'), false);
 
-    // ...and if a board does end up full after an item, it has to SAY so rather than hang
+    // ...but a full board is only a DEAD board if there is nothing left to set off. Tapping
+    // an item costs no touch, so a bomb, star, line or bird standing on it is a move the
+    // player still has -- and putting one on the last cell is a normal thing to do.
     fill(1);
     F.armItem('bomb');
     F.placeBoughtItem(0, 0);
     chk('마지막 칸을 아이템으로 채우면 판이 찬다', F.emptyCells().length, 0);
-    chk('그리고 그 자리에서 멈춘다 (판정이 돈다)', F.busy, true);
     await settle();
-    chk('판이 꽉 차면 런이 끝난다', F.running, false);
+    chk('그래도 런은 이어진다 (아이템을 터뜨릴 수 있으므로)', F.running, true);
+    chk('그 아이템은 판에 남아 있다', F.special[0][0], 'bomb');
+
+    // the same rule on the path that predates the item bar
+    fill(0);
+    F.grid[3][3] = 0; F.special[3][3] = 'star';
+    F.running = true; F.busy = false;
+    F.closeStage('board');
+    await settle();
+    chk('판이 꽉 차도 별이 있으면 끝나지 않는다', F.running, true);
+
+    // and with nothing to fire, it does end
+    fill(0);
+    F.running = true; F.busy = false;
+    F.closeStage('board');
+    await settle();
+    chk('터뜨릴 것이 없으면 런이 끝난다', F.running, false);
     // it ends a run on purpose. over() reads #gameover's own class and start() only hides the
     // parent overlay, so the panel has to be put away by hand or every later check sees it.
     F.start('rush');

@@ -5826,7 +5826,7 @@
     dirty = true; renderItemShop(); updateHUD();
     // the board-full check lives in endTurn, which an item placement does not go through.
     // Without this a full board after an item is a dead game that never says so.
-    if (running && !busy && emptyCells().length === 0) {
+    if (running && !busy && emptyCells().length === 0 && !hasFirableItem()) {
       busy = true;
       setTimeout(() => closeStage("board"), 750);
     }
@@ -7187,6 +7187,13 @@
   // A bird is in the air for ~880ms after the turn ends and still scores and still eats a
   // fruit when it lands -- so a last touch could hit the quota exactly, or free the cell that
   // filled the board, after the loss had already been decided.
+  // a full board is only a dead board if there is nothing left to set off. Firing an item
+  // costs no touch, so one standing on the board is a move the player still has.
+  function hasFirableItem() {
+    for (let r = 0; r < ROWS; r++) for (let c = 0; c < COLS; c++)
+      if (special[r][c]) return true;
+    return false;
+  }
   function closeStage(reason, deadline) {
     if (!running) return;
     deadline = deadline || performance.now() + BIRD_FLY_MS * 2 + 600;   // flight + a retry hop
@@ -7195,7 +7202,7 @@
       return;
     }
     if (rules().touchBudget && stageScore >= rules().quota(stage)) { stageClear(); return; }
-    if (reason === "board" && emptyCells().length > 0) {    // a bird ate one: play on
+    if (reason === "board" && (emptyCells().length > 0 || hasFirableItem())) {   // play on
       const outOfTouches = rules().touchBudget && touchesLeft <= 0;
       if (!outOfTouches) { busy = false; updateHUD(); return; }
       gameOver("touches");
