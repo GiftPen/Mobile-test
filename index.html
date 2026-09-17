@@ -48,6 +48,8 @@
     --gold-b: #ffe9a0;       /* the number itself, one step brighter */
     --gold-bg: #3a3316;      /* behind an armed/selected gold control */
     --met: #43d17a;          /* quota met -- the one green that is not a fruit colour here */
+    --state-ink: #ff8fa3;    /* 품절 / 칸 없음: why a card cannot be bought */
+    --state-bg: rgba(255, 90, 122, .16);
     /* the glow on a 유니크/전설 card, which has to follow its grade colour */
     --sh-unique: 255,201,60;  --sh-unique2: 255,243,190;
     --sh-legend: 78,240,200;  --sh-legend2: 214,255,244;
@@ -588,6 +590,7 @@
     --scrim: rgba(52,36,18,.74);
     --gold: #8a5a12; --gold-b: #5e3c08; --gold-bg: #f2dfb2;
     --met: #155f36;
+    --state-ink: #a5122a; --state-bg: rgba(200, 40, 70, .16);
     --sh-unique: 194,24,91;  --sh-unique2: 216,27,96;
     --sh-legend: 0,121,107;  --sh-legend2: 0,150,136;
     --t2-hi: #3b2a14; --t2-lo: #6f5527;
@@ -608,6 +611,7 @@
     --scrim: rgba(10,45,60,.74);
     --gold: #0f6c8a; --gold-b: #084e63; --gold-bg: #d2ecf5;
     --met: #0b5636;
+    --state-ink: #a5122a; --state-bg: rgba(200, 40, 70, .16);
     --sh-unique: 194,24,91;  --sh-unique2: 216,27,96;
     --sh-legend: 0,121,107;  --sh-legend2: 0,150,136;
     --t2-hi: #10323f; --t2-lo: #3c6474;
@@ -631,6 +635,7 @@
     --scrim: rgba(20,32,56,.74);
     --gold: #b4761a; --gold-b: #8a5a12; --gold-bg: #f2e2c4;
     --met: #10502d;
+    --state-ink: #a5122a; --state-bg: rgba(200, 40, 70, .16);
     --sh-unique: 194,24,91;  --sh-unique2: 216,27,96;
     --sh-legend: 0,121,107;  --sh-legend2: 0,150,136;
     --t2-hi: #17202f; --t2-lo: #4a5877;
@@ -869,9 +874,9 @@
   .of-price { font-size: clamp(11px, 3.4vw, 13px); }
   .of-price.nofit { color: #ff8fa3; }
   /* why this one cannot be bought, under the price rather than on top of it */
-  .of-state { font-size: clamp(9px, 2.8vw, 11px); font-weight: 800; color: #a5122a;
+  .of-state { font-size: clamp(9px, 2.8vw, 11px); font-weight: 800; color: var(--state-ink);
     letter-spacing: .5px; margin-top: 2px; padding: 1px 8px; border-radius: 999px;
-    background: rgba(200, 40, 70, .16); }
+    background: var(--state-bg); }
   .shop-empty { padding: 14px; text-align: center; color: var(--muted); font-size: 13px; }
 
   /* ---- info popup: what am I carrying, and what are the odds right now ---- */

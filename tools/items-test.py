@@ -931,7 +931,8 @@ window.addEventListener('load', async () => {
     // seed and sparkle is drawn for a DARK tray, so no theme may hand it a pale one.
     const SHELL = ['--bg','--bg-hi','--burst','--panel','--cell','--chip','--chip-edge',
                    '--slot','--slot-edge','--slot-on','--board','--board-cell','--scrim',
-                   '--gold','--gold-b','--gold-bg','--met','--t2-hi','--t2-lo','--text','--muted'];
+                   '--gold','--gold-b','--gold-bg','--met','--state-ink','--state-bg',
+                   '--t2-hi','--t2-lo','--text','--muted'];
     const shell = [];
     for (const t of F.THEMES) {
       F.setTheme(t);
@@ -942,7 +943,9 @@ window.addEventListener('load', async () => {
       const pairs = [['--text', bg], ['--text', panel], ['--text', chip],
                      ['--ink', readVar('--slot')], ['--gold', panel], ['--t2-hi', bg],
                      // 목표 달성 is the one state the player looks up mid-swipe to check
-                     ['--met', bg], ['--met', panel]];
+                     ['--met', bg], ['--met', panel],
+                     // 품절 / 칸 없음 -- written for a paper card, it measured 2.09:1 on the dark one
+                     ['--state-ink', readVar('--card')]];
       for (const [fg, b] of pairs) {
         const r = ratio(readVar(fg), b);
         if (r < 3.0) shell.push(`${t}:${fg} on ${b} ${r.toFixed(1)}:1`);
