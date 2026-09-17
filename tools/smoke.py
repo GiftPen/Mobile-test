@@ -3,6 +3,11 @@
 suites never think to send. Lived in /tmp and got lost; it belongs with the others."""
 import subprocess, os, re, sys
 
+BOOT_TRAP = """<script>
+window.__boot = [];
+window.addEventListener('error', e => window.__boot.push(String(e.message)));
+</script>"""
+
 TEST = """<script>
 window.__err = [];
 window.addEventListener('error', e => window.__err.push(String(e.message)));
@@ -12,6 +17,12 @@ window.addEventListener('unhandledrejection', e => window.__err.push('rej:' + e.
 const sleep = ms => new Promise(r => setTimeout(r, ms));
 window.addEventListener('load', () => setTimeout(async () => {
   const F = window.__fs, cv = document.getElementById('game');
+  // the game did not boot: say which name broke it rather than timing out into silence
+  if (!F || !cv) {
+    document.title = 'BOOT ' + JSON.stringify({
+      fs: typeof F, canvas: !!cv, errs: (window.__boot || []).slice(0, 3) });
+    return;
+  }
   document.getElementById('btn-arcade').click();
   const b = cv.getBoundingClientRect();
   for (let i = 0; i < 400; i++) {
@@ -27,7 +38,9 @@ window.addEventListener('load', () => setTimeout(async () => {
 
 os.chdir(os.path.dirname(os.path.abspath(__file__)) + '/..')
 open('_sm.html','w',encoding='utf-8').write(
-    open('index.html',encoding='utf-8').read().replace('</body>', TEST + '</body>'))
+    open('index.html',encoding='utf-8').read()
+        .replace('<script>', BOOT_TRAP + '<script>', 1)
+        .replace('</body>', TEST + '</body>'))
 try:
     out = subprocess.run(['/Applications/Google Chrome.app/Contents/MacOS/Google Chrome',
         '--headless','--disable-gpu','--no-first-run','--window-size=430,932',
@@ -37,7 +50,17 @@ finally:
     os.remove('_sm.html')
 
 m = re.search(r'SMOKE (\{.*\})</title>', out, re.S)
-if not m: print('NO RESULT'); sys.exit(1)
+boot = re.search(r'BOOT (\{.*?\})</title>', out, re.S)
+if boot:
+    import json as _j
+    b = _j.loads(boot.group(1))
+    print('게임이 켜지지 않습니다 — __fs=' + str(b['fs']) + ', canvas=' + str(b['canvas']))
+    for e in b['errs']: print('   ', e)
+    if not b['errs']: print('    (초기화 중 조용히 실패 — export 목록에 없는 이름이 흔한 원인)')
+    sys.exit(1)
+if not m:
+    print('NO RESULT — 페이지가 응답하지 않았습니다 (문법 오류 또는 무한 루프)')
+    sys.exit(1)
 import json
 r = json.loads(m.group(1))
 print(f"smoke: 400 random taps, {r['nerr']} error(s), score {r['score']}")
