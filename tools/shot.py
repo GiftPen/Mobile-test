@@ -14,6 +14,14 @@ SCREENS = {
   'met':   "D.getElementById('btn-challenge').click(); F.score = 1840; F.stageScore = 1840; F.updateHUD();",
   'shop':  "D.getElementById('btn-challenge').click(); F.coins = 40; F.openShop();",
   'set':   "D.getElementById('btn-settings').click();",
+  # the +1 drawer: it hangs off a HUD chip, and a clipped/mispositioned drawer is invisible
+  # to every test that only reads classes
+  'spawn': ("D.getElementById('btn-challenge').click(); F.coins = 120;"
+            " F.updateHUD(); D.getElementById('rs-spawn-chip').click();"),
+  # the odds popup's stat table, scrolled to the item thresholds
+  'odds':  ("D.getElementById('btn-challenge').click(); D.getElementById('info-btn').click();"
+            " setTimeout(() => { const b = D.getElementById('info-body');"
+            " b.scrollTop = b.scrollHeight; }, 200);"),
 }
 
 def shot(theme, screen, out):

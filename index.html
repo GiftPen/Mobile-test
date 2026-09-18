@@ -149,6 +149,27 @@
   @keyframes coinBump { 0% { transform: scale(1); } 45% { transform: scale(1.22); } 100% { transform: scale(1); } }
   .chip.lvl .lvmax { color: var(--gold); margin-left: 4px; font-size: 10px; letter-spacing: 1px; }
   .chip.lvl .lvmax.hidden { display: none; }
+  /* a chip that is also a button: keep it looking exactly like its neighbours */
+  .chip-btn { border: 0; font-family: inherit; cursor: pointer; display: inline-flex;
+              align-items: center; gap: 4px; }
+  .chip-btn.on { background: var(--chip); box-shadow: 0 0 0 2px var(--gold) inset; }
+  /* z above the HUD and the board, below the shop/pause overlays */
+  #spawn-menu {
+    position: fixed; z-index: 9; width: 210px; padding: 10px 12px 12px;
+    background: var(--card); border: 1px solid var(--chip-edge); border-radius: 14px;
+    box-shadow: 0 10px 28px rgba(0,0,0,.45); font-size: 12px; color: var(--muted);
+  }
+  #spawn-menu.hidden { display: none; }
+  #spawn-menu .sm-t { color: var(--text); font-weight: 800; font-size: 13px; margin-bottom: 6px; }
+  #spawn-menu .sm-rows { display: flex; flex-direction: column; gap: 3px; margin-bottom: 9px; }
+  #spawn-menu .sm-row { display: flex; justify-content: space-between; gap: 10px; }
+  #spawn-menu .sm-row b { color: var(--text); font-weight: 800; }
+  #spawn-menu .sm-row.tot { border-top: 1px solid var(--chip-edge); margin-top: 3px; padding-top: 4px; }
+  #spawn-menu .sm-row.tot span, #spawn-menu .sm-row.tot b { color: var(--gold); }
+  #spawn-menu #sm-buy { width: 100%; padding: 8px 0; border: 0; border-radius: 10px;
+    font-family: inherit; font-size: 13px; font-weight: 800; cursor: pointer; }
+  #spawn-menu #sm-buy:disabled { opacity: .45; cursor: default; }
+  #spawn-menu .sm-note { margin-top: 6px; font-size: 11px; line-height: 1.35; }
   #stats.hidden { display: none; }
   /* ---- Star Rush contract band ----
      The run total is not what you play against turn to turn -- the quota and the touches
@@ -1058,7 +1079,7 @@
   <div id="stats">
     <span class="chip lvl" id="st-lvl-chip">Lv.<b id="st-level">1</b><span id="st-max" class="lvmax hidden">MAX</span></span>
     <span class="chip" id="st-touch-chip"><span data-i18n="touchChip">👆 터치</span> <b id="st-touch">0</b></span>
-    <span class="chip" id="st-spawn-chip"><span data-i18n="spawnChip">➕ 매턴</span> <b id="st-spawn">1</b></span>
+    <button class="chip chip-btn" id="st-spawn-chip"><span data-i18n="spawnChip">➕ 매턴</span> <b id="st-spawn">1</b></button>
     <span class="chip coin" id="st-coin"><i class="cn"></i> <b id="st-coin-v">0</b></span>
     <span id="danger-label" class="hidden" data-i18n="danger">⚠️ 위험!</span>
   </div>
@@ -1070,7 +1091,7 @@
       <div class="rb-chips">
         <span class="chip coin" id="rs-coin"><i class="cn"></i> <b id="rs-coin-v">0</b></span>
         <span id="rs-chrome"></span>
-        <span class="chip" id="rs-spawn-chip">➕ <b id="rs-spawn">1</b></span>
+        <button class="chip chip-btn" id="rs-spawn-chip">➕ <b id="rs-spawn">1</b></button>
         <span id="danger-label2" class="hidden">⚠️</span>
       </div>
     </div>
@@ -1080,6 +1101,12 @@
   <div id="rush-bar" class="hidden">
     <span id="rb-left"></span>
     <span id="rb-mid"></span>
+  </div>
+  <div id="spawn-menu" class="hidden">
+    <div class="sm-t" data-i18n="spawnMenuTitle">매턴 과일</div>
+    <div class="sm-rows" id="sm-rows"></div>
+    <button id="sm-buy"></button>
+    <div class="sm-note" id="sm-note"></div>
   </div>
   <div id="coinfx" aria-hidden="true"></div>
   <div id="banner" class="hidden">AD</div>
@@ -1351,6 +1378,11 @@
   const STAGES_PER_ROUND = 3;  // a round is 1-1, 1-2, 1-3; traits land when a round ends
   const RUSH_TOUCHES   = 15;   // touches granted per stage
   const RUSH_SPAWNS    = 3;    // per turn. base 3 -> relic +1 -> trait +1 reaches 5
+  // Running dry late is the unsatisfying death: not outplayed, just out of material. This is
+  // the one non-relic thing coins can buy, and it costs a slot of nothing -- price climbs
+  // 50/100/150/200/250 so it stays a rescue, not an engine.
+  const SPAWN_BUY_STEP = 50;
+  const SPAWN_BUY_MAX  = 5;
   const RUSH_BUDS      = 18;   // opening board. a one-off injection, NOT a substitute for
                                // spawns/turn: it gets consumed and the board drains again
   // Quota climbs in two tiers so the profile can be shaped: gentle steps inside a round,
@@ -1998,6 +2030,7 @@
     score = 0; streak = 0; touchCount = 0;
     stage = 1; stageScore = 0; touchesLeft = RUSH_TOUCHES;
     touchBonus = 0; spawnBonus = 0; slotBonus = 0; crackerChance = 0; offerBonus = 0;
+    spawnBought = 0;                  // "영구" means for this run, so a new run starts at 0
     chainStep = 0; coinFruitBonus = 0; starCoinMult = 1; payoutMult = 1;
     coinFlat = 0; coinToScore = 0; coinFlatPer = COIN_FLAT_PER; interestPer = 0; interestPct = 0; interestCap = INTEREST_CAP;
     crackerBonus = 0; crackerMult = 1; crackerCoin = 0; crackerBoom = false; crackerDouble = false; crackerEvery = false;
@@ -2025,7 +2058,7 @@
              nextColor, nextColor2, score, streak, touchCount,
              stage, stageScore, touchesLeft, coins, oddsMult, fruitMult,
              fruitStack, fruitBoost, relics, relicLife, traits, doubles, coinsSpent, crackerScore,
-             eroded, erodeStep };
+             eroded, erodeStep, spawnBought };
   }
   function restoreRun(o) {
     if (!o || o.v !== RUN_VERSION) return false;   // unknown/older save -> caller starts fresh
@@ -2047,6 +2080,7 @@
     bananaField = o.bananaField || null;   // absent in an older save: rolled again next stage
     coinsSpent = o.coinsSpent || 0;              // absent in an older save: start it at zero
     crackerScore = o.crackerScore || CRACKER_SCORE;
+    spawnBought = o.spawnBought || 0;            // absent in an older save: nothing bought yet
     coinsShown = coins; clearCoinFly();
     glow = layer(null); appear = layer(0); ghost = layer(null);
     layout(); dirty = true;
@@ -2164,7 +2198,7 @@
   // difficulty knobs (accept an explicit milestone m; default = current)
   function crackerLevel(m = milestone()) { return rules().crackerOn(m); }
   function activeColors(m = milestone()) { return rules().colors(m); }
-  function spawnCount(m = milestone()) { return rules().spawns(m) + spawnBonus; }
+  function spawnCount(m = milestone()) { return rules().spawns(m) + spawnBonus + spawnBought; }
   function stageTouches() { return rules().touches + touchBonus; }
   // max meaningful level = milestone where every arcade knob first reaches its cap (+1).
   // Arcade-only: it drives the Lv. chip, and rush has no score-driven ramp.
@@ -2199,6 +2233,7 @@
   let relicLife = {};                      // id -> charges left, for the ones that expire
   // derived from the owned relics -- never written directly, always recomputed by applyRelics()
   let touchBonus = 0, spawnBonus = 0, slotBonus = 0, crackerChance = 0, offerBonus = 0;
+  let spawnBought = 0;        // bought with coins. applyRelics() must never touch this
   // more knobs for relics to turn. All derived: applyRelics() resets them every recompute.
   // ---- coin economy ----
   // Coins are currency AND, with these, score. That is a hoarding incentive, so interest is
@@ -2821,6 +2856,13 @@
       traitPick: "특성 선택", doubleChip: "2배", myRelics: "내 유물", prep: "준비",
       best: "최고", stage: "스테이지", score: "점수", scoreBest: (a, b) => `점수 ${a} · 최고 ${b}`,
       touchChip: "👆 터치", spawnChip: "➕ 매턴", danger: "⚠️ 위험!",
+      spawnMenuTitle: "매턴 과일",
+      spawnBase: "기본", spawnFromRelic: "유물·특성", spawnFromBuy: "구매", spawnTotal: "합계",
+      spawnBuyBtn: n => `+1 늘리기 · \u{1FA99}${n}`,
+      spawnMaxed: "더 늘릴 수 없음",
+      spawnNote: n => `앞으로 ${n}번 더 늘릴 수 있습니다. 이번 게임 동안 유지됩니다.`,
+      spawnShort: n => `코인이 ${n}개 부족합니다.`,
+      spawnRushOnly: "스타 러시에서만 늘릴 수 있습니다.",
       goal: "목표", goalMet: "목표 달성 ✓", touchesLeft: "남은 터치",
       nextStage: "다음 스테이지 ▶", testDock: "테스트",
       nextShort: "다음 ▶",
@@ -2917,7 +2959,10 @@
       statSlots: "유물 칸",
       statShelf: "상점 진열",
       statRows: "판 줄 수",
-      statItemNeed: "아이템 필요 개수",
+      statNeedBird: "참새 필요 개수",
+      statNeedLine: "가로세로 필요 개수",
+      statNeedBomb: "폭탄 필요 개수",
+      statNeedStar: "별 필요 개수",
       statInterest: "이번 라운드 이자",
       statCoinScore: "코인 보너스 점수",
       statSpendScore: "지출 보너스 점수",
@@ -3223,6 +3268,13 @@
       traitPick: "Pick a trait", doubleChip: "×2", myRelics: "My relics", prep: "",
       best: "Best", stage: "Stage", score: "Score", scoreBest: (a, b) => `Score ${a} · Best ${b}`,
       touchChip: "👆 Touches", spawnChip: "➕ Per turn", danger: "⚠️ Danger!",
+      spawnMenuTitle: "Fruit per turn",
+      spawnBase: "Base", spawnFromRelic: "Relics & traits", spawnFromBuy: "Bought", spawnTotal: "Total",
+      spawnBuyBtn: n => `Add +1 · \u{1FA99}${n}`,
+      spawnMaxed: "Fully upgraded",
+      spawnNote: n => `${n} more upgrade(s) available. Lasts for this run.`,
+      spawnShort: n => `${n} more coin(s) needed.`,
+      spawnRushOnly: "Only upgradable in Star Rush.",
       goal: "Goal", goalMet: "Goal met ✓", touchesLeft: "Touches left",
       nextStage: "Next stage ▶", testDock: "Test",
       nextShort: "Next ▶",
@@ -3319,7 +3371,10 @@
       statSlots: "Relic slots",
       statShelf: "Shop shelf",
       statRows: "Board rows",
-      statItemNeed: "Item thresholds",
+      statNeedBird: "Sparrow threshold",
+      statNeedLine: "Line threshold",
+      statNeedBomb: "Bomb threshold",
+      statNeedStar: "Star threshold",
       statInterest: "Interest this round",
       statCoinScore: "Score from coins",
       statSpendScore: "Score from spending",
@@ -3624,6 +3679,13 @@
       best: "ベスト", stage: "ステージ", score: "スコア",
       scoreBest: (a, b) => `スコア ${a} · ベスト ${b}`,
       touchChip: "👆 タッチ", spawnChip: "➕ 毎ターン", danger: "⚠️ 危険!",
+      spawnMenuTitle: "毎ターンのフルーツ",
+      spawnBase: "基本", spawnFromRelic: "遺物・特性", spawnFromBuy: "購入", spawnTotal: "合計",
+      spawnBuyBtn: n => `+1 増やす · \u{1FA99}${n}`,
+      spawnMaxed: "これ以上増やせません",
+      spawnNote: n => `あと${n}回増やせます。このゲーム中は維持されます。`,
+      spawnShort: n => `コインが${n}枚足りません。`,
+      spawnRushOnly: "スターラッシュでのみ増やせます。",
       goal: "目標", goalMet: "目標達成 ✓", touchesLeft: "残りタッチ",
       nextStage: "次のステージ ▶", testDock: "テスト",
       nextShort: "次へ ▶",
@@ -3720,7 +3782,10 @@
       statSlots: "レリック枠",
       statShelf: "ショップ陳列",
       statRows: "盤の行数",
-      statItemNeed: "アイテム必要数",
+      statNeedBird: "スズメ必要数",
+      statNeedLine: "ライン必要数",
+      statNeedBomb: "ボム必要数",
+      statNeedStar: "スター必要数",
       statInterest: "今ラウンドの利息",
       statCoinScore: "コインによる加点",
       statSpendScore: "支出による加点",
@@ -4025,6 +4090,13 @@
       best: "最高", stage: "关卡", score: "分数",
       scoreBest: (a, b) => `分数 ${a} · 最高 ${b}`,
       touchChip: "👆 触摸", spawnChip: "➕ 每回合", danger: "⚠️ 危险!",
+      spawnMenuTitle: "每回合水果",
+      spawnBase: "基础", spawnFromRelic: "遗物·特性", spawnFromBuy: "购买", spawnTotal: "合计",
+      spawnBuyBtn: n => `增加 +1 · \u{1FA99}${n}`,
+      spawnMaxed: "无法继续增加",
+      spawnNote: n => `还可增加 ${n} 次。本局游戏内有效。`,
+      spawnShort: n => `还差 ${n} 枚金币。`,
+      spawnRushOnly: "仅限星辰冲刺模式升级。",
       goal: "目标", goalMet: "达成目标 ✓", touchesLeft: "剩余触摸",
       nextStage: "下一关 ▶", testDock: "测试",
       nextShort: "下一关 ▶",
@@ -4121,7 +4193,10 @@
       statSlots: "遗物格",
       statShelf: "商店陈列",
       statRows: "盘面行数",
-      statItemNeed: "道具所需数",
+      statNeedBird: "麻雀所需数",
+      statNeedLine: "直线所需数",
+      statNeedBomb: "炸弹所需数",
+      statNeedStar: "星星所需数",
       statInterest: "本回合利息",
       statCoinScore: "金币加分",
       statSpendScore: "消费加分",
@@ -5109,6 +5184,82 @@
     coinCell[r][c] = 0; sprouted[r][c] = 0; ghost[r][c] = null;
     burst(r, c, "#6b5b8a");
   }
+  // ---- 매턴 과일 +1: the only non-relic upgrade coins can buy ----
+  // Flat price like the erosion unlock, NOT run through shopDiscount: this is not a shop
+  // offer, and a discount relic quietly halving a rescue button is not something the player
+  // can see or plan around.
+  const spawnBuyCost = () => SPAWN_BUY_STEP * (spawnBought + 1);
+  const spawnBuyLeft = () => SPAWN_BUY_MAX - spawnBought;
+  const canBuySpawn = () => running && mode === "rush" && spawnBuyLeft() > 0
+                            && coins >= spawnBuyCost();
+  function buySpawn() {
+    if (!canBuySpawn()) { buzz(12); SFX.play("tap"); return false; }
+    const cost = spawnBuyCost();
+    coins -= cost; coinsSpent += cost; coinsShown = coins;   // 탕진 counts this like any spend
+    spawnBought += 1;
+    SFX.play("buy"); buzz(14);
+    saveRun();                      // a purchase must survive a backgrounded tab
+    updateHUD(); renderSpawnMenu(); dirty = true;
+    return true;
+  }
+
+  let spawnMenuAt = null;                 // id of the chip it is hanging off, or null
+  function closeSpawnMenu() {
+    spawnMenuAt = null;
+    document.getElementById("spawn-menu").classList.add("hidden");
+    for (const id of ["st-spawn-chip", "rs-spawn-chip"])
+      document.getElementById(id).classList.remove("on");
+  }
+  function toggleSpawnMenu(id) {
+    if (spawnMenuAt === id) { closeSpawnMenu(); return; }
+    spawnMenuAt = id;
+    for (const c of ["st-spawn-chip", "rs-spawn-chip"])
+      document.getElementById(c).classList.toggle("on", c === id);
+    const m = document.getElementById("spawn-menu");
+    m.classList.remove("hidden");
+    renderSpawnMenu();
+    // clamp inside the viewport: the rush chip sits far right on a 320px phone and an
+    // unclamped drawer hung off the edge
+    const r = document.getElementById(id).getBoundingClientRect();
+    const w = m.offsetWidth, pad = 8;
+    m.style.left = Math.max(pad, Math.min(window.innerWidth - w - pad,
+                                          r.left + r.width / 2 - w / 2)) + "px";
+    m.style.top = Math.min(window.innerHeight - m.offsetHeight - pad, r.bottom + 6) + "px";
+  }
+  function renderSpawnMenu() {
+    if (!spawnMenuAt) return;
+    const rows = document.getElementById("sm-rows");
+    rows.textContent = "";
+    const add = (lab, val, cls) => {
+      const row = document.createElement("div");
+      row.className = "sm-row" + (cls ? " " + cls : "");
+      const a = document.createElement("span"); a.textContent = lab;
+      const b = document.createElement("b"); b.textContent = val;
+      row.append(a, b); rows.appendChild(row);
+    };
+    add(d("spawnBase"), String(rules().spawns(milestone())));
+    if (spawnBonus) add(d("spawnFromRelic"), "+" + spawnBonus);
+    if (spawnBought) add(d("spawnFromBuy"), "+" + spawnBought);
+    add(d("spawnTotal"), String(spawnCount()), "tot");
+
+    const btn = document.getElementById("sm-buy");
+    const note = document.getElementById("sm-note");
+    if (mode !== "rush") {                     // arcade has no coins-to-relics economy
+      btn.classList.add("hidden"); note.textContent = d("spawnRushOnly"); return;
+    }
+    btn.classList.remove("hidden");
+    if (spawnBuyLeft() <= 0) {
+      btn.disabled = true; btn.textContent = d("spawnMaxed");
+      note.textContent = d("spawnNote", SPAWN_BUY_MAX);
+      return;
+    }
+    btn.disabled = !canBuySpawn();
+    btn.textContent = d("spawnBuyBtn", spawnBuyCost());
+    note.textContent = coins < spawnBuyCost()
+      ? d("spawnShort", spawnBuyCost() - coins)
+      : d("spawnNote", spawnBuyLeft());
+  }
+
   // 50 coins, flat, however many times it comes back
   function unlockCell(r, c) {
     if (!isLocked(r, c) || eroded[r][c] === 2) return false;
@@ -5388,6 +5539,7 @@
     document.getElementById("st-spawn").textContent = spawnCount();
 
     renderItemShop();                      // affordability moves with every coin
+    renderSpawnMenu();                     // ...and so does the +1 button's affordability
     // The segmented fill/danger gauge is gone: sixteen coloured bars are the first thing a new
     // player sees and the last thing they can name. The board itself already shows how full it
     // is. The danger WARNING stays -- that one is a sentence, not a chart.
@@ -6683,6 +6835,7 @@
   }
 
   function openShop() {
+    closeSpawnMenu();                      // the drawer is anchored to a chip the shop covers
     SFX.play("trait");
     shopOffers = rollOffers(shelfSize());   // the 안목 trait widens it further
     shopSold = new Set();
@@ -7081,6 +7234,7 @@
       [d("statCoinFruit"), pct(COIN_FRUIT_CHANCE), pct(COIN_FRUIT_CHANCE + coinFruitBonus)],
       [d("statCracker"),     pct(0),                 pct(crackerChance)],
       [d("statSpawn"),     String(rules().spawns(milestone())), String(spawnCount())],
+      ...(spawnBought ? [[d("spawnFromBuy"), "0", `+${spawnBought}`]] : []),
       [d("statTouch"),     String(rules().touches || 0), String(stageTouches())],
       [d("statComboCap"),  x(2.0),                 x(STREAK_CAP)],
       [d("statComboStep"), `+${gridMult(STREAK_STEP_BASE)}`, `+${gridMult(STREAK_STEP)}`],
@@ -7093,9 +7247,11 @@
       [d("statSlots"),     String(RELIC_SLOTS),    String(relicCap())],
       [d("statShelf"),     String(SHOP_OFFERS),    String(shelfSize())],
       [d("statRows"),      String(ROWS_BASE),      String(ROWS)],
-      [d("statItemNeed"),  [BIRD_THRESHOLD, LINE_THRESHOLD, BOMB_THRESHOLD, STAR_THRESHOLD].join("/"),
-                           [BIRD_THRESHOLD, LINE_THRESHOLD, BOMB_THRESHOLD, STAR_THRESHOLD]
-                             .map(t => itemNeed(t)).join("/")],
+      // One row reading "4/5/7/10" told a first-time player nothing: nothing on screen said
+      // which number was the sparrow and which was the star. One named row each instead.
+      ...[["statNeedBird", BIRD_THRESHOLD], ["statNeedLine", LINE_THRESHOLD],
+          ["statNeedBomb", BOMB_THRESHOLD], ["statNeedStar", STAR_THRESHOLD]]
+         .map(([k, t]) => [d(k), String(t), String(itemNeed(t))]),
     ];
     // Only worth a line if it can happen at all. The map is the sharpest case: ZONE_BASE is 3
     // but there are no marked cells until a zone relic exists, so listing it unconditionally
@@ -7307,6 +7463,7 @@
     // the stage and replayed the sting.
     if (!running) return;
     running = false; busy = false;
+    closeSpawnMenu();                      // nothing to buy into once the run is over
     clearSave();                           // the run is over; nothing to come back to
     SFX.play("over");
     Ads.countGame();
@@ -9050,6 +9207,17 @@
     holdable(document.getElementById(id), () => d("tipCoin"));
   for (const id of ["st-spawn-chip", "rs-spawn-chip"])
     holdable(document.getElementById(id), () => d("tipSpawn", spawnCount()));
+  for (const id of ["st-spawn-chip", "rs-spawn-chip"])
+    document.getElementById(id).addEventListener("click", () => toggleSpawnMenu(id));
+  document.getElementById("sm-buy").addEventListener("click", buySpawn);
+  // any tap outside closes it -- capture, so it lands before a board tap places a fruit
+  document.addEventListener("pointerdown", e => {
+    const m = document.getElementById("spawn-menu");
+    if (m.classList.contains("hidden")) return;
+    if (e.target.closest("#spawn-menu") || e.target.closest("#st-spawn-chip")
+        || e.target.closest("#rs-spawn-chip")) return;
+    closeSpawnMenu();
+  }, true);
   holdable(document.getElementById("st-touch-chip"), () => d("tipTouch"));
   holdable(document.getElementById("st-lvl-chip"), () => d("tipLevel", MAX_LEVEL));
   for (const b of document.querySelectorAll("#ishop .ib"))
@@ -9218,6 +9386,9 @@
       get millPaid() { return millPaid; }, set millPaid(v) { millPaid = v; }, MILL_CAP,
       get shopOffers() { return shopOffers; }, set shopOffers(v) { shopOffers = v; },
       get touchBonus() { return touchBonus; }, get spawnBonus() { return spawnBonus; },
+      get spawnBought() { return spawnBought; }, set spawnBought(v) { spawnBought = v; },
+      spawnBuyCost, spawnBuyLeft, canBuySpawn, buySpawn,
+      SPAWN_BUY_STEP, SPAWN_BUY_MAX, toggleSpawnMenu, closeSpawnMenu,
       get slotBonus()  { return slotBonus; }, get crackerChance() { return crackerChance; },
       get chainStep() { return chainStep; }, get coinFruitBonus() { return coinFruitBonus; },
       get starCoinMult() { return starCoinMult; }, get payoutMult() { return payoutMult; },
