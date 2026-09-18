@@ -4534,7 +4534,7 @@
     oven: { icon: "🔥", price: 26,
       desc: () => d("crackerMult", 2) + d("ckSpawn", 5),
       apply() { crackerMult *= 2; crackerChance += 0.05; } },
-    cracker_king: { icon: "👑", price: 50,
+    cracker_king: { icon: "👑", price: 48,
       desc: () => d("crackerKing", CRACKER_KING_STEP),
       apply() { crackerEvery = true; crackerDouble = true; } },
 
@@ -4786,7 +4786,7 @@
       desc: () => d("cherryPile", 10), apply() { cherryPile += 10; } },
     citrus_plate: { icon: "🍊", price: 30,
       desc: () => d("citrusFuse"), apply() { citrusFuse = true; } },
-    kiwi_seed:    { icon: "🥝", price: 46,
+    kiwi_seed:    { icon: "🥝", price: 50,
       desc: () => d("kiwiSeed"), apply() { kiwiSeed = true; } },
     lemon_spoon:  { icon: "🍋", price: 38,
       desc: () => d("lemonFree"), apply() { lemonFree = true; } },
@@ -4846,7 +4846,7 @@
       desc: () => d("coinFruitMult", 10), apply() { coinFruitMult *= 10; } },
 
     // 전설: every fruit at once, on the same channel the unique crowns use
-    cornucopia: { icon: "🧺", price: 40,
+    cornucopia: { icon: "🧺", price: 42,
       desc: () => d("allBoost", 2),
       apply() { for (let i = 0; i < fruitCrown.length; i++) fruitCrown[i] *= 2; } },
     crown: { icon: "👑", price: 40,
