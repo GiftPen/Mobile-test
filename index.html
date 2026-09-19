@@ -1273,6 +1273,17 @@
 (() => {
   "use strict";
 
+  // A browser is allowed to refuse storage outright -- incognito, Safari private mode, locked
+  // down enterprise profiles, and anything embedding us in a sandboxed frame. Touching
+  // localStorage there THROWS rather than returning null, and one unguarded read during
+  // startup (loadBest) took the whole game down to a blank screen. Every access goes through
+  // here so a refusal is a missing value, never an exception.
+  const LS = {
+    get(k) { try { return localStorage.getItem(k); } catch (e) { return null; } },
+    set(k, v) { try { localStorage.setItem(k, v); } catch (e) {} },
+    del(k) { try { localStorage.removeItem(k); } catch (e) {} },
+  };
+
   // ---- config ----
   // board dims. Arcade stays 8x8; Star Rush keeps COLS=8 (cell size / readability fixed)
   // and grows ROWS 8 -> 12 via the "개간" relic. Engine must read COLS/ROWS, never a square N.
@@ -2001,13 +2012,13 @@
   const BEST_STAGE_KEY = "fruitstar_rush_beststage_v1";
   let bestStage = 0;
   const loadBest = () => {
-    best = +(localStorage.getItem(BEST_KEYS[mode]) || 0);
-    bestStage = +(localStorage.getItem(BEST_STAGE_KEY) || 0);
+    best = +(LS.get(BEST_KEYS[mode]) || 0);
+    bestStage = +(LS.get(BEST_STAGE_KEY) || 0);
   };
   function recordStage() {
     if (!rules().touchBudget || stage <= bestStage) return;
     bestStage = stage;
-    localStorage.setItem(BEST_STAGE_KEY, bestStage);
+    LS.set(BEST_STAGE_KEY, bestStage);
   }
 
   // ---- run state ----
@@ -2095,23 +2106,23 @@
   const SEEN_KEY = "fs_seen_v1";
   let seen = new Set();
   try {
-    const raw = JSON.parse(localStorage.getItem(SEEN_KEY) || "[]");
+    const raw = JSON.parse(LS.get(SEEN_KEY) || "[]");
     if (Array.isArray(raw)) seen = new Set(raw.filter(x => typeof x === "string"));
   } catch (e) {}
   function markSeen(id) {
     if (!id || seen.has(id)) return;
     seen.add(id);
-    try { localStorage.setItem(SEEN_KEY, JSON.stringify([...seen])); } catch (e) {}
+    try { LS.set(SEEN_KEY, JSON.stringify([...seen])); } catch (e) {}
   }
   const SAVE_KEY = "fs_run_v1";
   function saveRun() {
     if (!running || tut) return;                 // nothing to keep mid-tutorial
-    try { localStorage.setItem(SAVE_KEY, JSON.stringify(serializeRun())); } catch (e) {}
+    try { LS.set(SAVE_KEY, JSON.stringify(serializeRun())); } catch (e) {}
   }
-  function clearSave() { try { localStorage.removeItem(SAVE_KEY); } catch (e) {} }
+  function clearSave() { try { LS.del(SAVE_KEY); } catch (e) {} }
   function loadSave() {
     try {
-      const raw = localStorage.getItem(SAVE_KEY);
+      const raw = LS.get(SAVE_KEY);
       if (!raw) return null;
       const o = JSON.parse(raw);
       return (o && o.v === RUN_VERSION) ? o : null;
@@ -2446,7 +2457,7 @@
     if (!(amount > 0)) return 0;
     score += amount;
     stageScore += amount;        // quota progress; reset at each stage, unlike `score`
-    if (score > best) { best = score; localStorage.setItem(BEST_KEYS[mode], best); }
+    if (score > best) { best = score; LS.set(BEST_KEYS[mode], best); }
     return amount;
   }
   // basePts = summed fruitScore of everything credited; cleared = group size for the bonus
@@ -4235,7 +4246,7 @@
 
   let LANG = "ko";
   try {
-    const saved = localStorage.getItem("fs_lang");
+    const saved = LS.get("fs_lang");
     if (saved && PACKS[saved]) LANG = saved;
     else {
       // match on the primary subtag so ko-KR, ja-JP, zh-Hans-CN and zh-TW all land somewhere;
@@ -4279,7 +4290,7 @@
   function setLang(v) {
     if (!PACKS[v]) return;
     LANG = v;
-    try { localStorage.setItem("fs_lang", v); } catch (e) {}
+    try { LS.set("fs_lang", v); } catch (e) {}
     document.documentElement.lang = v;
     applyStaticText();
     for (const fn of langListeners) { try { fn(); } catch (e) {} }
@@ -5618,11 +5629,11 @@
     const MAX_VOICES = 33;
     // ...and pops must never be starved by a coin or a combo blip, so accents get less room
     const ACCENT_VOICES = 14;
-    try { muted = localStorage.getItem("fs_mute") === "1"; } catch (e) {}
+    try { muted = LS.get("fs_mute") === "1"; } catch (e) {}
     // +null is 0, and 0 passes a 0..1 range check -- so reading an unset key this way set the
     // volume to silent on every fresh install. Test for the missing key before converting.
     try {
-      const raw = localStorage.getItem("fs_vol");
+      const raw = LS.get("fs_vol");
       if (raw !== null && raw !== "") { const v = +raw; if (v >= 0 && v <= 1) volume = v; }
     } catch (e) {}
 
@@ -5763,11 +5774,11 @@
     };
     const CRACKER_KEYS = Object.keys(CRACKER_STYLES);
     let crackerStyle = CRACKER_KEYS[0];
-    try { const b = localStorage.getItem("fs_brick"); if (CRACKER_STYLES[b]) crackerStyle = b; } catch (e) {}
+    try { const b = LS.get("fs_brick"); if (CRACKER_STYLES[b]) crackerStyle = b; } catch (e) {}
 
     const POP_KEYS = Object.keys(POP_STYLES);
     let popStyle = POP_KEYS[0];
-    try { const p = localStorage.getItem("fs_pop"); if (POP_STYLES[p]) popStyle = p; } catch (e) {}
+    try { const p = LS.get("fs_pop"); if (POP_STYLES[p]) popStyle = p; } catch (e) {}
 
     const S = {
       tap:    () => tone({ f: 520, f2: 380, dur: 0.05, vol: 0.10, type: "triangle" }),
@@ -5838,23 +5849,23 @@
     function play(name, arg) { const f = S[name]; if (f && live()) f(arg); }
     function setMuted(v) {
       muted = !!v;
-      try { localStorage.setItem("fs_mute", muted ? "1" : "0"); } catch (e) {}
+      try { LS.set("fs_mute", muted ? "1" : "0"); } catch (e) {}
       if (master) master.gain.value = muted ? 0 : volume;
     }
     function setVolume(v) {
       volume = Math.max(0, Math.min(1, v));
-      try { localStorage.setItem("fs_vol", String(volume)); } catch (e) {}
+      try { LS.set("fs_vol", String(volume)); } catch (e) {}
       if (master && !muted) master.gain.value = volume;
     }
     function setPopStyle(k) {
       if (!POP_STYLES[k]) return;
       popStyle = k;
-      try { localStorage.setItem("fs_pop", k); } catch (e) {}
+      try { LS.set("fs_pop", k); } catch (e) {}
     }
     function setCrackerStyle(k) {
       if (!CRACKER_STYLES[k]) return;
       crackerStyle = k;
-      try { localStorage.setItem("fs_brick", k); } catch (e) {}
+      try { LS.set("fs_brick", k); } catch (e) {}
     }
     return { play, unlock, resume, setMuted, setVolume, names: Object.keys(S),
              POP_STYLES, POP_KEYS, setPopStyle, get popStyle() { return popStyle; },
@@ -8758,7 +8769,7 @@
   document.getElementById("s-reset").addEventListener("click", () => {
     if (!confirm(d("resetAsk"))) return;
     try {
-      for (const k of [BEST_KEYS.arcade, BEST_KEYS.rush, BEST_STAGE_KEY]) localStorage.removeItem(k);
+      for (const k of [BEST_KEYS.arcade, BEST_KEYS.rush, BEST_STAGE_KEY]) LS.del(k);
     } catch (e) {}
     best = 0; bestStage = 0; loadBest(); updateHUD();
     menuMsg(d("resetDone"));
@@ -8779,7 +8790,7 @@
   // number on a card the player can read when it appears.
   const TUT_KEY = "fs_tut_v1";
   let tut = null;                          // null when not running
-  const tutorialDone = () => { try { return localStorage.getItem(TUT_KEY) === "1"; } catch (e) { return false; } };
+  const tutorialDone = () => { try { return LS.get(TUT_KEY) === "1"; } catch (e) { return false; } };
 
   // A board that is empty except for the lesson does not look like the game, so the shapes
   // sit inside a normal-looking scatter. Everything the step depends on is protected; the
@@ -8923,7 +8934,7 @@
     tut = null;
     $sh("tut").classList.add("hidden");
     document.body.classList.remove("tut-on", "tut-shop");
-    if (completed) { try { localStorage.setItem(TUT_KEY, "1"); } catch (e) {} }
+    if (completed) { try { LS.set(TUT_KEY, "1"); } catch (e) {} }
     if (then) { start(then); return; }
     running = false; busy = false;
     showMenu();                            // replayed from settings: go back, do not start a run
@@ -8949,17 +8960,17 @@
     const RETRY_EVERY  = 3;        // then at most one interstitial per N game-overs
     const MIN_GAP_MS   = 150000;   // ...and never twice inside this window
     let removed = false, games = 0, lastAd = 0, sinceAd = 0;
-    try { removed = localStorage.getItem("fs_noads") === "1"; } catch (e) {}
-    try { games = +localStorage.getItem("fs_games") || 0; } catch (e) {}
+    try { removed = LS.get("fs_noads") === "1"; } catch (e) {}
+    try { games = +LS.get("fs_games") || 0; } catch (e) {}
 
     const adsRemoved = () => removed;
     function setRemoved(v) {
       removed = !!v;
-      try { localStorage.setItem("fs_noads", removed ? "1" : "0"); } catch (e) {}
+      try { LS.set("fs_noads", removed ? "1" : "0"); } catch (e) {}
     }
     function countGame() {
       games++; sinceAd++;
-      try { localStorage.setItem("fs_games", String(games)); } catch (e) {}
+      try { LS.set("fs_games", String(games)); } catch (e) {}
     }
     // whether an INTERSTITIAL is allowed right now, without showing one
     function interstitialDue() {
@@ -9008,11 +9019,11 @@
   // offering a switch that does nothing.
   const HAPTICS_OK = typeof navigator !== "undefined" && typeof navigator.vibrate === "function";
   let haptics = true;
-  try { haptics = localStorage.getItem("fs_haptic") !== "0"; } catch (e) {}
+  try { haptics = LS.get("fs_haptic") !== "0"; } catch (e) {}
   function buzz(ms) { if (haptics && HAPTICS_OK) { try { navigator.vibrate(ms); } catch (e) {} } }
   function setHaptics(v) {
     haptics = !!v;
-    try { localStorage.setItem("fs_haptic", haptics ? "1" : "0"); } catch (e) {}
+    try { LS.set("fs_haptic", haptics ? "1" : "0"); } catch (e) {}
   }
 
   // ---- settings ----
@@ -9023,7 +9034,7 @@
   // one that matches the board, and somebody will prefer it.
   const THEMES = ["dark", "stall", "shore", "snow"];
   let theme = "stall";
-  try { const t = localStorage.getItem("fs_theme"); if (THEMES.includes(t)) theme = t; } catch (e) {}
+  try { const t = LS.get("fs_theme"); if (THEMES.includes(t)) theme = t; } catch (e) {}
   function applyTheme() {
     if (theme === "dark") document.documentElement.removeAttribute("data-theme");
     else document.documentElement.setAttribute("data-theme", theme);
@@ -9032,7 +9043,7 @@
   function setTheme(t) {
     if (!THEMES.includes(t)) return;
     theme = t; applyTheme();
-    try { localStorage.setItem("fs_theme", t); } catch (e) {}
+    try { LS.set("fs_theme", t); } catch (e) {}
     // grade colours are per theme now, so anything already drawn has to be drawn again
     if (!$sh("shop").classList.contains("hidden")) renderShop();
     if (!$sh("traits").classList.contains("hidden")) renderTraits();
@@ -9280,7 +9291,7 @@
   // preview keeps showing the real next fruit. It stays behind a code.
   const DEV_CODE = "master", DEV_KEY = "fs_dev";
   let devOn = false;
-  try { devOn = localStorage.getItem(DEV_KEY) === "1"; } catch (e) {}
+  try { devOn = LS.get(DEV_KEY) === "1"; } catch (e) {}
   if (location.search.includes("dev=1")) devOn = true;
   const $dev = id => document.getElementById(id);
   function paintDev() {
@@ -9296,7 +9307,7 @@
   }
   function setDev(v) {
     devOn = !!v;
-    try { localStorage.setItem(DEV_KEY, devOn ? "1" : "0"); } catch (e) {}
+    try { LS.set(DEV_KEY, devOn ? "1" : "0"); } catch (e) {}
     paintDev();
   }
   $dev("devdot").addEventListener("click", () => {
@@ -9437,6 +9448,8 @@
       COIN_FLY_MS, COIN_STAGGER_MS, flyCoins, clearCoinFly,
       get coinFlyPending() { return coinFlyPending; },
       saveRun, clearSave, loadSave, resumeSavedRun, SAVE_KEY,
+      loadBest,   // the read that used to take the boot down when storage refuses
+      LS,
       start, showMenu, gameOver,
       set revivedThisRun(v) { revivedThisRun = v; },
       renderSettings, openTraits, openInfo, openSettings, closeSettings, renderMenuSettings,
