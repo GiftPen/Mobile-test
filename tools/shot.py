@@ -5,7 +5,8 @@ sized to match it -- what comes out is what a phone shows, not a stretched deskt
 import subprocess, sys, os, json
 
 CHROME = '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome'
-W, H = 390, 844
+import os as _os
+W = int(_os.environ.get('SHOT_W', 390)); H = int(_os.environ.get('SHOT_H', 844))
 SCREENS = {
   # name: what to run inside the frame once it has loaded
   'menu':  "",

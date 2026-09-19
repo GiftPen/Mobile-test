@@ -58,10 +58,64 @@
     --text: #e8eaf2;
     --muted: #8b90a6;
   }
+  /* Bundled, not fetched from a CDN. Poki blocks external requests outright, and a font that
+     fails to load is a layout that reflows under the player mid-game. */
   @font-face { font-family: 'Maplestory'; font-weight: 700; font-style: normal; font-display: swap;
-    src: url('https://cdn.jsdelivr.net/gh/fonts-archive/Maplestory/Maplestory-Bold.woff2') format('woff2'); }
+    src: url('assets_new/fonts/Maplestory-Bold.woff2') format('woff2'); }
   @font-face { font-family: 'Maplestory'; font-weight: 400; font-style: normal; font-display: swap;
-    src: url('https://cdn.jsdelivr.net/gh/fonts-archive/Maplestory/Maplestory-Light.woff2') format('woff2'); }
+    src: url('assets_new/fonts/Maplestory-Light.woff2') format('woff2'); }
+  /* ---- desktop / landscape ("wide") ----
+     The portrait stack is one column: HUD above the board, items below. On a 16:9 desktop
+     canvas that wastes both gutters AND runs out of height -- the next-stage button was cut
+     off at 1031x580. Wide mode moves the HUD into side rails so the board can use the full
+     height. Same DOM, same listeners: the nodes are moved, not rebuilt. */
+  .rail { display: none; }
+  body.wide {
+    display: grid;
+    grid-template-columns: var(--rail) minmax(0, 1fr) var(--rail);
+    grid-template-areas: "l board r" "l hint r" "l next r";
+    grid-template-rows: auto auto auto;
+    align-content: center; justify-items: center; align-items: center;
+    column-gap: 16px; row-gap: 4px;
+    /* Poki renders at 640x360, 836x470 and 1031x580. A fixed 208px rail eats two thirds of
+       the smallest one, so it scales with the viewport and stops where the chips stop fitting. */
+    --rail: clamp(148px, 19vw, 208px);
+  }
+  body.wide .rail {
+    display: flex; flex-direction: column; align-items: stretch; gap: 10px;
+    width: 100%; min-width: 0;
+  }
+  body.wide #rail-l { grid-area: l; }
+  body.wide #rail-r { grid-area: r; }
+  body.wide #stage-wrap { grid-area: board; }
+  body.wide #hint { grid-area: hint; }
+  body.wide #rush-next { grid-area: next; }
+  /* the rails own their children's width now, so the horizontal HUD rows become stacks */
+  body.wide .rail #top { flex-direction: column; gap: 8px; width: 100%; }
+  body.wide .rail .top-left { justify-content: center; flex-wrap: wrap; }
+  body.wide .rail #stats, body.wide .rail #rush-bar {
+    flex-wrap: wrap; justify-content: center; }
+  body.wide .rail #rush { width: 100%; }
+  body.wide .rail #rush .rb-row { flex-wrap: wrap; justify-content: center; gap: 8px; }
+  /* In the rail the goal cell is not competing with anything, so the flex:1 1 0 + overflow
+     clamp that stops a 10-digit goal shoving the chips on a phone just squeezed it to 26px
+     and printed "0/1,1". Each cell gets its own line instead. */
+  body.wide .rail #rb-quota-cell,
+  body.wide .rail #rb-touch-cell { flex: 1 1 100%; max-width: none; overflow: visible; }
+  body.wide .rail #rush .rb-div { display: none; }
+  body.wide .rail #rush .rb-chips { margin-left: 0; flex-wrap: wrap; justify-content: center;
+    width: 100%; }
+  /* vw-based type is meaningless once the element is in a fixed-width rail */
+  body.wide .rail .rb-val { font-size: 26px; }
+  /* #rb-left clips on purpose on a phone (the chips must never shove the board down). In a
+     rail there is nothing to shove, and the clip ate the 확률 label. */
+  body.wide .rail #rush-bar { flex-direction: column; gap: 8px; height: auto; }
+  body.wide .rail #rb-left, body.wide .rail #rb-mid {
+    flex-wrap: wrap; justify-content: center; overflow: visible; width: 100%; }
+  /* items become a 2-wide pad instead of a 6-wide strip */
+  body.wide .rail #ishop {
+    display: grid; grid-template-columns: 1fr 1fr; gap: 6px; height: auto; margin-top: 0; }
+  body.wide .rail #ishop .ib { max-width: none; width: 100%; height: 54px; }
   * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
   html, body {
     margin: 0; height: 100%;
@@ -1110,6 +1164,8 @@
   </div>
   <div id="coinfx" aria-hidden="true"></div>
   <div id="banner" class="hidden">AD</div>
+  <div id="rail-l" class="rail hidden"></div>
+  <div id="rail-r" class="rail hidden"></div>
   <div id="stage-wrap">
     <canvas id="game"></canvas>
     <div id="stageclear" class="hidden" aria-hidden="true">
@@ -1953,11 +2009,63 @@
   let cell, pad, dpr, boardPx, boardH;
 
   const BOARD_MIN = 260, BOARD_MAX = 520, CHROME_H = 220;
+  // ---- wide (desktop / landscape) ----
+  // Poki ships games into a 16:9 desktop canvas and asks that the game fill it. Below these
+  // the portrait stack is still the better layout -- a narrow landscape phone has no room for
+  // rails.
+  // 640x360 is the smallest canvas Poki renders into, and it is unmistakably landscape, so
+  // the threshold has to sit below it -- at 820 that size fell back to the portrait stack and
+  // pushed the item bar, the hint and the next-stage button clean off the screen.
+  const WIDE_MIN_W = 600;
+  const WIDE_RATIO = 1.25;     // ...and it has to actually be landscape
+  const WIDE_RAIL_MIN = 148, WIDE_RAIL_MAX = 208;   // keep in step with --rail
+  const railPx = () => Math.max(WIDE_RAIL_MIN, Math.min(WIDE_RAIL_MAX, usableW() * 0.19));
+  // What sits under the board in wide mode: the hint line (16) and the next-stage button
+  // (44), plus the row gaps and the button's margin (32). RESERVED, not measured: the button
+  // is hidden mid-stage, so measuring returns 0 and hands its space to the board -- then the
+  // button appears between stages and hangs off the bottom. Measured that way at 1031x580.
+  const WIDE_CHROME_H = 92;
+  const wideChromeH = () => WIDE_CHROME_H;
+  const isWide = () => usableW() >= WIDE_MIN_W && usableW() / usableH() >= WIDE_RATIO;
+  // Which HUD block goes to which rail. Left is "what is going on", right is "what I can do".
+  const RAIL_L = ["top", "stats", "rush"], RAIL_R = ["rush-bar", "ishop"];
+  // Where each block sat in the portrait stack, so narrowing puts it back in the right place
+  // rather than at the end of the body.
+  const railHome = new Map();
+  let wideOn = null;
+  function applyWide(on) {
+    if (on === wideOn) return;
+    wideOn = on;
+    document.body.classList.toggle("wide", on);
+    for (const [rail, ids] of [["rail-l", RAIL_L], ["rail-r", RAIL_R]]) {
+      const box = document.getElementById(rail);
+      for (const id of ids) {
+        const node = document.getElementById(id);
+        if (!node) continue;
+        if (!railHome.has(id)) railHome.set(id, node.nextSibling);
+        // moving a node keeps its listeners and its state; nothing is rebuilt
+        if (on) box.appendChild(node);
+        else document.body.insertBefore(node, railHome.get(id));
+      }
+    }
+  }
   const RUSH_BAR_H = 34;   // 스타 러시's third header row, which arcade does not have
   // below this the HUD, board and item bar cannot all fit at any board size
   const MIN_PLAY_H = 520;
+  // ...but that floor is about the PORTRAIT stack, where the HUD and the item bar are above
+  // and below the board. Wide mode puts them in side rails, so a short landscape canvas is
+  // exactly the case it exists to serve -- applying 520 there put "세로로 돌려주세요" over
+  // Poki's smallest size (640x360), which is the one canvas the game has to work in.
+  // Two floors, because the thing that actually sets the floor is the size of the pointer.
+  // A grown 12-row board on a 390px-tall screen gives 25px cells: fine under a mouse, too
+  // small under a thumb. Poki's 640x360 is a desktop canvas; a phone turned sideways is not.
+  // Nothing about the pixel count tells them apart, so ask what is pointing at the screen.
+  const coarsePointer = () => !!(window.matchMedia && window.matchMedia("(pointer: coarse)").matches);
+  const WIDE_MIN_H = 300;          // mouse: board floor (200) + the reserved chrome (92)
+  const WIDE_MIN_H_TOUCH = 420;    // finger: the height at which a 12-row board still gives 26px cells
+  const wideMinH = () => (coarsePointer() ? WIDE_MIN_H_TOUCH : WIDE_MIN_H);
   function checkViewport() {
-    const bad = usableH() < MIN_PLAY_H;
+    const bad = usableH() < (isWide() ? wideMinH() : MIN_PLAY_H);
     document.getElementById("rotate").classList.toggle("on", bad);
     return !bad;
   }
@@ -1974,14 +2082,20 @@
   const usableW = () => window.innerWidth - insets().x;
 
   function layout() {
+    applyWide(isWide());
     // the height budget must shrink as ROWS grows or an 8x12 board runs off the screen
-    const chrome = CHROME_H + (mode === "rush" ? RUSH_BAR_H : 0);
+    const chrome = wideOn ? wideChromeH() : CHROME_H + (mode === "rush" ? RUSH_BAR_H : 0);
     const byHeight = (usableH() - chrome) * COLS / ROWS;
-    const maxW = Math.min(usableW() - 24, BOARD_MAX, byHeight);
+    // wide: the rails took the HUD out of the column, so height is the budget and the only
+    // width limit is what the rails leave behind
+    const maxW = wideOn
+      ? Math.min(usableW() - railPx() * 2 - 56, BOARD_MAX, byHeight)
+      : Math.min(usableW() - 24, BOARD_MAX, byHeight);
     // BOARD_MIN keeps the board playable on a wide-but-short screen, but it is a floor, not a
     // licence to overflow: at 320x568 with a grown 12-row board it pushed the item bar 28px
     // off the bottom. Clamp it back under the height budget.
-    boardPx = Math.min(Math.max(BOARD_MIN, maxW), Math.max(byHeight, 200));
+    boardPx = wideOn ? Math.max(200, Math.min(maxW, byHeight))
+                     : Math.min(Math.max(BOARD_MIN, maxW), Math.max(byHeight, 200));
     dpr = Math.min(3, window.devicePixelRatio || 1);  // sharper board on hi-DPI phones (idle-skip keeps heat down)
     dirty = true;
     pad = boardPx * 0.02;
@@ -9434,6 +9548,9 @@
       gridMult, MULT_GRID, STREAK_STEP_BASE, CHAIN_STEP, multLabel,
       syncRows, ROWS_BASE, ROWS_MAX, layout, COLS, BOARD_MIN, BOARD_MAX,
       checkViewport, MIN_PLAY_H, insets, usableH, usableW,
+      isWide, applyWide, WIDE_MIN_W, WIDE_RATIO, WIDE_MIN_H, WIDE_MIN_H_TOUCH,
+      wideMinH, coarsePointer, railPx, wideChromeH,
+      get wideOn() { return wideOn; },
       SFX, Ads, setLang, LANGS, PACKS, d, L, applyStaticText, nameOf,
       reviveRun, syncBanner, REVIVE_CLEAR, resumePlay,
       get revivedThisRun() { return revivedThisRun; },

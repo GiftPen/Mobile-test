@@ -22,6 +22,18 @@ ROWCASES = [8, 12]        # a fresh run, and one fully grown by 개간
 
 HOST = """<!doctype html><meta charset=utf-8><body style="margin:0">
 <script>
+// Every device in this file is a phone, a tablet or a foldable -- all of them touch. Headless
+// Chrome reports a fine pointer, so the game applies its MOUSE minimums and the results
+// describe a desktop that does not exist: it called 25px cells acceptable on a phone held
+// sideways. Only the pointer queries are faked; the rest go to the real one.
+function coarsen(W) {
+  const real = W.matchMedia.bind(W);
+  W.matchMedia = q => (/pointer\s*:/.test(q)
+    ? { matches: /coarse/.test(q), media: q, onchange: null,
+        addListener() {}, removeListener() {}, addEventListener() {}, removeEventListener() {},
+        dispatchEvent() { return false; } }
+    : real(q));
+}
 const D = %s, ROWS = %s; const out = []; const jobs = [];
 for (const d of D) for (const r of ROWS) jobs.push([d, r]);
 let i = 0;
@@ -34,12 +46,16 @@ function next() {
   document.body.appendChild(f);
   f.onload = () => setTimeout(() => { try {
     const W = f.contentWindow, D2 = f.contentDocument, F = W.__fs;
+    coarsen(W);
     F.mode = 'rush'; D2.getElementById('btn-challenge').click();
     setTimeout(() => {
       if (rows > F.ROWS_BASE) {
         while (F.ROWS < rows) { F.ROWS++; }
         F.layout();
       }
+      // layout() re-fits the board but does not re-run the viewport check, so the rotate
+      // decision is still the one made at boot -- before coarsen() made this a touch device.
+      F.checkViewport();
       const guarded = D2.getElementById('rotate').classList.contains('on');
       const de = D2.documentElement;
       const cv = D2.getElementById('game').getBoundingClientRect();
@@ -157,6 +173,18 @@ NOTCHED = [
 ]
 NOTCH_HOST = """<!doctype html><meta charset=utf-8><body style="margin:0">
 <script>
+// Every device in this file is a phone, a tablet or a foldable -- all of them touch. Headless
+// Chrome reports a fine pointer, so the game applies its MOUSE minimums and the results
+// describe a desktop that does not exist: it was reporting 25px cells as acceptable on a
+// phone held sideways. Only the pointer queries are faked; the rest go to the real one.
+function coarsen(W) {
+  const real = W.matchMedia.bind(W);
+  W.matchMedia = q => (/pointer\s*:/.test(q)
+    ? { matches: /coarse/.test(q), media: q, onchange: null,
+        addListener() {}, removeListener() {}, addEventListener() {}, removeEventListener() {},
+        dispatchEvent() { return false; } }
+    : real(q));
+}
 const D = %s; const out = []; let i = 0;
 function next() {
   if (i >= D.length) { document.title = 'R ' + JSON.stringify(out); return; }
@@ -166,6 +194,7 @@ function next() {
   f.src = 'index.html?test=1'; document.body.appendChild(f);
   f.onload = () => setTimeout(() => { try {
     const W = f.contentWindow, D2 = f.contentDocument, F = W.__fs;
+    coarsen(W);
     F.mode = 'rush'; D2.getElementById('btn-challenge').click();
     setTimeout(() => {
       // grow the board so HEIGHT is the binding constraint -- otherwise width decides and the
@@ -242,6 +271,18 @@ FOLD_STEPS = [("Fold 커버",344,882),("Fold 펼침",673,841),("Fold 커버",344
               ("가로 회전",841,673),("폰 가로",844,390),("Flip 펼침",360,880)]
 FOLD_HOST = """<!doctype html><meta charset=utf-8><body style="margin:0">
 <script>
+// Every device in this file is a phone, a tablet or a foldable -- all of them touch. Headless
+// Chrome reports a fine pointer, so the game applies its MOUSE minimums and the results
+// describe a desktop that does not exist: it was reporting 25px cells as acceptable on a
+// phone held sideways. Only the pointer queries are faked; the rest go to the real one.
+function coarsen(W) {
+  const real = W.matchMedia.bind(W);
+  W.matchMedia = q => (/pointer\s*:/.test(q)
+    ? { matches: /coarse/.test(q), media: q, onchange: null,
+        addListener() {}, removeListener() {}, addEventListener() {}, removeEventListener() {},
+        dispatchEvent() { return false; } }
+    : real(q));
+}
 const S = %s; const out = [];
 const f = document.createElement('iframe');
 f.style.cssText = 'width:344px;height:882px;border:0;position:absolute;left:0;top:0';
